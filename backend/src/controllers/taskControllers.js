@@ -1,15 +1,11 @@
-export const getAllTasks = (req, res) => {
-    res.status(201).json({ message: "getAllTasks" });
-}
+import User from '../models/user.model.js';
 
-export const createTask = (req, res) => {
-    res.status(201).json({ message: "createTask" });
-}
+export const getUserByEmail = async (req, res) => {
+    try {
 
-export const updateTask = (req, res) => {
-    res.status(201).json({ message: "updateTask" });
+    }
+        catch (error) {
+            console.error('Error fetching user by email:', error);
+        }
+        
 }
-
-export const deleteTask = (req, res) => {
-    res.status(201).json({ message: "deleteTask" });
-}   
