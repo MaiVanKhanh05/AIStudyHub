@@ -15,4 +15,18 @@ export const findUserByEmail = async (email) => {
         console.error('Error fetching user by email:', error);
         throw error;
     }
-}
+};
+
+// Tìm user theo username hoặc email (dùng cho login)
+export const findUserByUsernameOrEmail = async (identifier) => {
+    try {
+        const { rows } = await pool.query(
+            'SELECT * FROM users WHERE username = $1 OR email = $1',
+            [identifier]
+        );
+        return rows[0] ? new User(rows[0]) : null;
+    } catch (error) {
+        console.error('Error fetching user by username/email:', error);
+        throw error;
+    }
+};

@@ -18,3 +18,26 @@ export const getUserByEmail = async (req, res) => {
         res.status(500).json({ error: 'Internal Server Error' });
     }
 };
+
+// Handler đăng nhập: nhận username/email + password, trả về user info
+export const login = async (req, res) => {
+    try {
+        const { username, password } = req.body;
+
+        if (!username || !password) {
+            return res.status(400).json({ error: 'Username và password là bắt buộc' });
+        }
+
+        const user = await userService.loginUser(username, password);
+
+        // Trả về thông tin user (không kèm password)
+        res.json({
+            message: 'Đăng nhập thành công',
+            user,
+        });
+
+    } catch (error) {
+        console.error('Login error:', error.message);
+        res.status(401).json({ error: error.message || 'Đăng nhập thất bại' });
+    }
+};
