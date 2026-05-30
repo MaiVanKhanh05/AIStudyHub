@@ -10,6 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+<<<<<<< HEAD
     "@fontsource-variable/geist": "^5.2.9",
     "@fontsource/inter": "^5.2.8",
     "@tailwindcss/postcss": "^4.3.0",
@@ -31,18 +32,38 @@
     "tailwindcss": "^4.3.0",
     "tailwinds": "^0.0.0",
     "tw-animate-css": "^1.4.0"
+=======
+    "@tailwindcss/postcss": "^4.3.0",
+    "@tailwindcss/vite": "^4.3.0",
+    "axios": "^1.16.1",
+    "lucide-react": "^1.16.0",
+    "pg": "^8.21.0",
+    "postcss": "^8.5.15",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
+    "react-router": "^7.15.1",
+    "sonner": "^2.0.7",
+    "tailwindcss": "^4.3.0",
+    "tailwinds": "^0.0.0"
+>>>>>>> feature-document-list
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
+<<<<<<< HEAD
     "@types/react-router-dom": "^5.3.3",
+=======
+>>>>>>> feature-document-list
     "@vitejs/plugin-react": "^6.0.1",
     "eslint": "^10.3.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.6.0",
+<<<<<<< HEAD
     "typescript": "^6.0.3",
+=======
+>>>>>>> feature-document-list
     "vite": "^8.0.12"
   }
 }

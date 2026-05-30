@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import { BrowserRouter, Routes, Route, Link, useLocation, useNavigate } from "react-router-dom";
 import Home from "./components/Home";
 import Login from "./pages/Authentication/LoginPage";
@@ -94,3 +95,12 @@ function App() {
 }
 
 export default App;
+=======
+import DocumentList from "./pages/DocumentList";
+
+function App() {
+  return <DocumentList />;
+}
+
+export default App;
+>>>>>>> feature-document-list
