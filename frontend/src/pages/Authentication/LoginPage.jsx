@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Eye, EyeOff, AlertTriangle } from "lucide-react";
 import bgLogin from "../../assets/background-login.png";
@@ -25,150 +25,6 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // Google pending registration states
-  const [googlePending, setGooglePending] = useState(false);
-  const [googleEmail, setGoogleEmail] = useState("");
-  const [googleFirstName, setGoogleFirstName] = useState("");
-  const [googleLastName, setGoogleLastName] = useState("");
-  const [mssv, setMssv] = useState("");
-
-  useEffect(() => {
-    // Dynamically load Google accounts Identity Services library
-    const script = document.createElement("script");
-    script.src = "https://accounts.google.com/gsi/client";
-    script.async = true;
-    script.defer = true;
-    document.body.appendChild(script);
-
-    script.onload = () => {
-      if (window.google) {
-        window.google.accounts.id.initialize({
-          // Read from Vite env variables
-          client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID || "your-google-client-id-here.apps.googleusercontent.com",
-          callback: handleGoogleLogin,
-        });
-
-        window.google.accounts.id.renderButton(
-          document.getElementById("google-signin-btn"),
-          {
-            theme: "outline",
-            size: "large",
-            width: "100%",
-            text: "signin_with",
-            shape: "rectangular",
-          }
-        );
-      }
-    };
-
-    return () => {
-      document.body.removeChild(script);
-    };
-  }, []);
-
-  const handleGoogleLogin = async (googleResponse) => {
-    try {
-      setLoading(true);
-      setError("");
-
-      const response = await fetch("http://localhost:5000/api/auth/google-login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ idToken: googleResponse.credential }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        setError(data.error || "Đăng nhập Google thất bại");
-        return;
-      }
-
-      if (data.status === "pending_registration") {
-        setGoogleEmail(data.email || "");
-        setGoogleFirstName(data.firstName || "");
-        setGoogleLastName(data.lastName || "");
-        setMssv("");
-        setGooglePending(true);
-        return;
-      }
-
-      const { token, user } = data;
-
-      if (rememberMe) {
-        localStorage.setItem("token", token);
-        localStorage.setItem("user", JSON.stringify(user));
-      } else {
-        sessionStorage.setItem("token", token);
-        sessionStorage.setItem("user", JSON.stringify(user));
-      }
-
-      // Redirect theo role: admin → /admin, còn lại → /
-      navigate(user?.role === "ADMIN" ? "/admin" : "/");
-    } catch (err) {
-      setError("Không thể kết nối đến server hoặc xác thực Google thất bại.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleGoogleRegisterSubmit = async (e) => {
-    e.preventDefault();
-
-    if (!mssv.trim()) {
-      setError("Mã số sinh viên/giảng viên (UserID) là bắt buộc!");
-      return;
-    }
-
-    try {
-      setLoading(true);
-      setError("");
-
-      const response = await fetch("http://localhost:5000/api/auth/google-register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: googleEmail,
-          firstName: googleFirstName,
-          lastName: googleLastName,
-          userId: mssv
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        // "nếu trùng sẽ thông báo đã có userID và quay lại trang đăng nhập"
-        alert(data.error || "Mã số sinh viên/giảng viên (UserID) đã tồn tại trên hệ thống!");
-        
-        // Return to login screen
-        setGooglePending(false);
-        setGoogleEmail("");
-        setGoogleFirstName("");
-        setGoogleLastName("");
-        setMssv("");
-        setError(data.error || "Mã số sinh viên/giảng viên đã tồn tại.");
-        return;
-      }
-
-      const { token, user } = data;
-
-      if (rememberMe) {
-        localStorage.setItem("token", token);
-        localStorage.setItem("user", JSON.stringify(user));
-      } else {
-        sessionStorage.setItem("token", token);
-        sessionStorage.setItem("user", JSON.stringify(user));
-      }
-
-      navigate(user?.role === "ADMIN" ? "/admin" : "/");
-    } catch (err) {
-      setError("Không thể kết nối đến server để hoàn tất đăng ký.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleLogin = async (e) => {
     e.preventDefault();
 
@@ -185,6 +41,10 @@ export default function LoginPage() {
       const data = await response.json();
 
       if (!response.ok) {
+        if (data.status === "pending_otp") {
+          navigate("/register", { state: { email: data.email } });
+          return;
+        }
         setError(data.error || "Đăng nhập thất bại");
         return;
       }
@@ -226,12 +86,10 @@ export default function LoginPage() {
           </div>
 
           <CardTitle className="text-3xl font-extrabold text-[#1a0d2e] dark:text-white tracking-tight leading-none mb-1">
-            {googlePending ? "Hoàn tất đăng ký" : "Hi there!"}
+            Hi there!
           </CardTitle>
           <CardDescription className="text-sm font-medium text-purple-900/50 dark:text-purple-100/50 mb-6">
-            {googlePending
-              ? "Vui lòng bổ sung mã số sinh viên/giảng viên và điều chỉnh tên của bạn."
-              : "Have we met before?"}
+            Have we met before?
           </CardDescription>
         </CardHeader>
 
@@ -239,7 +97,7 @@ export default function LoginPage() {
           {/* Normal Login Form */}
           <form
             onSubmit={handleLogin}
-            className={googlePending ? "hidden" : "flex flex-col gap-4"}
+            className="flex flex-col gap-4"
             noValidate
           >
             {/* Email Field */}
@@ -345,104 +203,8 @@ export default function LoginPage() {
             </Button>
           </form>
 
-          {/* Google Complete Registration Form */}
-          <form
-            onSubmit={handleGoogleRegisterSubmit}
-            className={!googlePending ? "hidden" : "flex flex-col gap-4"}
-            noValidate
-          >
-            {/* Email (Readonly) */}
-            <div className="grid gap-1.5 opacity-75">
-              <Label className="text-xs font-bold uppercase tracking-wider text-purple-900/70 dark:text-purple-200/70">
-                Email Google
-              </Label>
-              <Input
-                type="email"
-                value={googleEmail}
-                disabled
-                className="bg-white/40 dark:bg-black/20 border-purple-500/20 dark:border-white/10 backdrop-blur-md rounded-xl px-4 py-5 text-sm outline-none cursor-not-allowed text-purple-900/60 dark:text-purple-200/60"
-              />
-            </div>
-
-            {/* Last Name & First Name Fields in Row */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-1.5">
-                <Label className="text-xs font-bold uppercase tracking-wider text-purple-900/70 dark:text-purple-200/70">
-                  Họ
-                </Label>
-                <Input
-                  type="text"
-                  placeholder="Họ của bạn"
-                  value={googleLastName}
-                  onChange={(e) => setGoogleLastName(e.target.value)}
-                  required
-                  className="bg-white/60 dark:bg-black/40 border-purple-500/20 dark:border-white/10 backdrop-blur-md rounded-xl px-4 py-5 text-sm outline-none placeholder:text-purple-300/80 focus-visible:ring-2 focus-visible:ring-purple-500/25"
-                />
-              </div>
-
-              <div className="grid gap-1.5">
-                <Label className="text-xs font-bold uppercase tracking-wider text-purple-900/70 dark:text-purple-200/70">
-                  Tên
-                </Label>
-                <Input
-                  type="text"
-                  placeholder="Tên của bạn"
-                  value={googleFirstName}
-                  onChange={(e) => setGoogleFirstName(e.target.value)}
-                  required
-                  className="bg-white/60 dark:bg-black/40 border-purple-500/20 dark:border-white/10 backdrop-blur-md rounded-xl px-4 py-5 text-sm outline-none placeholder:text-purple-300/80 focus-visible:ring-2 focus-visible:ring-purple-500/25"
-                />
-              </div>
-            </div>
-
-            {/* MSSV / MSGV - Required */}
-            <div className="grid gap-1.5">
-              <Label className="text-xs font-bold uppercase tracking-wider text-purple-900/70 dark:text-purple-200/70">
-                Mã số sinh viên / Giảng viên (MSSV / MSGV) *
-              </Label>
-              <Input
-                type="text"
-                placeholder="Nhập MSSV hoặc MSGV để làm UserID"
-                value={mssv}
-                onChange={(e) => setMssv(e.target.value)}
-                required
-                className="bg-white/60 dark:bg-black/40 border-purple-500/20 dark:border-white/10 backdrop-blur-md rounded-xl px-4 py-5 text-sm outline-none placeholder:text-purple-300/80 focus-visible:ring-2 focus-visible:ring-purple-500/25"
-              />
-            </div>
-
-            {/* Error Message */}
-            {error && (
-              <div className="flex items-start gap-2 text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/30 rounded-xl p-3.5 backdrop-blur-md">
-                <AlertTriangle className="h-4.5 w-4.5 shrink-0 mt-0.5" />
-                <span>{error}</span>
-              </div>
-            )}
-
-            {/* Actions for complete registration */}
-            <div className="flex flex-col gap-2 mt-2">
-              <Button
-                type="submit"
-                disabled={loading}
-                className="w-full py-6 text-sm font-bold text-white bg-gradient-to-r from-purple-400 via-purple-600 to-purple-800 hover:from-purple-500 hover:to-purple-900 shadow-lg shadow-purple-500/20 active:translate-y-px rounded-xl transition-all select-none"
-              >
-                {loading ? "Đang xử lý..." : "Hoàn tất đăng ký"}
-              </Button>
-              
-              <button
-                type="button"
-                onClick={() => {
-                  setGooglePending(false);
-                  setError("");
-                }}
-                className="w-full py-3.5 text-sm font-bold text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300 border border-purple-500/20 hover:border-purple-500/40 rounded-xl transition-all"
-              >
-                Quay lại đăng nhập
-              </button>
-            </div>
-          </form>
-
-          {/* Social Sign In Divider & Button */}
-          <div className={googlePending ? "hidden" : "block"}>
+          {/* Social Sign In Divider & Buttons */}
+          <div>
             {/* Divider */}
             <div className="flex items-center text-xs text-purple-900/35 dark:text-purple-200/35 font-bold uppercase tracking-wider my-5">
               <div className="flex-1 h-px bg-purple-500/15" />
@@ -450,10 +212,47 @@ export default function LoginPage() {
               <div className="flex-1 h-px bg-purple-500/15" />
             </div>
 
-            {/* Google Login Button */}
-            <div className="w-full flex justify-center mt-1 select-none">
-              <div id="google-signin-btn" className="w-full" />
-            </div>
+            {/* Google Login Button — custom styled as anchor */}
+            <a
+              href="http://localhost:5000/api/auth/google"
+              id="google-signin-btn"
+              className="w-full flex items-center justify-center gap-3 rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-white/10 hover:bg-gray-50 dark:hover:bg-white/20 text-gray-700 dark:text-white text-sm font-semibold py-3 transition-all duration-200 shadow-sm select-none"
+            >
+              {/* Google colour SVG */}
+              <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+                <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+                <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+                <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+                <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+              </svg>
+              Đăng nhập với Google
+            </a>
+
+            {/* GitHub Button */}
+            <a
+              href="http://localhost:5000/api/auth/github"
+              id="github-signin-btn"
+              className="mt-3 w-full flex items-center justify-center gap-3 rounded-xl border border-[#30363d] bg-[#161b22] hover:bg-[#21262d] text-white text-sm font-semibold py-3 transition-all duration-200 shadow-sm select-none"
+            >
+              {/* GitHub SVG icon */}
+              <svg height="20" width="20" viewBox="0 0 98 96" xmlns="http://www.w3.org/2000/svg" fill="white">
+                <path fillRule="evenodd" clipRule="evenodd" d="M48.854 0C21.839 0 0 22 0 49.217c0 21.756 13.993 40.172 33.405 46.69 2.427.49 3.316-1.059 3.316-2.362 0-1.141-.08-5.052-.08-9.127-13.59 2.934-16.42-5.867-16.42-5.867-2.184-5.704-5.42-7.17-5.42-7.17-4.448-3.015.324-3.015.324-3.015 4.934.326 7.523 5.052 7.523 5.052 4.367 7.496 11.404 5.378 14.235 4.074.404-3.178 1.699-5.378 3.074-6.6-10.839-1.141-22.243-5.378-22.243-24.283 0-5.378 1.94-9.778 5.014-13.2-.485-1.222-2.184-6.275.486-13.038 0 0 4.125-1.304 13.426 5.052a46.97 46.97 0 0 1 12.214-1.63c4.125 0 8.33.571 12.213 1.63 9.302-6.356 13.427-5.052 13.427-5.052 2.67 6.763.97 11.816.485 13.038 3.155 3.422 5.015 7.822 5.015 13.2 0 18.905-11.404 23.06-22.324 24.283 1.78 1.548 3.316 4.481 3.316 9.126 0 6.6-.08 11.897-.08 13.526 0 1.304.89 2.853 3.316 2.364 19.412-6.52 33.405-24.935 33.405-46.691C97.707 22 75.788 0 48.854 0z"/>
+              </svg>
+              Đăng nhập với GitHub
+            </a>
+
+            {/* Facebook Button */}
+            <a
+              href="http://localhost:5000/api/auth/facebook"
+              id="facebook-signin-btn"
+              className="mt-3 w-full flex items-center justify-center gap-3 rounded-xl border border-[#1877f2]/40 bg-[#1877f2] hover:bg-[#166fe5] text-white text-sm font-semibold py-3 transition-all duration-200 shadow-sm select-none"
+            >
+              {/* Facebook SVG icon */}
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="white">
+                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+              </svg>
+              Đăng nhập với Facebook
+            </a>
 
             {/* Footer Sign Up link */}
             <p className="text-center text-sm text-purple-900/50 dark:text-purple-100/50 mt-6">
