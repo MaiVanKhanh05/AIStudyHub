@@ -16,9 +16,9 @@ const pool = new Pool({
 export const connectDB = async () => {
     try {
         await pool.query("SELECT 1");
-        console.log("✅ Connected to PostgreSQL (AIStudyHub) successfully!");
+        console.log("Connected to PostgreSQL (AIStudyHub) successfully!");
     } catch (error) {
-        console.error("❌ Error connecting to the database:", error.message);
+        console.error("Error connecting to the database:", error);
         process.exit(1);
     }
 };
