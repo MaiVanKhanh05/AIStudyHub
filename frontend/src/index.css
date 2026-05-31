@@ -200,7 +200,6 @@ code {
   padding: 4px 8px;
   background: var(--code-bg);
 }
-<<<<<<< HEAD
 
 @theme inline {
   --font-heading: var(--font-sans);
@@ -402,5 +401,3 @@ code {
     0 16px 40px 0 rgba(0, 0, 0, 0.35);
   transform: translateY(-2px);
 }
-=======
->>>>>>> feature-document-list
