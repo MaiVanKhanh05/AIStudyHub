@@ -37,6 +37,17 @@ CREATE TABLE password_reset (
     CONSTRAINT FK_password_reset_user FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
 );
 
+-- xác thực thông qua OTP
+   CREATE TABLE otp_verifications (
+                otp_id SERIAL PRIMARY KEY,
+                email VARCHAR(100) NOT NULL,
+                otp_code VARCHAR(6) NOT NULL,
+                purpose VARCHAR(30) NOT NULL,
+                expiry_time TIMESTAMPTZ NOT NULL,
+                is_verified BOOLEAN DEFAULT FALSE,
+                created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+            );
+
 -- 3. TABLE: subject
 CREATE TABLE subject (
     subject_code VARCHAR(20) PRIMARY KEY,

@@ -187,9 +187,11 @@ export default function AdminUserManagement({ roleFilter = "all" }) {
                     </td>
                     <td className="px-5 py-3">
                       <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-[11px] font-bold
-                        ${isLocked ? "bg-red-50 text-red-600 border border-red-200" : "bg-green-50 text-green-700 border border-green-200"}`}>
+                        ${isLocked ? "bg-red-50 text-red-600 border border-red-200" 
+                        : user.status === "PENDING" ? "bg-amber-50 text-amber-600 border border-amber-200"
+                        : "bg-green-50 text-green-700 border border-green-200"}`}>
                         <span className="w-1.5 h-1.5 rounded-full bg-current" />
-                        {isLocked ? "Đã khóa" : "Hoạt động"}
+                        {isLocked ? "Đã khóa" : user.status === "PENDING" ? "Chờ duyệt" : "Hoạt động"}
                       </span>
                     </td>
                     <td className="px-5 py-3">
@@ -201,6 +203,14 @@ export default function AdminUserManagement({ roleFilter = "all" }) {
                             className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11.5px] font-semibold text-green-700 bg-green-50 border border-green-200 hover:bg-green-100 transition-colors"
                           >
                             <Unlock size={10} /> Mở khóa
+                          </button>
+                        ) : user.status === "PENDING" ? (
+                          <button
+                            id={`adm-approve-${user.id}`}
+                            onClick={() => setConfirm({ action: "approve", user })}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11.5px] font-semibold text-purple-700 bg-purple-50 border border-purple-200 hover:bg-purple-100 transition-colors"
+                          >
+                            <Unlock size={10} /> Duyệt tài khoản
                           </button>
                         ) : (
                           <button
@@ -276,12 +286,15 @@ export default function AdminUserManagement({ roleFilter = "all" }) {
             <h2 className="text-[16px] font-extrabold !text-slate-800 mb-2">
               {confirm.action === "lock" && "Khóa tài khoản"}
               {confirm.action === "unlock" && "Mở khóa tài khoản"}
+              {confirm.action === "approve" && "Duyệt tài khoản"}
             </h2>
             <p className="text-[13.5px] text-slate-500 leading-relaxed mb-6">
               {confirm.action === "lock" &&
                 <>Bạn có chắc muốn <strong>khóa</strong> tài khoản <strong>{confirm.user.email}</strong>? Người dùng sẽ không thể đăng nhập.</>}
               {confirm.action === "unlock" &&
                 <>Mở khóa tài khoản <strong>{confirm.user.email}</strong> để cho phép đăng nhập trở lại?</>}
+              {confirm.action === "approve" &&
+                <>Duyệt hoạt động tài khoản giảng viên <strong>{confirm.user.email}</strong>?</>}
             </p>
             <div className="flex justify-end gap-2">
               <button onClick={() => setConfirm(null)}
@@ -292,7 +305,7 @@ export default function AdminUserManagement({ roleFilter = "all" }) {
                 id="adm-confirm-action-btn"
                 onClick={() => {
                   if (confirm.action === "lock")   handleLock(confirm.user);
-                  if (confirm.action === "unlock") handleUnlock(confirm.user);
+                  if (confirm.action === "unlock" || confirm.action === "approve") handleUnlock(confirm.user);
                 }}
                 className={`px-4 py-2 rounded-lg text-[13px] font-bold text-white transition-opacity hover:opacity-90
                   ${confirm.action === "lock" ? "bg-red-600" : "bg-purple-600"}`}>

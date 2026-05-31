@@ -1,9 +1,11 @@
+<<<<<<< HEAD
 import { BrowserRouter, Routes, Route, Link, useLocation, useNavigate } from "react-router-dom";
 import Home from "./components/Home";
 import Login from "./pages/Authentication/LoginPage";
 import Register from "./pages/Authentication/RegisterPage";
 import ForgotPassword from "./pages/Authentication/ForgotPasswordPage";
 import ResetPassword from "./pages/Authentication/ResetPasswordPage";
+import OAuthCallback from "./pages/Authentication/OAuthCallbackPage";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import { Button } from "@/components/ui/button";
 import { LogOut, Home as HomeIcon, User as UserIcon, BookOpen } from "lucide-react";
@@ -11,7 +13,7 @@ import { LogOut, Home as HomeIcon, User as UserIcon, BookOpen } from "lucide-rea
 function AppLayout() {
   const location = useLocation();
   const navigate = useNavigate();
-  const hideNav = ["/login", "/register", "/forgot-password", "/reset-password", "/"].includes(location.pathname) || location.pathname.startsWith("/admin");
+  const hideNav = ["/login", "/register", "/forgot-password", "/reset-password", "/", "/oauth-callback"].includes(location.pathname) || location.pathname.startsWith("/admin");
 
   // Retrieve user session
   const token = localStorage.getItem("token") || sessionStorage.getItem("token");
@@ -77,6 +79,7 @@ function AppLayout() {
         <Route path="/register" element={<Register />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/oauth-callback" element={<OAuthCallback />} />
         <Route path="/admin/*" element={<AdminDashboard />} />
       </Routes>
     </>
@@ -92,3 +95,12 @@ function App() {
 }
 
 export default App;
+=======
+import DocumentList from "./pages/DocumentList";
+
+function App() {
+  return <DocumentList />;
+}
+
+export default App;
+>>>>>>> feature-document-list

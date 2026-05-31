@@ -82,6 +82,15 @@ export default function Home() {
   const [isAiTyping, setIsAiTyping] = useState(false);
   const [useCopilotMode, setUseCopilotMode] = useState(true);
 
+  // Change Password States
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmNewPassword, setConfirmNewPassword] = useState("");
+  const [changePasswordLoading, setChangePasswordLoading] = useState(false);
+  const [changePasswordError, setChangePasswordError] = useState("");
+  const [changePasswordSuccess, setChangePasswordSuccess] = useState("");
+  const [resetEmailLoading, setResetEmailLoading] = useState(false);
+
   // Get current formatted date
   useEffect(() => {
     const options = { weekday: "long", month: "short", day: "numeric", year: "numeric" };
@@ -236,6 +245,86 @@ export default function Home() {
       ]);
       setIsAiTyping(false);
     }, 1000);
+  };
+
+  const handleSendResetEmail = async () => {
+    setChangePasswordError("");
+    setChangePasswordSuccess("");
+    
+    if (!user || !user.email) {
+      setChangePasswordError("Không tìm thấy địa chỉ email liên kết với tài khoản.");
+      return;
+    }
+
+    try {
+      setResetEmailLoading(true);
+      const response = await fetch("http://localhost:5000/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: user.email })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setChangePasswordSuccess(`Yêu cầu đặt lại mật khẩu đã được gửi đến email: ${user.email}. Vui lòng kiểm tra hộp thư (và mục thư rác) để hoàn tất cập nhật mật khẩu!`);
+      } else {
+        setChangePasswordError(data.error || "Gửi email xác thực thất bại.");
+      }
+    } catch (err) {
+      setChangePasswordError("Không thể kết nối đến máy chủ để gửi email xác thực.");
+    } finally {
+      setResetEmailLoading(false);
+    }
+  };
+
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    setChangePasswordError("");
+    setChangePasswordSuccess("");
+
+    if (!currentPassword || !newPassword || !confirmNewPassword) {
+      setChangePasswordError("Vui lòng điền đầy đủ tất cả các trường.");
+      return;
+    }
+
+    if (newPassword !== confirmNewPassword) {
+      setChangePasswordError("Mật khẩu mới và xác nhận mật khẩu không trùng khớp.");
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      setChangePasswordError("Mật khẩu mới phải có tối thiểu 6 ký tự.");
+      return;
+    }
+
+    try {
+      setChangePasswordLoading(true);
+      const response = await fetch("http://localhost:5000/api/auth/change-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: user.user_id,
+          currentPassword,
+          newPassword
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setChangePasswordSuccess("Mật khẩu học tập của bạn đã được thay đổi thành công!");
+        setCurrentPassword("");
+        setNewPassword("");
+        setConfirmNewPassword("");
+      } else {
+        setChangePasswordError(data.error || "Không thể thay đổi mật khẩu.");
+      }
+    } catch (err) {
+      setChangePasswordError("Không thể kết nối đến máy chủ để thay đổi mật khẩu.");
+    } finally {
+      setChangePasswordLoading(false);
+    }
   };
 
   const navItems = [
@@ -1077,7 +1166,9 @@ export default function Home() {
               </div>
 
               {/* Right Security parameters */}
-              <div className="md:col-span-2">
+              <div className="md:col-span-2 flex flex-col gap-6">
+                
+                {/* 1. Auth config card */}
                 <Card className="liquid-glass rounded-xl p-6 flex flex-col gap-5 shadow-sm">
                   <h3 className="text-xs font-extrabold tracking-wider uppercase text-slate-900 dark:text-white flex items-center gap-2">
                     <Lock className="w-4 h-4 text-purple-500" /> Cấu hình đăng nhập định danh
@@ -1085,29 +1176,102 @@ export default function Home() {
 
                   <div className="flex flex-col gap-4">
                     <div className="grid gap-2">
-                      <label className="text-[10px] font-bold text-slate-450 dark:text-slate-500 uppercase tracking-widest">Email đăng nhập</label>
+                      <label className="text-[10px] font-bold text-slate-450 dark:text-slate-550 uppercase tracking-widest">Email đăng nhập</label>
                       <Input
                         type="email"
                         value={user?.email}
                         disabled
-                        className="bg-slate-50 dark:bg-[#13141f] border-slate-200 dark:border-slate-800 rounded-lg px-4 py-5 text-xs text-slate-400 cursor-not-allowed"
+                        className="bg-slate-50/30 dark:bg-[#13141f]/30 border-slate-200/40 dark:border-slate-850 rounded-lg px-4 py-5 text-xs text-slate-400 cursor-not-allowed"
                       />
                     </div>
 
                     <div className="grid gap-2">
-                      <label className="text-[10px] font-bold text-slate-450 dark:text-slate-500 uppercase tracking-widest">Hệ quyền hạn</label>
+                      <label className="text-[10px] font-bold text-slate-450 dark:text-slate-555 uppercase tracking-widest">Hệ quyền hạn</label>
                       <Input
                         type="text"
                         value={user?.role || "STUDENT"}
                         disabled
-                        className="bg-slate-50 dark:bg-[#13141f] border-slate-200 dark:border-slate-800 rounded-lg px-4 py-5 text-xs text-slate-400 cursor-not-allowed font-bold"
+                        className="bg-slate-50/30 dark:bg-[#13141f]/30 border-slate-200/40 dark:border-slate-850 rounded-lg px-4 py-5 text-xs text-slate-400 cursor-not-allowed font-bold"
+                      />
+                    </div>
+                  </div>
+                </Card>
+
+                {/* 2. Change Password Form Card */}
+                <Card className="liquid-glass rounded-xl p-6 flex flex-col gap-5 shadow-sm">
+                  <h3 className="text-xs font-extrabold tracking-wider uppercase text-slate-900 dark:text-white flex items-center gap-2">
+                    <Lock className="w-4 h-4 text-purple-500" /> Đổi mật khẩu học tập mới
+                  </h3>
+
+                  <form onSubmit={handleChangePassword} className="flex flex-col gap-4">
+                    {changePasswordError && (
+                      <div className="flex items-start gap-2.5 text-xs text-red-650 bg-red-50/50 dark:bg-red-950/20 border border-red-200/50 dark:border-red-900/30 rounded-xl p-3.5 backdrop-blur-md">
+                        <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-red-550" />
+                        <span className="font-bold">{changePasswordError}</span>
+                      </div>
+                    )}
+
+                    {changePasswordSuccess && (
+                      <div className="flex items-start gap-2.5 text-xs text-emerald-600 dark:text-emerald-400 bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200/30 dark:border-emerald-900/30 rounded-xl p-3.5 backdrop-blur-md">
+                        <CheckCircle className="w-4 h-4 shrink-0 mt-0.5 text-emerald-500" />
+                        <span className="font-bold">{changePasswordSuccess}</span>
+                      </div>
+                    )}
+
+                    <div className="grid gap-2">
+                      <div className="flex justify-between items-center">
+                        <label className="text-[10px] font-bold text-slate-450 dark:text-slate-555 uppercase tracking-widest">Mật khẩu hiện tại</label>
+                        <button
+                          type="button"
+                          onClick={handleSendResetEmail}
+                          disabled={resetEmailLoading}
+                          className="text-[10px] font-bold text-purple-650 hover:text-purple-800 dark:text-purple-400 dark:hover:text-purple-300 hover:underline cursor-pointer focus:outline-none transition-all"
+                        >
+                          {resetEmailLoading ? "Đang gửi email..." : "Quên mật khẩu hiện tại?"}
+                        </button>
+                      </div>
+                      <Input
+                        type="password"
+                        placeholder="Nhập mật khẩu hiện tại"
+                        value={currentPassword}
+                        onChange={(e) => setCurrentPassword(e.target.value)}
+                        disabled={changePasswordLoading || resetEmailLoading}
+                        className="bg-white/40 dark:bg-[#0c0d13]/60 border-slate-200/50 dark:border-slate-800 rounded-lg px-4 py-5 text-xs focus-visible:ring-1 focus-visible:ring-purple-500"
                       />
                     </div>
 
-                    <div className="p-3 bg-purple-50/50 dark:bg-purple-950/20 rounded-lg border border-purple-100 dark:border-purple-900/30 text-xs leading-relaxed text-purple-800 dark:text-purple-300 font-bold">
-                      💡 Tài khoản của bạn được liên kết xác thực an toàn thông qua Google Cloud Single-Sign-On. Hệ thống không lưu mật khẩu thủ công để đảm bảo an toàn tuyệt đối. Mọi chỉnh sửa bảo mật lớp ngoài vui lòng thực hiện trên trang cấu hình tài khoản Google của bạn.
+                    <div className="grid gap-2">
+                      <label className="text-[10px] font-bold text-slate-450 dark:text-slate-550 uppercase tracking-widest">Mật khẩu mới</label>
+                      <Input
+                        type="password"
+                        placeholder="Nhập mật khẩu mới (tối thiểu 6 ký tự)"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        disabled={changePasswordLoading}
+                        className="bg-white/40 dark:bg-[#0c0d13]/60 border-slate-200/50 dark:border-slate-800 rounded-lg px-4 py-5 text-xs focus-visible:ring-1 focus-visible:ring-purple-500"
+                      />
                     </div>
-                  </div>
+
+                    <div className="grid gap-2">
+                      <label className="text-[10px] font-bold text-slate-450 dark:text-slate-550 uppercase tracking-widest">Xác nhận mật khẩu mới</label>
+                      <Input
+                        type="password"
+                        placeholder="Nhập lại mật khẩu mới để xác nhận"
+                        value={confirmNewPassword}
+                        onChange={(e) => setConfirmNewPassword(e.target.value)}
+                        disabled={changePasswordLoading}
+                        className="bg-white/40 dark:bg-[#0c0d13]/60 border-slate-200/50 dark:border-slate-800 rounded-lg px-4 py-5 text-xs focus-visible:ring-1 focus-visible:ring-purple-500"
+                      />
+                    </div>
+
+                    <Button
+                      type="submit"
+                      disabled={changePasswordLoading}
+                      className="bg-purple-600 dark:bg-purple-500 hover:bg-purple-700 dark:hover:bg-purple-600 text-white font-extrabold text-xs px-5 py-4.5 rounded-lg flex items-center justify-center gap-2 cursor-pointer shadow-sm self-start mt-2 transition-all active:scale-[0.98]"
+                    >
+                      {changePasswordLoading ? "Đang xử lý..." : "Cập nhật mật khẩu"}
+                    </Button>
+                  </form>
                 </Card>
               </div>
             </div>
@@ -1115,16 +1279,6 @@ export default function Home() {
         )}
 
       </main>
-
-      {/* Floating AI Assistant pill bottom-right */}
-      {activeTab !== "AI Assistant" && (
-        <button 
-          onClick={() => setActiveTab("AI Assistant")}
-          className="fixed bottom-6 right-6 w-12 h-12 bg-purple-600 hover:bg-purple-700 text-white rounded-full flex items-center justify-center shadow-lg cursor-pointer hover:scale-105 active:scale-95 transition-all focus:outline-none"
-        >
-          <Sparkles className="w-5 h-5" />
-        </button>
-      )}
     </div>
   );
 }
