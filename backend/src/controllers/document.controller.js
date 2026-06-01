@@ -3,30 +3,53 @@ import * as documentService from "../services/document.service.js";
 // GET /api/documents/dashboard
 export const getDashboard = async (req, res) => {
     try {
-        const userId = req.query.userId || req.userId;
+        const userId = req.userId;
         if (!userId) {
-            return res.status(400).json({ error: "userId là bắt buộc" });
+            return res.status(400).json({ error: "userId is required" });
         }
 
-        const data = await documentService.getDashboardData(Number(userId));
+        const data = await documentService.getDashboardData(userId);
         return res.json(data);
     } catch (error) {
         console.error("Error loading dashboard documents:", error);
-        return res.status(500).json({ error: "Không thể lấy dữ liệu dashboard" });
+        return res.status(500).json({ error: "Failed to load dashboard data" });
     }
 };
 
 // POST /api/documents/upload
 export const createNewDoc = async (req, res) => {
     try {
-        const doc = await documentService.uploadNewDocument(req.body);
+        const userId = req.userId || req.query.userId;
+        if (!userId) {
+            return res.status(401).json({ error: "Authentication required" });
+        }
+
+        const { title, description, file_url, file_name, file_type, file_size, subject, visibility, tags } = req.body;
+
+        if (!title || !file_url) {
+            return res.status(400).json({ error: "Title and file_url are required" });
+        }
+
+        const docData = {
+            user_id: userId,
+            subject_code: subject || null,
+            title,
+            description: description || null,
+            file_url,
+            file_size: file_size || 0,
+            file_type: file_type || "unknown",
+            visibility: visibility || "PRIVATE",
+            tags: tags || []
+        };
+
+        const doc = await documentService.uploadNewDocument(docData);
         return res.status(201).json({
-            message: "Tải lên tài liệu thành công",
+            message: "Document uploaded successfully",
             document: doc
         });
     } catch (error) {
         console.error("Error creating document:", error);
-        return res.status(500).json({ error: "Không thể tải lên tài liệu" });
+        return res.status(500).json({ error: "Failed to upload document" });
     }
 };
 
@@ -34,18 +57,18 @@ export const createNewDoc = async (req, res) => {
 export const deleteDoc = async (req, res) => {
     try {
         const { id } = req.params;
-        const userId = req.query.userId || req.userId;
+        const userId = req.userId;
         if (!id || !userId) {
-            return res.status(400).json({ error: "Thiếu thông tin tài liệu hoặc người dùng" });
+            return res.status(400).json({ error: "Missing document or user information" });
         }
-        const success = await documentService.deleteUserDocument(Number(id), Number(userId));
+        const success = await documentService.deleteUserDocument(Number(id), userId);
         if (success) {
-            return res.json({ message: "Xóa tài liệu thành công" });
+            return res.json({ message: "Document deleted successfully" });
         } else {
-            return res.status(404).json({ error: "Tài liệu không tồn tại hoặc bạn không có quyền xóa" });
+            return res.status(404).json({ error: "Document not found or you don't have permission to delete it" });
         }
     } catch (error) {
         console.error("Error deleting document in controller:", error);
-        return res.status(500).json({ error: "Không thể xóa tài liệu" });
+        return res.status(500).json({ error: "Failed to delete document" });
     }
 };

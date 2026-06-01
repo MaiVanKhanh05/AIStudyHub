@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Home as HomeIcon,
@@ -32,24 +32,30 @@ import {
   HelpCircle,
   FileCode,
   Globe,
-  Lock
+  Lock,
+  Tag,
+  X
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
+import { uploadFileToSupabase, deleteFileFromSupabase } from "../lib/supabase";
+import axios from "axios";
+import { toast } from "sonner";
 
 export default function Home() {
   const navigate = useNavigate();
+  const isUploadingRef = useRef(false);
 
   // Load authenticated user session
   const userStr = localStorage.getItem("user") || sessionStorage.getItem("user");
   const user = userStr ? JSON.parse(userStr) : null;
-  const fullName = user?.full_name || "Học Viên AIStudyHub";
+  const fullName = user?.first_name ? `${user.last_name} ${user.first_name}`.trim() : (user?.email || "Học Viên AIStudyHub");
 
   // Extract first name or display name
   const nameParts = fullName.trim().split(" ");
-  const displayGreetingName = nameParts.length > 1 
-    ? nameParts.slice(-2).join(" ") 
+  const displayGreetingName = nameParts.length > 1
+    ? nameParts.slice(-2).join(" ")
     : fullName;
 
   // Active navigation tab
@@ -69,6 +75,21 @@ export default function Home() {
   const [isUploading, setIsUploading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedSubjectFilter, setSelectedSubjectFilter] = useState("All");
+
+  // Searchable subjects list
+  const [subjectsList, setSubjectsList] = useState([]);
+  const [subjectSearchInput, setSubjectSearchInput] = useState("");
+  const [showSubjectDropdown, setShowSubjectDropdown] = useState(false);
+
+  // Real File Upload & Tag Editor States
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [documentTags, setDocumentTags] = useState([]);
+  const [suggestedTags, setSuggestedTags] = useState([]);
+  const [tagSearchInput, setTagSearchInput] = useState("");
+  const [searchSuggestions, setSearchSuggestions] = useState([]);
+  const [showTagSuggestions, setShowTagSuggestions] = useState(false);
+  const [deleteConfirmDocId, setDeleteConfirmDocId] = useState(null);
+  const [duplicateConfirmData, setDuplicateConfirmData] = useState(null);
 
   // AI Assistant Chatbot States
   const [aiMessages, setAiMessages] = useState([
@@ -102,15 +123,17 @@ export default function Home() {
     if (!user) return;
     try {
       setLoading(true);
-      const response = await fetch(`http://localhost:5000/api/documents/dashboard?userId=${user.user_id}`);
-      if (!response.ok) {
-        throw new Error("Failed to fetch dashboard data");
-      }
-      const data = await response.json();
-      setDocuments(data.documents || []);
-      setStorageUsage(data.storageUsage || 0);
+      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+      const response = await axios.get(`http://localhost:5000/api/documents/dashboard?userId=${user.user_id}`, {
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      });
+      setDocuments(response.data.documents || []);
+      setStorageUsage(response.data.storageUsage || 0);
     } catch (err) {
       console.error("Error fetching dashboard data:", err);
+      toast.error("Không thể tải dữ liệu kho học liệu cá nhân.");
     } finally {
       setLoading(false);
     }
@@ -124,85 +147,253 @@ export default function Home() {
     fetchDashboard();
   }, [user?.user_id, navigate]);
 
+  // Fetch all subjects from database on mount for searching and selecting
+  useEffect(() => {
+    if (!user) return;
+    const loadSubjects = async () => {
+      try {
+        const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+        const response = await axios.get("http://localhost:5000/api/subjects", {
+          headers: {
+            "Authorization": `Bearer ${token}`
+          }
+        });
+        const data = response.data;
+        setSubjectsList(data);
+        // Set initial subject default if available
+        if (data.length > 0 && !uploadSubject) {
+          setUploadSubject(data[0].subject_code);
+        }
+      } catch (error) {
+        console.error("Error loading subjects:", error);
+        toast.error("Lỗi khi tải danh sách học phần.");
+      }
+    };
+    loadSubjects();
+  }, []);
+
+  // Fetch subject-specific tags whenever the selected subject changes
+  useEffect(() => {
+    if (!user) return;
+    const loadSubjectTags = async () => {
+      if (!uploadSubject) return;
+      try {
+        const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+        const response = await axios.get(`http://localhost:5000/api/tags/subject/${uploadSubject}`, {
+          headers: {
+            "Authorization": `Bearer ${token}`
+          }
+        });
+        const data = response.data;
+        const tagNames = data.map(t => t.tag_name);
+        setDocumentTags([]); // Initially empty - tags only selected via dropdown
+        setSuggestedTags(tagNames);
+      } catch (error) {
+        console.error("Error loading subject tags:", error);
+        toast.error("Lỗi khi tải gợi ý tag của môn học.");
+      }
+    };
+    loadSubjectTags();
+  }, [uploadSubject]);
+
+  // Handle searching database for matching tags
+  const handleTagSearch = async (val) => {
+    setTagSearchInput(val);
+    if (!val.trim()) {
+      setSearchSuggestions([]);
+      return;
+    }
+    try {
+      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+      const response = await axios.get(`http://localhost:5000/api/tags/search?q=${val.trim()}`, {
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      });
+      const data = response.data;
+      setSearchSuggestions(data.map(t => t.tag_name));
+    } catch (error) {
+      console.error("Error searching tags:", error);
+    }
+  };
+
+  const handleAddTag = (tagName) => {
+    const cleanTag = tagName.trim().replace(/\s+/g, "_"); // standardize tags as snake_case or clean string
+    if (cleanTag && !documentTags.includes(cleanTag)) {
+      setDocumentTags([...documentTags, cleanTag]);
+    }
+    setTagSearchInput("");
+    setSearchSuggestions([]);
+    setShowTagSuggestions(false);
+  };
+
+  const handleRemoveTag = (tagName) => {
+    setDocumentTags(documentTags.filter(t => t !== tagName));
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setSelectedFile(file);
+      setUploadTitle(file.name);
+    }
+  };
+
   const handleLogout = () => {
     localStorage.clear();
     sessionStorage.clear();
     navigate("/login");
   };
 
-  // Real Database Document Deletion
-  const handleDeleteDocument = async (docId, e) => {
+  // Real Database Document Deletion Confirmation trigger
+  const handleDeleteDocument = (docId, e) => {
     e.stopPropagation();
-    if (!window.confirm("Bạn có chắc chắn muốn xóa tài liệu này khỏi hệ thống lưu trữ đám mây không?")) return;
-    
+    setDeleteConfirmDocId(docId);
+  };
+
+  // Real Database Document Deletion execution
+  const handleDeleteDocumentConfirmed = async (docId) => {
+    // Retrieve target document to obtain file_url
+    const docToDelete = documents.find(d => d.document_id === docId);
+
     try {
-      const response = await fetch(`http://localhost:5000/api/documents/${docId}?userId=${user.user_id}`, {
-        method: "DELETE"
-      });
-      if (response.ok) {
-        // Refresh dashboard to pull exact database records
-        await fetchDashboard();
-      } else {
-        const errorData = await response.json();
-        alert(errorData.error || "Không thể xóa tài liệu.");
+      // 1. Delete the file from Supabase Storage if file_url is present
+      if (docToDelete && docToDelete.file_url) {
+        try {
+          const urlParts = docToDelete.file_url.split("/AIStudyHub/");
+          if (urlParts.length > 1) {
+            const filePath = decodeURIComponent(urlParts[1]);
+            const storageResult = await deleteFileFromSupabase(filePath, "AIStudyHub");
+            if (!storageResult.success) {
+              console.warn("Could not delete from Supabase storage:", storageResult.error);
+            }
+          }
+        } catch (storageErr) {
+          console.error("Storage deletion error:", storageErr);
+        }
       }
+
+      // 2. Delete the record from PostgreSQL database via backend API
+      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+      await axios.delete(`http://localhost:5000/api/documents/${docId}?userId=${user.user_id}`, {
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      });
+
+      toast.success("Đã xóa tài liệu thành công khỏi hệ thống!");
+      // Refresh dashboard to pull exact database records
+      await fetchDashboard();
     } catch (err) {
-      alert("Đã xảy ra lỗi khi kết nối tới server để xóa tài liệu.");
+      const errMsg = err.response?.data?.error || "Đã xảy ra lỗi khi kết nối tới server để xóa tài liệu.";
+      toast.error(errMsg);
     }
   };
 
-  // Real Database Document Upload Action
-  const handleMockUpload = async (e) => {
-    e.preventDefault();
+  // Real Database Document Upload Action (utilizing Supabase Storage & Title Unique Checker)
+  const handleRealUpload = async (e, forceProceed = false, uploadParams = null) => {
+    if (e) e.preventDefault();
+    if (isUploadingRef.current) return;
+
     if (!uploadTitle.trim()) {
-      alert("Vui lòng điền tiêu đề tài liệu!");
+      toast.warning("Vui lòng điền tiêu đề tài liệu!");
+      return;
+    }
+    if (!selectedFile) {
+      toast.warning("Vui lòng chọn một tệp để tải lên!");
       return;
     }
 
-    setIsUploading(true);
-    setUploadProgress(0);
+    let fileToUpload = uploadParams?.fileToUpload || selectedFile;
+    let finalTitle = uploadParams?.finalTitle || uploadTitle.trim();
 
-    // Dynamic progress bar effect for UI smoothness
-    const interval = setInterval(() => {
-      setUploadProgress((prev) => (prev >= 90 ? 90 : prev + 15));
-    }, 100);
-
-    try {
-      const randomSize = Math.floor(1.2 * 1024 * 1024 + Math.random() * 8.5 * 1024 * 1024);
-      
-      const response = await fetch("http://localhost:5000/api/documents/upload", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          user_id: user.user_id,
-          subject_code: uploadSubject,
-          title: uploadTitle.trim(),
-          description: `Tài liệu môn ${uploadSubject} tự tải lên lưu trữ trên hệ thống`,
-          file_url: `/uploads/${Date.now()}_${uploadTitle.trim().replace(/\s+/g, "_")}.pdf`,
-          file_size: randomSize,
-          file_type: "PDF",
-          visibility: "PRIVATE"
-        })
+    if (!forceProceed) {
+      const isDuplicateFile = documents.some(doc => {
+        if (!doc.file_url) return false;
+        const decodedUrl = decodeURIComponent(doc.file_url);
+        return decodedUrl.endsWith(`/${selectedFile.name}`);
       });
 
-      clearInterval(interval);
+      const isDuplicateTitle = documents.some(doc => doc.title.toLowerCase() === finalTitle.toLowerCase());
+
+      if (isDuplicateFile || isDuplicateTitle) {
+        setDuplicateConfirmData({
+          isFileDuplicate: isDuplicateFile,
+          isTitleDuplicate: isDuplicateTitle,
+          file: selectedFile,
+          title: finalTitle
+        });
+        return;
+      }
+    }
+
+    isUploadingRef.current = true;
+    setIsUploading(true);
+    setUploadProgress(10);
+
+    try {
+      // 1. Upload to Supabase Storage
+      setUploadProgress(40);
+      const uploadResult = await uploadFileToSupabase(fileToUpload, "AIStudyHub", user.user_id);
+
+      if (!uploadResult.success) {
+        throw new Error(uploadResult.error || "Lỗi khi tải tệp lên Supabase Storage.");
+      }
+
+      setUploadProgress(80);
+
+      // 2. Save metadata to backend API
+      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+      const response = await axios.post("http://localhost:5000/api/documents/upload", {
+        user_id: user.user_id,
+        subject: uploadSubject || null,
+        title: finalTitle,
+        description: uploadSubject
+          ? `Tài liệu môn ${uploadSubject} tự tải lên lưu trữ trên hệ thống`
+          : "Tài liệu tự do tự tải lên lưu trữ trên hệ thống",
+        file_url: uploadResult.fileUrl,
+        file_size: fileToUpload.size,
+        file_type: fileToUpload.name.split(".").pop().toUpperCase(),
+        visibility: "PRIVATE",
+        tags: documentTags // Pass selected tags array!
+      }, {
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        }
+      });
+
+      setUploadProgress(95);
+
+      const savedData = response.data;
       setUploadProgress(100);
 
-      if (response.ok) {
-        setTimeout(async () => {
-          setIsUploading(false);
-          setUploadTitle("");
-          // Pull fresh database state (on-storage)
-          await fetchDashboard();
-        }, 200);
-      } else {
+      setTimeout(async () => {
         setIsUploading(false);
-        alert("Có lỗi xảy ra khi lưu trữ tệp lên máy chủ.");
-      }
+        isUploadingRef.current = false;
+        setUploadTitle("");
+        setSelectedFile(null);
+        setDocumentTags([]);
+        // Refresh list
+        await fetchDashboard();
+
+        const wasRenamed = savedData.document.title !== finalTitle;
+        if (wasRenamed) {
+          toast.success("Tải lên tài liệu thành công!");
+          toast.warning(`⚠️ Tên tài liệu tự động đổi thành: "${savedData.document.title}" do trùng lặp!`, {
+            duration: 6000
+          });
+        } else {
+          toast.success("Tải lên tài liệu thành công!");
+        }
+      }, 300);
     } catch (err) {
-      clearInterval(interval);
       setIsUploading(false);
-      alert("Không thể kết nối đến server để tải tài liệu lên.");
+      isUploadingRef.current = false;
+      setUploadProgress(0);
+      console.error("Upload failed with error details:", err);
+      const errMsg = err.response?.data?.error || err.message || "Tải lên tệp không thành công.";
+      toast.error(`Lỗi tải lên: ${errMsg}`);
     }
   };
 
@@ -219,13 +410,13 @@ export default function Home() {
     };
     setAiMessages((prev) => [...prev, userMsg]);
     if (!textToSend) setChatInput("");
-    
+
     setIsAiTyping(true);
 
     // Simulate AI response based on keywords
     setTimeout(() => {
       let aiText = "Tôi đã tiếp nhận câu hỏi nghiên cứu của bạn. Hệ thống AI đang truy vấn tài liệu môn học liên quan để cung cấp câu trả lời học thuật chuẩn xác nhất.";
-      
+
       const query = text.toLowerCase();
       if (query.includes("dijkstra")) {
         aiText = "Thuật toán Dijkstra (nhà toán học Edsger W. Dijkstra phát minh năm 1956) là thuật toán kinh điển tìm đường đi ngắn nhất từ một đỉnh nguồn đến tất cả các đỉnh khác trong đồ thị có trọng số không âm. Ổn định ở độ phức tạp O(V^2) hoặc O(E + V log V) khi dùng Fibonacci Heap. Quy trình hoạt động: 1) Khởi tạo khoảng cách d(s)=0, các đỉnh khác vô cùng. 2) Tìm đỉnh u có d(u) nhỏ nhất chưa duyệt. 3) Tối ưu hóa (Relaxation) khoảng cách cho các đỉnh kề v: d(v) = min(d(v), d(u) + w(u,v)). 4) Lặp lại cho tới khi hoàn tất.";
@@ -250,7 +441,7 @@ export default function Home() {
   const handleSendResetEmail = async () => {
     setChangePasswordError("");
     setChangePasswordSuccess("");
-    
+
     if (!user || !user.email) {
       setChangePasswordError("Không tìm thấy địa chỉ email liên kết với tài khoản.");
       return;
@@ -377,8 +568,8 @@ export default function Home() {
 
   // Filters logic for document tab
   const filteredDocuments = documents.filter((doc) => {
-    const matchesSearch = doc.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          doc.subject_code.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = doc.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      doc.subject_code.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesSubject = selectedSubjectFilter === "All" || doc.subject_code === selectedSubjectFilter;
     return matchesSearch && matchesSubject;
   });
@@ -393,7 +584,7 @@ export default function Home() {
       {/* ── LEFT SIDEBAR (Notion/Perplexity Academic Vibe) ── */}
       <aside className="w-68 h-full bg-white/35 dark:bg-[#0f111a]/40 backdrop-blur-xl border-r border-slate-200/40 dark:border-white/5 flex flex-col p-5 shrink-0 justify-between select-none z-10 shadow-[inset_-1px_0_0_rgba(255,255,255,0.25)] dark:shadow-none">
         <div className="flex flex-col gap-6 overflow-y-auto custom-scrollbar">
-          
+
           {/* Logo Brand Header */}
           <div className="flex items-center gap-2.5 px-1.5 py-0.5">
             <div className="w-7.5 h-7.5 rounded-lg bg-purple-600 dark:bg-purple-500 flex items-center justify-center font-bold text-white shadow-sm">
@@ -457,11 +648,10 @@ export default function Home() {
                 <button
                   key={item.name}
                   onClick={() => setActiveTab(item.name)}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-bold transition-all duration-350 cursor-pointer select-none focus:outline-none ${
-                    isActive
-                      ? "bg-purple-600/10 dark:bg-purple-500/15 text-purple-700 dark:text-purple-300 shadow-[inset_0_1px_1px_rgba(255,255,255,0.15)] border border-purple-500/20"
-                      : "text-slate-500 dark:text-slate-400 border border-transparent hover:bg-white/40 dark:hover:bg-[#0f111a]/30 hover:text-slate-800 dark:hover:text-slate-200"
-                  }`}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-bold transition-all duration-350 cursor-pointer select-none focus:outline-none ${isActive
+                    ? "bg-purple-600/10 dark:bg-purple-500/15 text-purple-700 dark:text-purple-300 shadow-[inset_0_1px_1px_rgba(255,255,255,0.15)] border border-purple-500/20"
+                    : "text-slate-500 dark:text-slate-400 border border-transparent hover:bg-white/40 dark:hover:bg-[#0f111a]/30 hover:text-slate-800 dark:hover:text-slate-200"
+                    }`}
                 >
                   <Icon className={`w-4 h-4 ${isActive ? "text-purple-600 dark:text-purple-400" : "text-slate-400 dark:text-slate-500"}`} />
                   {item.label}
@@ -514,8 +704,8 @@ export default function Home() {
               </div>
 
               <div className="w-full h-1.5 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
-                <div 
-                  className="h-full bg-purple-600 dark:bg-purple-500 rounded-full transition-all duration-500" 
+                <div
+                  className="h-full bg-purple-600 dark:bg-purple-500 rounded-full transition-all duration-500"
                   style={{ width: `${percentage}%` }}
                 />
               </div>
@@ -526,7 +716,7 @@ export default function Home() {
             </div>
           </div>
 
-          <button 
+          <button
             onClick={() => setActiveTab("Personal Profile")}
             className="w-full flex items-center gap-3 px-3 py-2 text-xs font-bold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-white/40 dark:hover:bg-[#0f111a]/30 rounded-lg cursor-pointer border border-transparent hover:border-slate-200/20 dark:hover:border-white/5 transition-all focus:outline-none"
           >
@@ -542,7 +732,7 @@ export default function Home() {
         {/* ── SCREEN 1: HOME (DASHBOARD) ── */}
         {activeTab === "Home" && (
           <div className="flex flex-col gap-6 max-w-5xl w-full mx-auto animate-spring-up">
-            
+
             {/* Top Minimal Greeting Header */}
             <header className="flex flex-col gap-1.5 border-b border-slate-100 dark:border-slate-800/60 pb-5 select-none">
               <div className="flex items-center gap-2 text-[10px] font-bold text-purple-600 dark:text-purple-400 uppercase tracking-widest">
@@ -551,7 +741,7 @@ export default function Home() {
               </div>
               <div className="flex flex-wrap items-center justify-between gap-4 mt-1">
                 <div>
-                  <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight leading-none">
+                  <h1 className="text-2xl md:text-3xl font-black text-black dark:text-white tracking-tight leading-none">
                     Chào {displayGreetingName}
                   </h1>
                   <p className="text-xs text-slate-500 mt-1 font-medium">Chào mừng bạn quay lại AIStudyHub. Hệ thống lưu trữ học tập đã sẵn sàng.</p>
@@ -576,7 +766,7 @@ export default function Home() {
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full rounded-lg bg-white/80 dark:bg-[#0c0d13]/80 border-none pl-5 pr-12 py-5.5 text-xs placeholder:text-slate-400 text-slate-800 dark:text-slate-100 focus-visible:ring-1 focus-visible:ring-purple-500/50"
                 />
-                <button 
+                <button
                   onClick={() => setActiveTab("Document Management")}
                   className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
                 >
@@ -588,11 +778,11 @@ export default function Home() {
             {/* Section: Recent Academic Materials */}
             <section className="flex flex-col gap-4 mt-2">
               <div className="flex items-center justify-between">
-                <h2 className="text-sm font-extrabold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
+                <h2 className="text-sm font-black text-black dark:text-white uppercase tracking-wider flex items-center gap-2">
                   <span className="w-1 h-3.5 bg-purple-600 dark:bg-purple-500 rounded" />
                   Học liệu đã lưu trữ gần đây
                 </h2>
-                <button 
+                <button
                   onClick={() => setActiveTab("Document Management")}
                   className="text-xs font-bold text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300 flex items-center gap-0.5 hover:underline"
                 >
@@ -624,7 +814,7 @@ export default function Home() {
                         <span className="text-[9px] font-extrabold text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/40 px-2 py-0.5 rounded border border-purple-500/10 self-start">
                           {doc.subject_code}
                         </span>
-                        
+
                         <div className="flex items-center gap-2 opacity-80">
                           <FileText className="w-5 h-5 text-purple-600 dark:text-purple-400" />
                           <span className="text-[9px] font-extrabold text-slate-400 tracking-widest uppercase">{doc.file_type || "PDF"}</span>
@@ -688,7 +878,7 @@ export default function Home() {
           <div className="flex flex-col gap-6 max-w-5xl w-full mx-auto animate-spring-up">
             <header className="flex flex-col gap-1 border-b border-slate-100 dark:border-slate-800/60 pb-5 select-none text-left">
               <span className="text-xs font-bold text-purple-600 dark:text-purple-400 uppercase tracking-widest">Bộ lưu trữ của bạn</span>
-              <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight mt-1">
+              <h1 className="text-2xl md:text-3xl font-black text-black dark:text-white tracking-tight mt-1">
                 Kho học liệu cá nhân (On-Storage)
               </h1>
               <span className="text-xs text-slate-500 font-medium mt-1">
@@ -698,7 +888,52 @@ export default function Home() {
 
             {/* Academic Styled Dropzone for Real File Upload */}
             <Card className="liquid-glass rounded-xl p-5 shadow-sm">
-              <form onSubmit={handleMockUpload} className="flex flex-col gap-5">
+              <form onSubmit={handleRealUpload} className="flex flex-col gap-5">
+
+                {/* File Upload Row */}
+                <div className="flex flex-col gap-2.5">
+                  <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Tệp tài liệu học tập *</label>
+
+                  {!selectedFile ? (
+                    <div
+                      onClick={() => document.getElementById("file-picker-input").click()}
+                      className="border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-xl p-5 text-center cursor-pointer hover:border-purple-500 hover:bg-purple-500/5 transition-all duration-300 group"
+                    >
+                      <input
+                        id="file-picker-input"
+                        type="file"
+                        className="hidden"
+                        accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt"
+                        onChange={handleFileChange}
+                      />
+                      <div className="flex flex-col items-center gap-1.5">
+                        <UploadCloud className="w-8 h-8 text-slate-400 group-hover:text-purple-500 transition-colors" />
+                        <span className="text-xs font-bold text-slate-700 dark:text-slate-200">Kéo thả tệp hoặc nhấp để chọn tệp tài liệu</span>
+                        <span className="text-[10px] text-slate-400">PDF, PowerPoint, Word, Excel, TXT (Tối đa 10MB)</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between p-3.5 bg-slate-100/65 dark:bg-[#0c0d13]/65 border border-slate-200/50 dark:border-slate-800/80 rounded-xl">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-9 h-9 rounded-lg bg-purple-100 dark:bg-purple-950/40 flex items-center justify-center font-bold text-purple-700 dark:text-purple-300 shrink-0">
+                          <FileText className="w-5 h-5" />
+                        </div>
+                        <div className="flex flex-col min-w-0">
+                          <span className="text-xs font-bold text-slate-850 dark:text-slate-100 truncate">{selectedFile.name}</span>
+                          <span className="text-[10px] text-slate-400 font-bold">{formatFileSize(selectedFile.size)}</span>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => { setSelectedFile(null); setUploadTitle(""); }}
+                        className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-850 rounded-lg text-slate-450 hover:text-red-500 transition-colors"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {/* Title input */}
                   <div className="flex flex-col gap-1.5 md:col-span-2">
@@ -709,23 +944,203 @@ export default function Home() {
                       value={uploadTitle}
                       onChange={(e) => setUploadTitle(e.target.value)}
                       disabled={isUploading}
-                      className="bg-white dark:bg-[#0c0d13] border-slate-200 dark:border-slate-800 rounded-lg px-4 py-5 text-xs placeholder:text-slate-450 focus-visible:ring-1 focus-visible:ring-purple-500"
+                      className="bg-white dark:bg-[#0c0d13] border-slate-200 dark:border-slate-800 rounded-lg px-4 py-5 text-xs placeholder:text-slate-450 focus-visible:ring-1 focus-visible:ring-purple-500 font-semibold"
                     />
                   </div>
 
-                  {/* Subject selector */}
-                  <div className="flex flex-col gap-1.5">
+                  {/* Searchable Subject selector */}
+                  <div
+                    className="flex flex-col gap-1.5 relative"
+                    onMouseLeave={() => setShowSubjectDropdown(false)}
+                  >
                     <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Chọn học phần</label>
-                    <select
-                      value={uploadSubject}
-                      onChange={(e) => setUploadSubject(e.target.value)}
-                      disabled={isUploading}
-                      className="bg-white dark:bg-[#0c0d13] border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2.5 text-xs text-slate-700 dark:text-slate-200 outline-none focus:ring-1 focus:ring-purple-500 font-bold cursor-pointer"
+                    <div
+                      onClick={() => setShowSubjectDropdown(!showSubjectDropdown)}
+                      className="bg-white dark:bg-[#0c0d13] border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2.5 text-xs text-slate-700 dark:text-slate-200 outline-none focus-within:ring-1 focus-within:ring-purple-500 font-bold cursor-pointer h-10 flex items-center justify-between select-none"
                     >
-                      <option value="WED202c">WED202c (Thiết kế Web)</option>
-                      <option value="MAS291">MAS291 (Toán rời rạc)</option>
-                      <option value="CSI104">CSI104 (Lập trình cơ bản)</option>
-                    </select>
+                      <span className="truncate pr-2">
+                        {uploadSubject
+                          ? `${uploadSubject} - ${subjectsList.find(s => s.subject_code === uploadSubject)?.subject_name || "Môn học"}`
+                          : "Không chọn học phần (Để trống)"}
+                      </span>
+                      <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                    </div>
+
+                    {showSubjectDropdown && (
+                      <div className="absolute top-[100%] left-0 right-0 mt-0.0 max-h-60 overflow-y-auto bg-white dark:bg-[#0f111a] border border-slate-200 dark:border-slate-800 rounded-xl shadow-lg z-50 p-2 flex flex-col gap-2">
+                        {/* Subject search input */}
+                        <Input
+                          type="text"
+                          placeholder="Tìm học phần..."
+                          value={subjectSearchInput}
+                          onChange={(e) => setSubjectSearchInput(e.target.value)}
+                          onClick={(e) => e.stopPropagation()} // prevent closing panel
+                          className="bg-slate-50 dark:bg-[#0c0d13] border-slate-200 dark:border-slate-800 rounded-lg px-2.5 py-1 text-[11px] placeholder:text-slate-450 h-8"
+                        />
+                        <div className="flex flex-col max-h-36 overflow-y-auto custom-scrollbar gap-0.5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setUploadSubject("");
+                              setSubjectSearchInput("");
+                              setShowSubjectDropdown(false);
+                            }}
+                            className={`w-full text-left px-2.5 py-1.5 text-[11px] font-bold rounded-lg transition-colors flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2 mb-1 ${!uploadSubject
+                              ? "bg-purple-600/10 text-purple-650 dark:text-purple-400"
+                              : "text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+                              }`}
+                          >
+                            <span>-- Không chọn học phần (Để trống) --</span>
+                          </button>
+                          {subjectsList.filter(sub =>
+                            sub.subject_code.toLowerCase().includes(subjectSearchInput.toLowerCase()) ||
+                            sub.subject_name.toLowerCase().includes(subjectSearchInput.toLowerCase())
+                          ).length === 0 ? (
+                            <span className="text-[10px] text-slate-400 font-bold italic text-center py-2">Không tìm thấy học phần</span>
+                          ) : (
+                            subjectsList
+                              .filter(sub =>
+                                sub.subject_code.toLowerCase().includes(subjectSearchInput.toLowerCase()) ||
+                                sub.subject_name.toLowerCase().includes(subjectSearchInput.toLowerCase())
+                              )
+                              .map(sub => (
+                                <button
+                                  key={sub.subject_code}
+                                  type="button"
+                                  onClick={() => {
+                                    setUploadSubject(sub.subject_code);
+                                    setSubjectSearchInput("");
+                                    setShowSubjectDropdown(false);
+                                  }}
+                                  className={`w-full text-left px-2.5 py-2 text-[11px] font-bold rounded-lg transition-colors flex items-center justify-between ${uploadSubject === sub.subject_code
+                                    ? "bg-purple-600/10 text-purple-600 dark:text-purple-400"
+                                    : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                                    }`}
+                                >
+                                  <span className="truncate">{sub.subject_code} ({sub.subject_name})</span>
+                                </button>
+                              ))
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Tag Editor Component */}
+                <div className="flex flex-col gap-2.5 border-t border-slate-100 dark:border-slate-800/50 pt-4 relative">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-1">
+                      <Tag className="w-3.5 h-3.5 text-purple-500" />
+                      Gắn thẻ học liệu (Tags)
+                    </label>
+                    <span className="text-[9px] text-slate-400 font-bold">Thêm nhiều tag để dễ tìm kiếm</span>
+                  </div>
+
+                  {/* Active Tags list */}
+                  <div className="flex flex-wrap gap-1.5">
+                    {documentTags.length === 0 ? (
+                      <span className="text-[11px] text-slate-400 font-bold italic py-1">Chưa chọn tag nào cho tài liệu</span>
+                    ) : (
+                      documentTags.map((tag) => (
+                        <span
+                          key={tag}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-bold text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/45 border border-purple-500/20 dark:border-purple-400/20 rounded-full animate-in fade-in duration-100"
+                        >
+                          {tag}
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveTag(tag)}
+                            className="text-purple-500 hover:text-purple-700 dark:hover:text-purple-300 transition-colors focus:outline-none"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </span>
+                      ))
+                    )}
+                  </div>
+
+                  {/* Search & Selection Dropdown */}
+                  <div className="flex flex-col gap-1.5 relative mt-1">
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Tìm kiếm & chọn tag học tập</span>
+                    <div className="flex gap-2">
+                      <Input
+                        type="text"
+                        placeholder="Nhấn để xem gợi ý hoặc tìm kiếm tag..."
+                        value={tagSearchInput}
+                        onChange={(e) => handleTagSearch(e.target.value)}
+                        onFocus={() => setShowTagSuggestions(true)}
+                        onBlur={() => setTimeout(() => setShowTagSuggestions(false), 250)} // delay to allow clicks
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            if (tagSearchInput.trim()) {
+                              handleAddTag(tagSearchInput);
+                            }
+                          }
+                        }}
+                        className="bg-white dark:bg-[#0c0d13] border-slate-200 dark:border-slate-800 rounded-lg px-3 py-1.5 text-xs placeholder:text-slate-450 h-9"
+                      />
+                      <Button
+                        type="button"
+                        onClick={() => {
+                          if (tagSearchInput.trim()) {
+                            handleAddTag(tagSearchInput);
+                          }
+                        }}
+                        className="bg-purple-600 dark:bg-purple-500 hover:bg-purple-700 dark:hover:bg-purple-600 text-white text-xs font-bold px-3 h-9 shrink-0 cursor-pointer rounded-lg shadow-sm"
+                      >
+                        Thêm
+                      </Button>
+                    </div>
+
+                    {/* Floating Dropdown Suggestions */}
+                    {showTagSuggestions && (
+                      <div className="absolute bottom-[100%] left-0 right-0 mb-1.5 max-h-48 overflow-y-auto bg-white dark:bg-[#0f111a] border border-slate-200 dark:border-slate-850 rounded-xl shadow-lg z-50 p-2 flex flex-col gap-1">
+                        {tagSearchInput.trim() ? (
+                          /* Search Suggestions from DB */
+                          searchSuggestions.filter(t => !documentTags.includes(t)).length === 0 ? (
+                            <span className="text-[10px] text-slate-400 font-bold italic text-center py-2">
+                              Không tìm thấy tag trùng khớp. Nhấn "Thêm" để tạo mới.
+                            </span>
+                          ) : (
+                            searchSuggestions.filter(t => !documentTags.includes(t)).map(tag => (
+                              <button
+                                key={tag}
+                                type="button"
+                                onMouseDown={() => handleAddTag(tag)}
+                                className="w-full text-left px-3 py-2 text-[11px] font-bold text-slate-700 dark:text-slate-350 hover:bg-purple-600/10 hover:text-purple-600 dark:hover:text-purple-400 rounded-lg transition-colors"
+                              >
+                                {tag}
+                              </button>
+                            ))
+                          )
+                        ) : (
+                          /* Suggested tags for the selected subject code */
+                          suggestedTags.filter(t => !documentTags.includes(t)).length === 0 ? (
+                            <span className="text-[10px] text-slate-400 font-bold italic text-center py-2">
+                              Không còn tag gợi ý. Bạn có thể tự gõ tag mới.
+                            </span>
+                          ) : (
+                            <>
+                              <span className="text-[9px] font-bold text-slate-450 dark:text-slate-500 px-2 py-1 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800 pb-1 mb-1">Gợi ý cho môn {uploadSubject}</span>
+                              {suggestedTags.filter(t => !documentTags.includes(t)).map(tag => (
+                                <button
+                                  key={tag}
+                                  type="button"
+                                  onMouseDown={() => handleAddTag(tag)}
+                                  className="w-full text-left px-2.5 py-1.5 text-[11px] font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg transition-colors flex items-center justify-between"
+                                >
+                                  <span>{tag}</span>
+                                  <span className="text-[9px] font-bold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/40 px-1.5 py-0.5 rounded border border-purple-500/10">+ Chọn</span>
+                                </button>
+                              ))
+                              }
+                            </>
+                          )
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -754,7 +1169,7 @@ export default function Home() {
                       <span>{uploadProgress}%</span>
                     </div>
                     <div className="w-full h-1.5 bg-slate-200 dark:bg-slate-850 rounded-full overflow-hidden">
-                      <div 
+                      <div
                         className="h-full bg-purple-600 dark:bg-purple-500 transition-all duration-100"
                         style={{ width: `${uploadProgress}%` }}
                       />
@@ -767,7 +1182,7 @@ export default function Home() {
             {/* Documents filtering & Grid */}
             <section className="flex flex-col gap-4 mt-2">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <h2 className="text-sm font-extrabold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
+                <h2 className="text-sm font-black text-black dark:text-white uppercase tracking-wider flex items-center gap-2">
                   <span className="w-1 h-3.5 bg-purple-600 dark:bg-purple-500 rounded" />
                   Danh mục tài liệu học phần ({filteredDocuments.length})
                 </h2>
@@ -778,11 +1193,10 @@ export default function Home() {
                     <button
                       key={filter}
                       onClick={() => setSelectedSubjectFilter(filter)}
-                      className={`px-3 py-1.5 rounded-md text-[10px] font-bold uppercase transition-all cursor-pointer ${
-                        selectedSubjectFilter === filter
-                          ? "bg-white dark:bg-[#0c0d13] text-purple-700 dark:text-purple-450 border border-slate-200 dark:border-slate-800 shadow-sm"
-                          : "text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
-                      }`}
+                      className={`px-3 py-1.5 rounded-md text-[10px] font-bold uppercase transition-all cursor-pointer ${selectedSubjectFilter === filter
+                        ? "bg-white dark:bg-[#0c0d13] text-purple-700 dark:text-purple-450 border border-slate-200 dark:border-slate-800 shadow-sm"
+                        : "text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
+                        }`}
                     >
                       {filter === "All" ? "Tất cả" : filter}
                     </button>
@@ -826,8 +1240,19 @@ export default function Home() {
                         filteredDocuments.map((doc) => (
                           <tr key={doc.document_id} className="hover:bg-white/40 dark:hover:bg-white/5 transition-colors cursor-pointer group border-b border-slate-200/30 dark:border-white/5">
                             <td className="px-5 py-3.5 flex items-center gap-2 text-slate-800 dark:text-slate-200 font-bold max-w-xs truncate">
-                              <FileText className="w-4 h-4 text-purple-500" />
-                              <span className="truncate group-hover:text-purple-600 transition-colors">{doc.title}</span>
+                              <FileText className="w-4 h-4 text-purple-500 shrink-0" />
+                              <div className="flex flex-col min-w-0">
+                                <span className="truncate group-hover:text-purple-600 transition-colors">{doc.title}</span>
+                                {doc.tags && Array.isArray(doc.tags) && doc.tags.length > 0 && (
+                                  <div className="flex flex-wrap gap-1 mt-1">
+                                    {doc.tags.map(t => (
+                                      <span key={t.tag_id || t.tag_name} className="px-1.5 py-0.5 rounded bg-purple-100/60 dark:bg-purple-950/40 text-[9px] font-bold text-purple-700 dark:text-purple-300 border border-purple-500/10">
+                                        {t.tag_name}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
                             </td>
                             <td className="px-5 py-3.5 text-[10px] font-extrabold text-purple-600 dark:text-purple-400">
                               {doc.subject_code}
@@ -850,12 +1275,28 @@ export default function Home() {
                             <td className="px-5 py-3.5 font-bold text-slate-500 dark:text-slate-400">{formatFileSize(doc.file_size)}</td>
                             <td className="px-5 py-3.5 text-right">
                               <div className="flex items-center justify-end gap-1">
-                                <button className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-purple-600 transition-colors cursor-pointer" title="Tải xuống">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (doc.file_url) {
+                                      const link = document.createElement("a");
+                                      link.href = doc.file_url + "?download=";
+                                      link.download = doc.title || "download";
+                                      document.body.appendChild(link);
+                                      link.click();
+                                      document.body.removeChild(link);
+                                    } else {
+                                      toast.error("Không tìm thấy đường dẫn tải xuống!");
+                                    }
+                                  }}
+                                  className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-purple-600 transition-colors cursor-pointer"
+                                  title="Tải xuống"
+                                >
                                   <Download className="w-4 h-4" />
                                 </button>
-                                <button 
+                                <button
                                   onClick={(e) => handleDeleteDocument(doc.document_id, e)}
-                                  className="p-1 rounded hover:bg-red-50 dark:hover:bg-red-950/20 text-slate-400 hover:text-red-650 transition-colors cursor-pointer" 
+                                  className="p-1 rounded hover:bg-red-50 dark:hover:bg-red-950/20 text-slate-400 hover:text-red-650 transition-colors cursor-pointer"
                                   title="Xóa vĩnh viễn"
                                 >
                                   <Trash2 className="w-4 h-4" />
@@ -882,7 +1323,7 @@ export default function Home() {
                 <Sparkles className="w-3.5 h-3.5" />
                 <span>Trợ lý Nghiên cứu Khoa học & Học thuật AI</span>
               </div>
-              <h1 className="text-2xl font-extrabold text-slate-900 dark:text-white mt-1">
+              <h1 className="text-2xl font-black text-black dark:text-white mt-1">
                 AI Scholar Assistant
               </h1>
               <p className="text-xs text-slate-450 mt-1 font-medium">Hệ thống phân tích bài luận, cấu trúc mã nguồn và tóm tắt thuật toán khoa học.</p>
@@ -893,11 +1334,10 @@ export default function Home() {
               {aiMessages.map((msg) => (
                 <div
                   key={msg.id}
-                  className={`flex flex-col max-w-[85%] rounded-xl p-4 text-xs leading-relaxed border transition-all duration-305 ${
-                    msg.sender === "ai"
-                      ? "bg-white/70 dark:bg-[#0f111a]/70 backdrop-blur-md border-slate-200/40 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.4)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] text-slate-800 dark:text-slate-200 self-start shadow-sm"
-                      : "bg-purple-600/10 dark:bg-purple-500/15 border-purple-500/20 dark:border-purple-400/20 text-purple-900 dark:text-purple-200 self-end shadow-[inset_0_1px_1px_rgba(255,255,255,0.15)]"
-                  }`}
+                  className={`flex flex-col max-w-[85%] rounded-xl p-4 text-xs leading-relaxed border transition-all duration-305 ${msg.sender === "ai"
+                    ? "bg-white/70 dark:bg-[#0f111a]/70 backdrop-blur-md border-slate-200/40 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.4)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] text-slate-800 dark:text-slate-200 self-start shadow-sm"
+                    : "bg-purple-600/10 dark:bg-purple-500/15 border-purple-500/20 dark:border-purple-400/20 text-purple-900 dark:text-purple-200 self-end shadow-[inset_0_1px_1px_rgba(255,255,255,0.15)]"
+                    }`}
                 >
                   <div className="flex items-center gap-1.5 mb-1.5 opacity-70">
                     {msg.sender === "ai" ? (
@@ -915,7 +1355,7 @@ export default function Home() {
                   <p className="font-bold whitespace-pre-line leading-relaxed">{msg.text}</p>
                 </div>
               ))}
-              
+
               {isAiTyping && (
                 <div className="bg-white dark:bg-[#13141f]/95 border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 self-start shadow-sm flex items-center gap-2 animate-pulse">
                   <Bot className="w-4 h-4 text-purple-500 animate-spin" />
@@ -948,7 +1388,7 @@ export default function Home() {
 
             {/* Perplexity-style Premium Chat Input */}
             <div className="w-full relative select-none">
-              <form 
+              <form
                 onSubmit={(e) => {
                   e.preventDefault();
                   handleSendChatMessage();
@@ -965,8 +1405,8 @@ export default function Home() {
                     disabled={isAiTyping}
                     className="flex-1 bg-transparent border-none outline-none text-xs placeholder:text-slate-400 text-slate-800 dark:text-slate-100 py-1"
                   />
-                  
-                  <button 
+
+                  <button
                     type="submit"
                     disabled={isAiTyping}
                     className="p-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg flex items-center justify-center cursor-pointer hover:scale-105 active:scale-95 transition-all shadow-sm focus:outline-none"
@@ -984,10 +1424,10 @@ export default function Home() {
 
                     {/* Copilot toggle */}
                     <div className="flex items-center gap-1.5 border-l border-slate-200 dark:border-slate-800 pl-4">
-                      <input 
-                        type="checkbox" 
-                        id="copilot-mode" 
-                        checked={useCopilotMode} 
+                      <input
+                        type="checkbox"
+                        id="copilot-mode"
+                        checked={useCopilotMode}
                         onChange={() => setUseCopilotMode(!useCopilotMode)}
                         className="rounded border-slate-300 text-purple-600 focus:ring-purple-500 w-3 h-3 cursor-pointer"
                       />
@@ -1007,7 +1447,7 @@ export default function Home() {
           <div className="flex flex-col gap-6 max-w-5xl w-full mx-auto animate-spring-up">
             <header className="flex flex-col gap-1 border-b border-slate-100 dark:border-slate-800/60 pb-5 select-none text-left">
               <span className="text-xs font-bold text-purple-600 dark:text-purple-400 uppercase tracking-widest">Không gian cộng tác</span>
-              <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight mt-1">
+              <h1 className="text-2xl md:text-3xl font-black text-black dark:text-white tracking-tight mt-1">
                 Tài liệu chia sẻ nhóm
               </h1>
               <span className="text-xs text-slate-500 font-medium mt-1">
@@ -1017,7 +1457,7 @@ export default function Home() {
 
             {/* Shared files */}
             <section className="flex flex-col gap-4 mt-2">
-              <h2 className="text-sm font-extrabold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
+              <h2 className="text-sm font-black text-black dark:text-white uppercase tracking-wider flex items-center gap-2">
                 <span className="w-1 h-3.5 bg-purple-600 dark:bg-purple-500 rounded" />
                 Tài liệu học tập được chia sẻ
               </h2>
@@ -1046,7 +1486,7 @@ export default function Home() {
 
             {/* Study Groups */}
             <section className="flex flex-col gap-4 mt-4">
-              <h2 className="text-sm font-extrabold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
+              <h2 className="text-sm font-black text-black dark:text-white uppercase tracking-wider flex items-center gap-2">
                 <span className="w-1 h-3.5 bg-purple-600 dark:bg-purple-500 rounded" />
                 Nhóm học thảo luận trực tuyến
               </h2>
@@ -1058,7 +1498,7 @@ export default function Home() {
                       <span className="text-xs font-bold text-slate-850 dark:text-slate-100">{group.name}</span>
                       <span className="text-[10px] text-slate-450 font-bold">Môn học: {group.subject} | Sĩ số: {group.members} học viên</span>
                     </div>
-                    <Button 
+                    <Button
                       onClick={() => alert(`Đang gia nhập ${group.name}...`)}
                       className="bg-purple-600 hover:bg-purple-700 text-white font-extrabold text-xs px-5 py-2.5 rounded-lg cursor-pointer shadow-sm"
                     >
@@ -1076,7 +1516,7 @@ export default function Home() {
           <div className="flex flex-col gap-6 max-w-5xl w-full mx-auto animate-spring-up">
             <header className="flex flex-col gap-1 border-b border-slate-100 dark:border-slate-800/60 pb-5 select-none text-left">
               <span className="text-xs font-bold text-purple-600 dark:text-purple-400 uppercase tracking-widest">Nhật ký hệ thống</span>
-              <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight mt-1">
+              <h1 className="text-2xl md:text-3xl font-black text-black dark:text-white tracking-tight mt-1">
                 Lịch sử & Thông báo học tập
               </h1>
               <span className="text-xs text-slate-500 font-medium mt-1">
@@ -1087,16 +1527,16 @@ export default function Home() {
             {/* Timeline Layout */}
             <div className="liquid-glass rounded-xl p-6 shadow-sm flex flex-col gap-6">
               {notificationsList.map((notif, idx) => {
-                const Icon = notif.type === "success" 
-                  ? CheckCircle 
-                  : notif.type === "warning" 
-                    ? AlertTriangle 
+                const Icon = notif.type === "success"
+                  ? CheckCircle
+                  : notif.type === "warning"
+                    ? AlertTriangle
                     : Info;
-                
-                const iconColor = notif.type === "success" 
-                  ? "text-emerald-500 bg-emerald-50 dark:bg-emerald-950/20" 
-                  : notif.type === "warning" 
-                    ? "text-amber-500 bg-amber-50 dark:bg-amber-950/20" 
+
+                const iconColor = notif.type === "success"
+                  ? "text-emerald-500 bg-emerald-50 dark:bg-emerald-950/20"
+                  : notif.type === "warning"
+                    ? "text-amber-500 bg-amber-50 dark:bg-amber-950/20"
                     : "text-blue-500 bg-blue-50 dark:bg-blue-950/20";
 
                 return (
@@ -1128,7 +1568,7 @@ export default function Home() {
           <div className="flex flex-col gap-6 max-w-5xl w-full mx-auto animate-spring-up">
             <header className="flex flex-col gap-1 border-b border-slate-100 dark:border-slate-800/60 pb-5 select-none text-left">
               <span className="text-xs font-bold text-purple-600 dark:text-purple-400 uppercase tracking-widest">Định danh tài khoản</span>
-              <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight mt-1">
+              <h1 className="text-2xl md:text-3xl font-black text-black dark:text-white tracking-tight mt-1">
                 Hồ sơ sinh viên
               </h1>
               <span className="text-xs text-slate-500 font-medium mt-1">
@@ -1144,9 +1584,9 @@ export default function Home() {
                   <div className="w-16 h-16 rounded-xl bg-purple-600 flex items-center justify-center font-bold text-white text-2xl shadow-sm">
                     {fullName.charAt(0)}
                   </div>
-                  
+
                   <div className="flex flex-col gap-1">
-                    <span className="text-sm font-extrabold text-slate-900 dark:text-slate-100">{fullName}</span>
+                    <span className="text-sm font-black text-black dark:text-slate-100">{fullName}</span>
                     <span className="text-[10px] text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/30 px-2 py-0.5 rounded font-bold uppercase self-center">Hệ sinh viên</span>
                   </div>
 
@@ -1167,7 +1607,7 @@ export default function Home() {
 
               {/* Right Security parameters */}
               <div className="md:col-span-2 flex flex-col gap-6">
-                
+
                 {/* 1. Auth config card */}
                 <Card className="liquid-glass rounded-xl p-6 flex flex-col gap-5 shadow-sm">
                   <h3 className="text-xs font-extrabold tracking-wider uppercase text-slate-900 dark:text-white flex items-center gap-2">
@@ -1279,6 +1719,93 @@ export default function Home() {
         )}
 
       </main>
+
+      {/* Premium Centered Delete Confirmation Modal */}
+      {deleteConfirmDocId && (
+        <div className="fixed inset-0 bg-slate-900/60 dark:bg-black/70 backdrop-blur-md flex items-center justify-center z-[9999] animate-in fade-in duration-200">
+          <div className="w-full max-w-sm p-6 bg-white/95 dark:bg-[#0f111a]/95 border border-slate-200/50 dark:border-white/10 rounded-2xl shadow-2xl flex flex-col gap-4 text-center animate-in zoom-in-95 duration-200">
+            <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-950/40 text-red-650 dark:text-red-400 flex items-center justify-center mx-auto mb-1 border border-red-500/10">
+              <AlertTriangle className="w-6 h-6 text-red-555 animate-pulse" />
+            </div>
+            <div className="flex flex-col gap-1">
+              <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">Xác nhận xóa học liệu</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed font-medium">Bạn có chắc chắn muốn xóa vĩnh viễn tài liệu này khỏi hệ thống lưu trữ đám mây của AIStudyHub không?</p>
+            </div>
+            <div className="flex gap-3 mt-2">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmDocId(null)}
+                className="flex-1 px-4 py-2.5 rounded-lg border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-350 hover:bg-slate-50 dark:hover:bg-slate-850 font-bold text-xs cursor-pointer select-none transition-colors"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  handleDeleteDocumentConfirmed(deleteConfirmDocId);
+                  setDeleteConfirmDocId(null);
+                }}
+                className="flex-1 px-4 py-2.5 rounded-lg bg-red-50 dark:bg-red-950/30 text-red-650 dark:text-red-400 border border-red-200/60 dark:border-red-900/30 hover:bg-red-600 dark:hover:bg-red-600 hover:text-white dark:hover:text-white hover:border-transparent font-bold text-xs cursor-pointer select-none shadow-sm transition-all duration-300"
+              >
+                Xác nhận xóa
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Premium Centered Duplicate Confirmation Modal */}
+      {duplicateConfirmData && (
+        <div className="fixed inset-0 bg-slate-900/60 dark:bg-black/70 backdrop-blur-md flex items-center justify-center z-[9999] animate-in fade-in duration-200">
+          <div className="w-full max-w-sm p-6 bg-white/95 dark:bg-[#0f111a]/95 border border-slate-200/50 dark:border-white/10 rounded-2xl shadow-2xl flex flex-col gap-4 text-center animate-in zoom-in-95 duration-200">
+            <div className="w-12 h-12 rounded-full bg-yellow-100 dark:bg-yellow-950/40 text-yellow-650 dark:text-yellow-400 flex items-center justify-center mx-auto mb-1 border border-yellow-500/10">
+              <AlertTriangle className="w-6 h-6 text-yellow-555 animate-pulse" />
+            </div>
+            <div className="flex flex-col gap-1">
+              <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">Xác nhận trùng lặp</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed font-medium">
+                {duplicateConfirmData.isFileDuplicate && duplicateConfirmData.isTitleDuplicate ? (
+                  <>Tệp tin và Tiêu đề học liệu <span className="font-bold text-slate-800 dark:text-slate-200">"{duplicateConfirmData.title}"</span> đã tồn tại. Bạn có muốn đổi tên thành bản sao "(1)" và tiếp tục tải lên không?</>
+                ) : duplicateConfirmData.isFileDuplicate ? (
+                  <>Tệp tin <span className="font-bold text-slate-800 dark:text-slate-200">"{duplicateConfirmData.file.name}"</span> đã tồn tại. Bạn có muốn đổi tên thành bản sao "(1)" và tải lên không?</>
+                ) : (
+                  <>Tiêu đề học liệu <span className="font-bold text-slate-800 dark:text-slate-200">"{duplicateConfirmData.title}"</span> đã tồn tại. Bạn có đồng ý tự động thêm "(1)" vào tiêu đề để tiếp tục tải lên không?</>
+                )}
+              </p>
+            </div>
+            <div className="flex gap-3 mt-2">
+              <button
+                type="button"
+                onClick={() => setDuplicateConfirmData(null)}
+                className="flex-1 px-4 py-2.5 rounded-lg border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-350 hover:bg-slate-50 dark:hover:bg-slate-850 font-bold text-xs cursor-pointer select-none transition-colors"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  let finalFile = duplicateConfirmData.file;
+                  let finalTitle = duplicateConfirmData.title;
+                  if (duplicateConfirmData.isFileDuplicate) {
+                    const nameParts = finalFile.name.split(".");
+                    const ext = nameParts.length > 1 ? nameParts.pop() : "";
+                    const baseName = nameParts.join(".");
+                    const newName = ext ? `${baseName} (1).${ext}` : `${baseName} (1)`;
+                    finalFile = new File([finalFile], newName, { type: finalFile.type });
+                  }
+                  if (duplicateConfirmData.isTitleDuplicate) {
+                    finalTitle = `${finalTitle} (1)`;
+                  }
+                  setDuplicateConfirmData(null);
+                  handleRealUpload(null, true, { fileToUpload: finalFile, finalTitle });
+                }}
+                className="flex-1 px-4 py-2.5 rounded-lg bg-yellow-50 dark:bg-yellow-950/30 text-yellow-650 dark:text-yellow-400 border border-yellow-200/60 dark:border-yellow-900/30 hover:bg-yellow-500 hover:text-white dark:hover:text-white hover:border-transparent font-bold text-xs cursor-pointer select-none shadow-sm transition-all duration-300"
+              >
+                Tiếp tục tải lên
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

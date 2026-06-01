@@ -1,4 +1,5 @@
 import * as documentRepository from "../repositories/document.repository.js";
+import * as tagRepository from "../repositories/tag.repository.js";
 
 // Retrieve dashboard aggregates: user documents and total storage consumption
 export const getDashboardData = async (userId) => {
@@ -57,7 +58,33 @@ export const getDashboardData = async (userId) => {
 // Create new document file entry
 export const uploadNewDocument = async (docData) => {
     try {
-        const newDoc = await documentRepository.createDocument(docData);
+        const { tags, ...restDocData } = docData;
+
+        // Auto-rename if title already exists in the system
+        restDocData.title = await documentRepository.getUniqueTitle(restDocData.title);
+
+        const newDoc = await documentRepository.createDocument(restDocData);
+
+        if (newDoc) {
+            const tagList = tags && Array.isArray(tags) ? tags : [];
+            const resolvedTags = [];
+            const tagIds = [];
+
+            for (const tagName of tagList) {
+                const tagObj = await tagRepository.getOrCreateTag(tagName);
+                if (tagObj) {
+                    tagIds.push(tagObj.tag_id);
+                    resolvedTags.push(tagObj);
+                }
+            }
+
+            if (tagIds.length > 0) {
+                await tagRepository.associateTagsWithDocument(newDoc.document_id, tagIds);
+            }
+
+            newDoc.tags = resolvedTags;
+        }
+
         return newDoc;
     } catch (error) {
         throw error;

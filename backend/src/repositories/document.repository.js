@@ -5,7 +5,14 @@ import Document from "../models/document.model.js";
 export const getUserDocuments = async (userId) => {
     try {
         const { rows } = await pool.query(
-            `SELECT d.*, (u.last_name || ' ' || u.first_name) as owner_name, s.subject_name 
+            `SELECT d.*, (u.last_name || ' ' || u.first_name) as owner_name, s.subject_name,
+                    COALESCE(
+                        (SELECT json_agg(json_build_object('tag_id', t.tag_id, 'tag_name', t.tag_name))
+                         FROM tags t
+                         JOIN document_tags dt ON t.tag_id = dt.tag_id
+                         WHERE dt.document_id = d.document_id),
+                        '[]'::json
+                    ) as tags
              FROM document d
              JOIN users u ON d.user_id = u.user_id
              LEFT JOIN subject s ON d.subject_code = s.subject_code
@@ -30,6 +37,35 @@ export const getStorageUsage = async (userId) => {
         return Number(rows[0].total_size);
     } catch (error) {
         console.error("Error calculating storage usage:", error);
+        throw error;
+    }
+};
+
+// Get a unique title by appending a suffix if it already exists
+export const getUniqueTitle = async (title) => {
+    try {
+        let finalTitle = title.trim();
+        let exists = true;
+        let counter = 1;
+        while (exists) {
+            const { rows } = await pool.query("SELECT document_id FROM document WHERE title = $1", [finalTitle]);
+            if (rows.length === 0) {
+                exists = false;
+            } else {
+                const lastDot = title.lastIndexOf(".");
+                if (lastDot !== -1 && lastDot > 0) {
+                    const name = title.substring(0, lastDot);
+                    const ext = title.substring(lastDot);
+                    finalTitle = `${name} (${counter})${ext}`;
+                } else {
+                    finalTitle = `${title} (${counter})`;
+                }
+                counter++;
+            }
+        }
+        return finalTitle;
+    } catch (error) {
+        console.error("Error in getUniqueTitle:", error);
         throw error;
     }
 };
