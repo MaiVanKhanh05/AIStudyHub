@@ -78,8 +78,8 @@ export default function Home() {
 
   // Extract first name or display name
   const nameParts = fullName.trim().split(" ");
-  const displayGreetingName = nameParts.length > 1 
-    ? nameParts.slice(-2).join(" ") 
+  const displayGreetingName = nameParts.length > 1
+    ? nameParts.slice(-2).join(" ")
     : fullName;
 
   // Active navigation tab
@@ -229,7 +229,7 @@ export default function Home() {
   const handleDeleteDocument = async (docId, e) => {
     e.stopPropagation();
     if (!window.confirm("Bạn có chắc chắn muốn xóa tài liệu này khỏi hệ thống lưu trữ đám mây không?")) return;
-    
+
     try {
       const response = await fetch(`http://localhost:5000/api/documents/${docId}?userId=${user.user_id}`, {
         method: "DELETE"
@@ -264,7 +264,7 @@ export default function Home() {
 
     try {
       const randomSize = Math.floor(1.2 * 1024 * 1024 + Math.random() * 8.5 * 1024 * 1024);
-      
+
       const response = await fetch("http://localhost:5000/api/documents/upload", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -314,13 +314,13 @@ export default function Home() {
     };
     setAiMessages((prev) => [...prev, userMsg]);
     if (!textToSend) setChatInput("");
-    
+
     setIsAiTyping(true);
 
     // Simulate AI response based on keywords
     setTimeout(() => {
       let aiText = "Tôi đã tiếp nhận câu hỏi nghiên cứu của bạn. Hệ thống AI đang truy vấn tài liệu môn học liên quan để cung cấp câu trả lời học thuật chuẩn xác nhất.";
-      
+
       const query = text.toLowerCase();
       if (query.includes("dijkstra")) {
         aiText = "Thuật toán Dijkstra (nhà toán học Edsger W. Dijkstra phát minh năm 1956) là thuật toán kinh điển tìm đường đi ngắn nhất từ một đỉnh nguồn đến tất cả các đỉnh khác trong đồ thị có trọng số không âm. Ổn định ở độ phức tạp O(V^2) hoặc O(E + V log V) khi dùng Fibonacci Heap. Quy trình hoạt động: 1) Khởi tạo khoảng cách d(s)=0, các đỉnh khác vô cùng. 2) Tìm đỉnh u có d(u) nhỏ nhất chưa duyệt. 3) Tối ưu hóa (Relaxation) khoảng cách cho các đỉnh kề v: d(v) = min(d(v), d(u) + w(u,v)). 4) Lặp lại cho tới khi hoàn tất.";
@@ -345,7 +345,7 @@ export default function Home() {
   const handleSendResetEmail = async () => {
     setChangePasswordError("");
     setChangePasswordSuccess("");
-    
+
     if (!user || !user.email) {
       setChangePasswordError("Không tìm thấy địa chỉ email liên kết với tài khoản.");
       return;
@@ -472,8 +472,8 @@ export default function Home() {
 
   // Filters logic for document tab
   const filteredDocuments = documents.filter((doc) => {
-    const matchesSearch = doc.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          doc.subject_code.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = doc.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      doc.subject_code.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesSubject = selectedSubjectFilter === "All" || doc.subject_code === selectedSubjectFilter;
     return matchesSearch && matchesSubject;
   });
@@ -488,7 +488,7 @@ export default function Home() {
       {/* ── LEFT SIDEBAR (Notion/Perplexity Academic Vibe) ── */}
       <aside className="w-68 h-full bg-white/35 dark:bg-[#0f111a]/40 backdrop-blur-xl border-r border-slate-200/40 dark:border-white/5 flex flex-col p-5 shrink-0 justify-between select-none z-10 shadow-[inset_-1px_0_0_rgba(255,255,255,0.25)] dark:shadow-none">
         <div className="flex flex-col gap-6 overflow-y-auto custom-scrollbar">
-          
+
           {/* Logo Brand Header */}
           <div className="flex items-center gap-2.5 px-1.5 py-0.5">
             <div className="w-7.5 h-7.5 rounded-lg bg-purple-600 dark:bg-purple-500 flex items-center justify-center font-bold text-white shadow-sm">
@@ -552,11 +552,10 @@ export default function Home() {
                 <button
                   key={item.name}
                   onClick={() => setActiveTab(item.name)}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-bold transition-all duration-350 cursor-pointer select-none focus:outline-none ${
-                    isActive
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-bold transition-all duration-350 cursor-pointer select-none focus:outline-none ${isActive
                       ? "bg-purple-600/10 dark:bg-purple-500/15 text-purple-700 dark:text-purple-300 shadow-[inset_0_1px_1px_rgba(255,255,255,0.15)] border border-purple-500/20"
                       : "text-slate-500 dark:text-slate-400 border border-transparent hover:bg-white/40 dark:hover:bg-[#0f111a]/30 hover:text-slate-800 dark:hover:text-slate-200"
-                  }`}
+                    }`}
                 >
                   <Icon className={`w-4 h-4 ${isActive ? "text-purple-600 dark:text-purple-400" : "text-slate-400 dark:text-slate-500"}`} />
                   {item.label}
@@ -565,38 +564,7 @@ export default function Home() {
             })}
           </nav>
 
-          <div className="h-px bg-slate-200 dark:bg-slate-800" />
 
-          {/* Academic Courses Filter */}
-          <div className="flex flex-col gap-2.5">
-            <div className="px-1">
-              <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Học phần trọng tâm</span>
-            </div>
-
-            <div className="flex flex-col gap-1">
-              <div
-                onClick={() => {
-                  setActiveTab("Document Management");
-                  setSelectedSubjectFilter("WED202c");
-                }}
-                className="flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-white/40 dark:hover:bg-[#0f111a]/30 cursor-pointer transition-all duration-150 border border-transparent hover:border-slate-200/10"
-              >
-                <div className="w-5 h-5 rounded bg-purple-50 dark:bg-purple-950/30 flex items-center justify-center font-bold text-purple-600 text-[10px]">W</div>
-                <span className="text-xs font-bold text-slate-600 dark:text-slate-300 truncate">Thiết kế Web (WED202c)</span>
-              </div>
-
-              <div
-                onClick={() => {
-                  setActiveTab("Document Management");
-                  setSelectedSubjectFilter("MAS291");
-                }}
-                className="flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-white/40 dark:hover:bg-[#0f111a]/30 cursor-pointer transition-all duration-150 border border-transparent hover:border-slate-200/10"
-              >
-                <div className="w-5 h-5 rounded bg-purple-50 dark:bg-purple-950/30 flex items-center justify-center font-bold text-purple-600 text-[10px]">M</div>
-                <span className="text-xs font-bold text-slate-600 dark:text-slate-300 truncate">Toán Rời Rạc (MAS291)</span>
-              </div>
-            </div>
-          </div>
         </div>
 
         {/* Sidebar Footer with Clean Storage Overview */}
@@ -609,8 +577,8 @@ export default function Home() {
               </div>
 
               <div className="w-full h-1.5 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
-                <div 
-                  className="h-full bg-purple-600 dark:bg-purple-500 rounded-full transition-all duration-500" 
+                <div
+                  className="h-full bg-purple-600 dark:bg-purple-500 rounded-full transition-all duration-500"
                   style={{ width: `${percentage}%` }}
                 />
               </div>
@@ -621,7 +589,7 @@ export default function Home() {
             </div>
           </div>
 
-          <button 
+          <button
             onClick={() => setActiveTab("Personal Profile")}
             className="w-full flex items-center gap-3 px-3 py-2 text-xs font-bold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-white/40 dark:hover:bg-[#0f111a]/30 rounded-lg cursor-pointer border border-transparent hover:border-slate-200/20 dark:hover:border-white/5 transition-all focus:outline-none"
           >
@@ -637,7 +605,7 @@ export default function Home() {
         {/* ── SCREEN 1: HOME (DASHBOARD) ── */}
         {activeTab === "Home" && (
           <div className="flex flex-col gap-6 max-w-5xl w-full mx-auto animate-spring-up">
-            
+
             {/* Top Minimal Greeting Header */}
             <header className="flex flex-col gap-1.5 border-b border-slate-100 dark:border-slate-800/60 pb-5 select-none">
               <div className="flex items-center gap-2 text-[10px] font-bold text-purple-600 dark:text-purple-400 uppercase tracking-widest">
@@ -671,7 +639,7 @@ export default function Home() {
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full rounded-lg bg-white/80 dark:bg-[#0c0d13]/80 border-none pl-5 pr-12 py-5.5 text-xs placeholder:text-slate-400 text-slate-800 dark:text-slate-100 focus-visible:ring-1 focus-visible:ring-purple-500/50"
                 />
-                <button 
+                <button
                   onClick={() => setActiveTab("Document Management")}
                   className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
                 >
@@ -687,7 +655,7 @@ export default function Home() {
                   <span className="w-1 h-3.5 bg-purple-600 dark:bg-purple-500 rounded" />
                   Học liệu đã lưu trữ gần đây
                 </h2>
-                <button 
+                <button
                   onClick={() => setActiveTab("Document Management")}
                   className="text-xs font-bold text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300 flex items-center gap-0.5 hover:underline"
                 >
@@ -719,7 +687,7 @@ export default function Home() {
                         <span className="text-[9px] font-extrabold text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/40 px-2 py-0.5 rounded border border-purple-500/10 self-start">
                           {doc.subject_code}
                         </span>
-                        
+
                         <div className="flex items-center gap-2 opacity-80">
                           {getFileIcon(doc.file_type || getFileType(doc.file_url), "w-5 h-5")}
                           <span className="text-[9px] font-extrabold text-slate-400 dark:text-slate-500 tracking-widest uppercase">{doc.file_type || getFileType(doc.file_url) || "PDF"}</span>
@@ -849,7 +817,7 @@ export default function Home() {
                       <span>{uploadProgress}%</span>
                     </div>
                     <div className="w-full h-1.5 bg-slate-200 dark:bg-slate-850 rounded-full overflow-hidden">
-                      <div 
+                      <div
                         className="h-full bg-purple-600 dark:bg-purple-500 transition-all duration-100"
                         style={{ width: `${uploadProgress}%` }}
                       />
@@ -873,11 +841,10 @@ export default function Home() {
                     <button
                       key={filter}
                       onClick={() => setSelectedSubjectFilter(filter)}
-                      className={`px-3 py-1.5 rounded-md text-[10px] font-bold uppercase transition-all cursor-pointer ${
-                        selectedSubjectFilter === filter
+                      className={`px-3 py-1.5 rounded-md text-[10px] font-bold uppercase transition-all cursor-pointer ${selectedSubjectFilter === filter
                           ? "bg-white dark:bg-[#0c0d13] text-purple-700 dark:text-purple-450 border border-slate-200 dark:border-slate-800 shadow-sm"
                           : "text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
-                      }`}
+                        }`}
                     >
                       {filter === "All" ? "Tất cả" : filter}
                     </button>
@@ -948,9 +915,9 @@ export default function Home() {
                                 <button className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-purple-600 transition-colors cursor-pointer" title="Tải xuống">
                                   <Download className="w-4 h-4" />
                                 </button>
-                                <button 
+                                <button
                                   onClick={(e) => handleDeleteDocument(doc.document_id, e)}
-                                  className="p-1 rounded hover:bg-red-50 dark:hover:bg-red-950/20 text-slate-400 hover:text-red-650 transition-colors cursor-pointer" 
+                                  className="p-1 rounded hover:bg-red-50 dark:hover:bg-red-950/20 text-slate-400 hover:text-red-650 transition-colors cursor-pointer"
                                   title="Xóa vĩnh viễn"
                                 >
                                   <Trash2 className="w-4 h-4" />
@@ -988,11 +955,10 @@ export default function Home() {
               {aiMessages.map((msg) => (
                 <div
                   key={msg.id}
-                  className={`flex flex-col max-w-[85%] rounded-xl p-4 text-xs leading-relaxed border transition-all duration-305 ${
-                    msg.sender === "ai"
+                  className={`flex flex-col max-w-[85%] rounded-xl p-4 text-xs leading-relaxed border transition-all duration-305 ${msg.sender === "ai"
                       ? "bg-white/70 dark:bg-[#0f111a]/70 backdrop-blur-md border-slate-200/40 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.4)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] text-slate-800 dark:text-slate-200 self-start shadow-sm"
                       : "bg-purple-600/10 dark:bg-purple-500/15 border-purple-500/20 dark:border-purple-400/20 text-purple-900 dark:text-purple-200 self-end shadow-[inset_0_1px_1px_rgba(255,255,255,0.15)]"
-                  }`}
+                    }`}
                 >
                   <div className="flex items-center gap-1.5 mb-1.5 opacity-70">
                     {msg.sender === "ai" ? (
@@ -1010,7 +976,7 @@ export default function Home() {
                   <p className="font-bold whitespace-pre-line leading-relaxed">{msg.text}</p>
                 </div>
               ))}
-              
+
               {isAiTyping && (
                 <div className="bg-white dark:bg-[#13141f]/95 border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 self-start shadow-sm flex items-center gap-2 animate-pulse">
                   <Bot className="w-4 h-4 text-purple-500 animate-spin" />
@@ -1043,7 +1009,7 @@ export default function Home() {
 
             {/* Perplexity-style Premium Chat Input */}
             <div className="w-full relative select-none">
-              <form 
+              <form
                 onSubmit={(e) => {
                   e.preventDefault();
                   handleSendChatMessage();
@@ -1060,8 +1026,8 @@ export default function Home() {
                     disabled={isAiTyping}
                     className="flex-1 bg-transparent border-none outline-none text-xs placeholder:text-slate-400 text-slate-800 dark:text-slate-100 py-1"
                   />
-                  
-                  <button 
+
+                  <button
                     type="submit"
                     disabled={isAiTyping}
                     className="p-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg flex items-center justify-center cursor-pointer hover:scale-105 active:scale-95 transition-all shadow-sm focus:outline-none"
@@ -1079,10 +1045,10 @@ export default function Home() {
 
                     {/* Copilot toggle */}
                     <div className="flex items-center gap-1.5 border-l border-slate-200 dark:border-slate-800 pl-4">
-                      <input 
-                        type="checkbox" 
-                        id="copilot-mode" 
-                        checked={useCopilotMode} 
+                      <input
+                        type="checkbox"
+                        id="copilot-mode"
+                        checked={useCopilotMode}
                         onChange={() => setUseCopilotMode(!useCopilotMode)}
                         className="rounded border-slate-300 text-purple-600 focus:ring-purple-500 w-3 h-3 cursor-pointer"
                       />
@@ -1192,34 +1158,16 @@ export default function Home() {
                         )
                       )}
                     </div>
-                  </div>
-                )}
-
-                {/* Empty State */}
-                {filteredCommunityDocs.length === 0 && (
-                  <div className="text-center py-20 bg-white/30 dark:bg-[#0f111a]/30 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 p-8">
-                    <div className="text-5xl mb-4">📂</div>
-                    <p className="text-sm font-bold text-slate-850 dark:text-slate-200 m-0">
-                      Không tìm thấy tài liệu phù hợp
-                    </p>
-                    <p className="text-xs text-slate-450 mt-2 m-0">
-                      Vui lòng thử tìm kiếm bằng một từ khóa khác.
-                    </p>
-                  </div>
-                )}
-
-                {/* Pagination */}
-                {filteredCommunityDocs.length > 0 && (
-                  <div className="mt-6 flex justify-center">
-                    <Pagination
-                      page={communityPage}
-                      totalPages={communityTotalPages}
-                      setPage={setCommunityPage}
-                    />
-                  </div>
-                )}
-              </>
-            )}
+                    <Button
+                      onClick={() => alert(`Đang gia nhập ${group.name}...`)}
+                      className="bg-purple-600 hover:bg-purple-700 text-white font-extrabold text-xs px-5 py-2.5 rounded-lg cursor-pointer shadow-sm"
+                    >
+                      Vào phòng
+                    </Button>
+                  </Card>
+                ))}
+              </div>
+            </section>
           </div>
         )}
 
@@ -1239,16 +1187,16 @@ export default function Home() {
             {/* Timeline Layout */}
             <div className="liquid-glass rounded-xl p-6 shadow-sm flex flex-col gap-6">
               {notificationsList.map((notif, idx) => {
-                const Icon = notif.type === "success" 
-                  ? CheckCircle 
-                  : notif.type === "warning" 
-                    ? AlertTriangle 
+                const Icon = notif.type === "success"
+                  ? CheckCircle
+                  : notif.type === "warning"
+                    ? AlertTriangle
                     : Info;
-                
-                const iconColor = notif.type === "success" 
-                  ? "text-emerald-500 bg-emerald-50 dark:bg-emerald-950/20" 
-                  : notif.type === "warning" 
-                    ? "text-amber-500 bg-amber-50 dark:bg-amber-950/20" 
+
+                const iconColor = notif.type === "success"
+                  ? "text-emerald-500 bg-emerald-50 dark:bg-emerald-950/20"
+                  : notif.type === "warning"
+                    ? "text-amber-500 bg-amber-50 dark:bg-amber-950/20"
                     : "text-blue-500 bg-blue-50 dark:bg-blue-950/20";
 
                 return (
@@ -1296,7 +1244,7 @@ export default function Home() {
                   <div className="w-16 h-16 rounded-xl bg-purple-600 flex items-center justify-center font-bold text-white text-2xl shadow-sm">
                     {fullName.charAt(0)}
                   </div>
-                  
+
                   <div className="flex flex-col gap-1">
                     <span className="text-sm font-extrabold text-slate-900 dark:text-slate-100">{fullName}</span>
                     <span className="text-[10px] text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/30 px-2 py-0.5 rounded font-bold uppercase self-center">Hệ sinh viên</span>
@@ -1319,7 +1267,7 @@ export default function Home() {
 
               {/* Right Security parameters */}
               <div className="md:col-span-2 flex flex-col gap-6">
-                
+
                 {/* 1. Auth config card */}
                 <Card className="liquid-glass rounded-xl p-6 flex flex-col gap-5 shadow-sm">
                   <h3 className="text-xs font-extrabold tracking-wider uppercase text-slate-900 dark:text-white flex items-center gap-2">

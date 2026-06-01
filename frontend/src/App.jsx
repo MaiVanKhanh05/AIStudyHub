@@ -45,7 +45,7 @@ function AppLayout() {
               Home
             </Link>
             <Link to="/documents" className="flex items-center gap-1.5 text-sm font-semibold hover:text-purple-600 dark:hover:text-purple-400 transition-colors">
-              <FolderOpen className="w-4 h-4 text-purple-600" />
+              <BookOpen className="w-4 h-4 text-purple-600" />
               Documents
             </Link>
           </div>
