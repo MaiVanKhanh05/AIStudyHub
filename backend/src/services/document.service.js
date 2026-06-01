@@ -5,8 +5,17 @@ import * as subjectRepository from "../repositories/subject.repository.js";
 // Retrieve dashboard aggregates: user documents and total storage consumption
 export const getDashboardData = async (userId) => {
     try {
-        let documents = await documentRepository.getUserDocuments(userId);
-        const storageUsage = await documentRepository.getStorageUsage(userId);
+        let documents = [];
+        let storageUsage = 0;
+
+        try {
+            documents = await documentRepository.getUserDocuments(userId);
+            storageUsage = await documentRepository.getStorageUsage(userId);
+        } catch (dbError) {
+            console.error("Database query error, using fallback mock documents:", dbError);
+            // Fallback to empty documents if database fails
+            documents = [];
+        }
 
         // Fallback mock documents to keep the workspace visually complete if the DB is empty
         if (documents.length === 0) {
@@ -51,6 +60,23 @@ export const getDashboardData = async (userId) => {
             documents,
             storageUsage, // in bytes
         };
+    } catch (error) {
+        throw error;
+    }
+};
+
+// Retrieve all public community documents
+export const getCommunityDocs = async () => {
+    try {
+        return await documentRepository.getCommunityDocuments();
+    } catch (error) {
+        throw error;
+    }
+};
+
+export const shareDocument = async (documentId, userId, description) => {
+    try {
+        return await documentRepository.updateDocumentVisibility(documentId, userId, 'PUBLIC', description);
     } catch (error) {
         throw error;
     }

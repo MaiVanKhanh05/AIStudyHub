@@ -139,3 +139,41 @@ export const incrementDownloadCount = async (id) => {
         throw error;
     }
 };
+
+// Retrieve all community/public documents
+export const getCommunityDocuments = async () => {
+    try {
+        const { rows } = await pool.query(
+            `SELECT d.*, (u.last_name || ' ' || u.first_name) as author, s.subject_name,
+                    COALESCE(
+                        (SELECT json_agg(json_build_object('tag_id', t.tag_id, 'tag_name', t.tag_name))
+                         FROM tags t
+                         JOIN document_tags dt ON t.tag_id = dt.tag_id
+                         WHERE dt.document_id = d.document_id),
+                        '[]'::json
+                    ) as tags
+             FROM document d
+             JOIN users u ON d.user_id = u.user_id
+             LEFT JOIN subject s ON d.subject_code = s.subject_code
+             WHERE d.visibility = 'PUBLIC'
+             ORDER BY d.upload_date DESC`
+        );
+        return rows.map(row => new Document(row));
+    } catch (error) {
+        console.error("Error fetching community documents:", error);
+        throw error;
+    }
+};
+
+export const updateDocumentVisibility = async (documentId, userId, visibility, description) => {
+    try {
+        const { rows } = await pool.query(
+            "UPDATE document SET visibility = $1, description = $2 WHERE document_id = $3 AND user_id = $4 RETURNING *",
+            [visibility, description, documentId, userId]
+        );
+        return rows[0] ? new Document(rows[0]) : null;
+    } catch (error) {
+        console.error("Error updating document visibility:", error);
+        throw error;
+    }
+};

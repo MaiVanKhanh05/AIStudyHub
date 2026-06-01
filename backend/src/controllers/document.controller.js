@@ -16,6 +16,17 @@ export const getDashboard = async (req, res) => {
     }
 };
 
+// GET /api/documents/community
+export const getCommunityDocs = async (req, res) => {
+    try {
+        const docs = await documentService.getCommunityDocs();
+        return res.json(docs);
+    } catch (error) {
+        console.error("Error loading community documents:", error);
+        return res.status(500).json({ error: "Failed to load community data" });
+    }
+};
+
 // POST /api/documents/upload
 export const createNewDoc = async (req, res) => {
     try {
@@ -102,5 +113,30 @@ export const increaseDownload = async (req, res) => {
     } catch (error) {
         console.error("Error in increaseDownload controller:", error);
         res.status(500).json({ error: "Internal Server Error" });
+    }
+};
+
+
+
+// PUT /api/documents/:id/share
+export const shareDoc = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const userId = req.userId;
+        const { description } = req.body;
+        
+        if (!id || !userId) {
+            return res.status(400).json({ error: "Missing document or user information" });
+        }
+        
+        const updatedDoc = await documentService.shareDocument(id, userId, description);
+        if (updatedDoc) {
+            return res.json({ message: "Document shared successfully", document: updatedDoc });
+        } else {
+            return res.status(404).json({ error: "Document not found or permission denied" });
+        }
+    } catch (error) {
+        console.error("Error sharing document:", error);
+        return res.status(500).json({ error: "Failed to share document" });
     }
 };
