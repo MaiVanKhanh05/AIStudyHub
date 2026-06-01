@@ -18,11 +18,12 @@ export default function DocumentList() {
 
     setTimeout(() => {
       const mockData = [
-        { id: 1, title: "AI Basics", author: "An Nguyen", subject: "AI", file_type: "PDF", upload_date: "2026-05-30" },
-        { id: 2, title: "Database Design", author: "Binh Tran", subject: "DBMS", file_type: "DOCX", upload_date: "2026-05-29" },
-        { id: 3, title: "Machine Learning", author: "Nam Le", subject: "AI", file_type: "PDF", upload_date: "2026-05-28" },
-        { id: 4, title: "Networking", author: "Hoa Tran", subject: "CCNA", upload_date: "2026-05-27" },
-        { id: 5, title: "Java OOP", author: "Minh Nguyen", subject: "Programming", file_type: "DOCX", upload_date: "2026-05-26" },
+        { id: 1, title: "AI Basics Summary", author: "An Nguyen", subject: "AI", file_type: "PDF", upload_date: "2026-05-30", downloads: 24, views: 105 },
+        { id: 2, title: "Database Design Schema", author: "Binh Tran", subject: "DBMS", file_type: "DOCX", upload_date: "2026-05-29", downloads: 12, views: 48 },
+        { id: 3, title: "Machine Learning Cheat Sheet", author: "Nam Le", subject: "AI", file_type: "PDF", upload_date: "2026-05-28", downloads: 35, views: 189 },
+        { id: 4, title: "Computer Networks Lecture Slide", author: "Hoa Tran", subject: "CCNA", file_type: "PPTX", upload_date: "2026-05-27", downloads: 8, views: 32 },
+        { id: 5, title: "Java OOP Syllabus", author: "Minh Nguyen", subject: "Programming", file_type: "DOCX", upload_date: "2026-05-26", downloads: 19, views: 76 },
+        { id: 6, title: "Project Management Gantt Chart", author: "Thu Nguyen", subject: "PRO101", file_type: "XLSX", upload_date: "2026-05-25", downloads: 44, views: 112 },
       ];
 
       const extendedData = [];
@@ -92,7 +93,7 @@ export default function DocumentList() {
         {/* ⚡ CỐT LÕI: Thêm div bọc cố định chiều cao h-14 để giữ khoảng cách luôn giãn ra hoàn hảo như Ảnh 1 */}
         <div className="h-14 flex items-center justify-center">
           {!loading && search && (
-            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider m-0">
               {filtered.length} documents found
             </p>
           )}
@@ -124,21 +125,23 @@ export default function DocumentList() {
             {filtered.length === 0 && (
               <div className="text-center py-20">
                 <div className="text-5xl mb-4">📂</div>
-                <p className="text-lg text-gray-500">
+                <p className="text-lg text-gray-500 m-0">
                   No documents found
                 </p>
-                <p className="text-sm text-gray-400 mt-2">
+                <p className="text-sm text-gray-400 mt-2 m-0">
                   Try another keyword
                 </p>
               </div>
             )}
 
             {/* Pagination */}
-            <Pagination
-              page={page}
-              totalPages={totalPages}
-              setPage={setPage}
-            />
+            {filtered.length > 0 && (
+              <Pagination
+                page={page}
+                totalPages={totalPages}
+                setPage={setPage}
+              />
+            )}
           </>
         )}
       </div>
