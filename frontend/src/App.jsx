@@ -7,9 +7,9 @@ import ForgotPassword from "./pages/Authentication/ForgotPasswordPage";
 import ResetPassword from "./pages/Authentication/ResetPasswordPage";
 import OAuthCallback from "./pages/Authentication/OAuthCallbackPage";
 import AdminDashboard from "./pages/admin/AdminDashboard";
-import DocumentList from "./pages/DocumentList";
 import { Button } from "@/components/ui/button";
 import { LogOut, Home as HomeIcon, User as UserIcon, BookOpen, FolderOpen } from "lucide-react";
+
 
 function AppLayout() {
   const location = useLocation();
@@ -87,7 +87,6 @@ function AppLayout() {
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/oauth-callback" element={<OAuthCallback />} />
         <Route path="/admin/*" element={<AdminDashboard />} />
-        <Route path="/documents" element={<DocumentList />} />
       </Routes>
     </>
   );
