@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Link, useLocation, useNavigate } from "react-router-dom";
 import Home from "./components/Home";
+import DocumentList from "./pages/DocumentList";
 import Login from "./pages/Authentication/LoginPage";
 import Register from "./pages/Authentication/RegisterPage";
 import ForgotPassword from "./pages/Authentication/ForgotPasswordPage";
@@ -79,6 +80,7 @@ function AppLayout() {
       )}
       <Routes>
         <Route path="/" element={<Home />} />
+        <Route path="/documents" element={<DocumentList />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
