@@ -1,6 +1,6 @@
-<<<<<<< HEAD
 import { BrowserRouter, Routes, Route, Link, useLocation, useNavigate } from "react-router-dom";
 import Home from "./components/Home";
+import DocumentList from "./pages/DocumentList";
 import Login from "./pages/Authentication/LoginPage";
 import Register from "./pages/Authentication/RegisterPage";
 import ForgotPassword from "./pages/Authentication/ForgotPasswordPage";
@@ -43,6 +43,10 @@ function AppLayout() {
               <HomeIcon className="w-4 h-4" />
               Home
             </Link>
+            <Link to="/documents" className="flex items-center gap-1.5 text-sm font-semibold hover:text-purple-600 dark:hover:text-purple-400 transition-colors">
+              <BookOpen className="w-4 h-4" />
+              Documents
+            </Link>
           </div>
           <div className="flex items-center gap-4">
             {token ? (
@@ -75,6 +79,7 @@ function AppLayout() {
       )}
       <Routes>
         <Route path="/" element={<Home />} />
+        <Route path="/documents" element={<DocumentList />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
@@ -95,12 +100,3 @@ function App() {
 }
 
 export default App;
-=======
-import DocumentList from "./pages/DocumentList";
-
-function App() {
-  return <DocumentList />;
-}
-
-export default App;
->>>>>>> feature-document-list
