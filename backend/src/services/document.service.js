@@ -1,5 +1,6 @@
 import * as documentRepository from "../repositories/document.repository.js";
 import * as tagRepository from "../repositories/tag.repository.js";
+import * as subjectRepository from "../repositories/subject.repository.js";
 
 // Retrieve dashboard aggregates: user documents and total storage consumption
 export const getDashboardData = async (userId) => {
@@ -59,6 +60,22 @@ export const getDashboardData = async (userId) => {
 export const uploadNewDocument = async (docData) => {
     try {
         const { tags, ...restDocData } = docData;
+
+        // Auto-resolve or create subject_code if provided to avoid foreign key violations
+        const subjectCode = restDocData.subject_code || restDocData.subject;
+        if (subjectCode) {
+            const resolvedSubject = await subjectRepository.getOrCreateSubject(subjectCode);
+            if (resolvedSubject) {
+                restDocData.subject_code = resolvedSubject.subject_code;
+            } else {
+                restDocData.subject_code = null;
+            }
+        } else {
+            restDocData.subject_code = null;
+        }
+        if (restDocData.subject !== undefined) {
+            delete restDocData.subject;
+        }
 
         // Auto-rename if title already exists in the system
         restDocData.title = await documentRepository.getUniqueTitle(restDocData.title);
