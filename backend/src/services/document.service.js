@@ -72,3 +72,21 @@ export const deleteUserDocument = async (id, userId) => {
         throw error;
     }
 };
+
+// Increment view count
+export const incrementViewCount = async (id) => {
+    try {
+        return await documentRepository.incrementViewCount(id);
+    } catch (error) {
+        throw error;
+    }
+};
+
+// Increment download count
+export const incrementDownloadCount = async (id) => {
+    try {
+        return await documentRepository.incrementDownloadCount(id);
+    } catch (error) {
+        throw error;
+    }
+};
