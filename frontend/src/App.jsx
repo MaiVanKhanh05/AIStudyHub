@@ -7,8 +7,9 @@ import ForgotPassword from "./pages/Authentication/ForgotPasswordPage";
 import ResetPassword from "./pages/Authentication/ResetPasswordPage";
 import OAuthCallback from "./pages/Authentication/OAuthCallbackPage";
 import AdminDashboard from "./pages/admin/AdminDashboard";
+import DocumentList from "./pages/DocumentList";
 import { Button } from "@/components/ui/button";
-import { LogOut, Home as HomeIcon, User as UserIcon, BookOpen } from "lucide-react";
+import { LogOut, Home as HomeIcon, User as UserIcon, BookOpen, FolderOpen } from "lucide-react";
 
 function AppLayout() {
   const location = useLocation();
@@ -44,7 +45,7 @@ function AppLayout() {
               Home
             </Link>
             <Link to="/documents" className="flex items-center gap-1.5 text-sm font-semibold hover:text-purple-600 dark:hover:text-purple-400 transition-colors">
-              <BookOpen className="w-4 h-4" />
+              <FolderOpen className="w-4 h-4 text-purple-600" />
               Documents
             </Link>
           </div>
@@ -86,11 +87,11 @@ function AppLayout() {
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/oauth-callback" element={<OAuthCallback />} />
         <Route path="/admin/*" element={<AdminDashboard />} />
+        <Route path="/documents" element={<DocumentList />} />
       </Routes>
     </>
   );
 }
-
 function App() {
   return (
     <BrowserRouter>
