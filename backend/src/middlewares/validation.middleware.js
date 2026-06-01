@@ -1,4 +1,5 @@
 import { body, validationResult } from "express-validator";
+import jwt from "jsonwebtoken";
 
 // Middleware to check validation results and format error response
 export const handleValidationErrors = (req, res, next) => {
@@ -8,6 +9,30 @@ export const handleValidationErrors = (req, res, next) => {
         return res.status(400).json({ error: errors.array()[0].msg });
     }
     next();
+};
+
+// JWT Authentication Middleware
+export const authenticateToken = (req, res, next) => {
+    try {
+        const authHeader = req.headers["authorization"];
+        const token = authHeader && authHeader.split(" ")[1]; // Get token from "Bearer TOKEN"
+
+        if (!token) {
+            return res.status(401).json({ error: "Access token is required" });
+        }
+
+        jwt.verify(token, process.env.JWT_SECRET || "your-secret-key", (err, user) => {
+            if (err) {
+                return res.status(403).json({ error: "Invalid or expired token" });
+            }
+
+            req.userId = user.userId || user.id;
+            req.user = user;
+            next();
+        });
+    } catch (error) {
+        return res.status(500).json({ error: "Authentication failed" });
+    }
 };
 
 // Validation rules for Registration
