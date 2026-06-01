@@ -1,14 +1,15 @@
-<<<<<<< HEAD
 import { BrowserRouter, Routes, Route, Link, useLocation, useNavigate } from "react-router-dom";
 import Home from "./components/Home";
+import DocumentList from "./pages/DocumentList";
 import Login from "./pages/Authentication/LoginPage";
 import Register from "./pages/Authentication/RegisterPage";
 import ForgotPassword from "./pages/Authentication/ForgotPasswordPage";
 import ResetPassword from "./pages/Authentication/ResetPasswordPage";
 import OAuthCallback from "./pages/Authentication/OAuthCallbackPage";
 import AdminDashboard from "./pages/admin/AdminDashboard";
+import DocumentList from "./pages/DocumentList";
 import { Button } from "@/components/ui/button";
-import { LogOut, Home as HomeIcon, User as UserIcon, BookOpen } from "lucide-react";
+import { LogOut, Home as HomeIcon, User as UserIcon, BookOpen, FolderOpen } from "lucide-react";
 
 function AppLayout() {
   const location = useLocation();
@@ -43,6 +44,10 @@ function AppLayout() {
               <HomeIcon className="w-4 h-4" />
               Home
             </Link>
+            <Link to="/documents" className="flex items-center gap-1.5 text-sm font-semibold hover:text-purple-600 dark:hover:text-purple-400 transition-colors">
+              <FolderOpen className="w-4 h-4 text-purple-600" />
+              Documents
+            </Link>
           </div>
           <div className="flex items-center gap-4">
             {token ? (
@@ -75,17 +80,18 @@ function AppLayout() {
       )}
       <Routes>
         <Route path="/" element={<Home />} />
+        <Route path="/documents" element={<DocumentList />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/oauth-callback" element={<OAuthCallback />} />
         <Route path="/admin/*" element={<AdminDashboard />} />
+        <Route path="/documents" element={<DocumentList />} />
       </Routes>
     </>
   );
 }
-
 function App() {
   return (
     <BrowserRouter>
@@ -95,12 +101,3 @@ function App() {
 }
 
 export default App;
-=======
-import DocumentList from "./pages/DocumentList";
-
-function App() {
-  return <DocumentList />;
-}
-
-export default App;
->>>>>>> feature-document-list

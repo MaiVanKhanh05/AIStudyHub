@@ -17,6 +17,11 @@ export const connectDB = async () => {
     try {
         await pool.query("SELECT 1");
         console.log("Connected to PostgreSQL (AIStudyHub) successfully!");
+        
+        // Ensure views and downloads columns exist in the document table
+        await pool.query("ALTER TABLE document ADD COLUMN IF NOT EXISTS views INT DEFAULT 0");
+        await pool.query("ALTER TABLE document ADD COLUMN IF NOT EXISTS downloads INT DEFAULT 0");
+        console.log("Database schema columns (views, downloads) verified.");
     } catch (error) {
         console.error("Error connecting to the database:", error);
         process.exit(1);
