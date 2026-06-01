@@ -16,6 +16,11 @@ import {
   ChevronDown,
   Sparkles,
   FileText,
+  FileSpreadsheet,
+  Presentation,
+  FileImage,
+  FileCode,
+  File,
   MoreHorizontal,
   LogOut,
   Paperclip,
@@ -30,7 +35,6 @@ import {
   Calendar,
   BookOpen,
   HelpCircle,
-  FileCode,
   Globe,
   Lock,
   Tag,
@@ -42,6 +46,32 @@ import { Card, CardContent } from "@/components/ui/card";
 import { uploadFileToSupabase, deleteFileFromSupabase } from "../lib/supabase";
 import axios from "axios";
 import { toast } from "sonner";
+import DocumentCard from "./DocumentCard";
+import SearchBar from "./SearchBar";
+import Pagination from "./Pagination";
+
+function getFileIcon(fileType = "", className = "w-5 h-5") {
+  const type = fileType.toLowerCase();
+  if (type === "pdf") return <FileText className={`${className} text-red-500 dark:text-red-400`} />;
+  if (["doc", "docx"].includes(type)) return <FileText className={`${className} text-blue-500 dark:text-blue-400`} />;
+  if (["xls", "xlsx", "excel"].includes(type)) return <FileSpreadsheet className={`${className} text-emerald-500 dark:text-emerald-400`} />;
+  if (["ppt", "pptx", "powerpoint"].includes(type)) return <Presentation className={`${className} text-orange-500 dark:text-orange-400`} />;
+  if (["jpg", "jpeg", "png", "webp", "image"].includes(type)) return <FileImage className={`${className} text-indigo-500 dark:text-indigo-400`} />;
+  if (["txt", "code", "js", "html", "css"].includes(type)) return <FileCode className={`${className} text-purple-500 dark:text-purple-400`} />;
+  return <File className={`${className} text-slate-500 dark:text-slate-400`} />;
+}
+
+function getFileType(url = "") {
+  if (!url) return "PDF";
+  const ext = url.split(".").pop().toLowerCase();
+  if (["jpg", "jpeg", "png", "webp"].includes(ext)) return "image";
+  if (ext === "pdf") return "pdf";
+  if (["doc", "docx"].includes(ext)) return "doc";
+  if (["xls", "xlsx"].includes(ext)) return "excel";
+  if (["ppt", "pptx"].includes(ext)) return "ppt";
+  if (ext === "txt") return "txt";
+  return "other";
+}
 
 export default function Home() {
   const navigate = useNavigate();
@@ -67,6 +97,71 @@ export default function Home() {
   const [storageUsage, setStorageUsage] = useState(0);
   const [loading, setLoading] = useState(true);
   const [currentDate, setCurrentDate] = useState("");
+
+  // Community Tab States & Dynamic Data Loader
+  const [communitySearch, setCommunitySearch] = useState("");
+  const [communityPage, setCommunityPage] = useState(1);
+  const [communityDocs, setCommunityDocs] = useState([]);
+  const [communityLoading, setCommunityLoading] = useState(false);
+
+  useEffect(() => {
+    if (activeTab === "Community") {
+      setCommunityLoading(true);
+      setTimeout(() => {
+        const mockData = [
+          { id: 1, title: "AI Basics", author: "An Nguyen", subject: "AI", file_type: "PDF", upload_date: "2026-05-30", downloads: 24, views: 105, isPinned: false },
+          { id: 2, title: "Database Design", author: "Binh Tran", subject: "DBMS", file_type: "DOCX", upload_date: "2026-05-29", downloads: 12, views: 48, isPinned: false },
+          { id: 3, title: "Machine Learning", author: "Nam Le", subject: "AI", file_type: "PDF", upload_date: "2026-05-28", downloads: 35, views: 189, isPinned: false },
+          { id: 4, title: "Networking", author: "Hoa Tran", subject: "CCNA", file_type: "PDF", upload_date: "2026-05-27", downloads: 8, views: 32, isPinned: false },
+          { id: 5, title: "Java OOP", author: "Minh Nguyen", subject: "Programming", file_type: "DOCX", upload_date: "2026-05-26", downloads: 19, views: 76, isPinned: false },
+        ];
+
+        const extendedData = [];
+        for (let i = 0; i < 35; i++) {
+          const originalDoc = mockData[i % mockData.length];
+          extendedData.push({
+            ...originalDoc,
+            id: i + 1,
+            title: `${originalDoc.title} (Vol ${Math.floor(i / mockData.length) + 1})`
+          });
+        }
+        setCommunityDocs(extendedData);
+        setCommunityLoading(false);
+      }, 500);
+    }
+  }, [activeTab]);
+
+  useEffect(() => {
+    setCommunityPage(1);
+  }, [communitySearch]);
+
+  const handleToggleCommunityPin = (id) => {
+    setCommunityDocs((prevDocs) =>
+      prevDocs.map((doc) =>
+        doc.id === id ? { ...doc, isPinned: !doc.isPinned } : doc
+      )
+    );
+  };
+
+  const filteredCommunityDocs = communityDocs.filter((doc) => {
+    if (!communitySearch) return true;
+    const keyword = communitySearch.toLowerCase().trim();
+    return (
+      (doc.title && doc.title.toLowerCase().includes(keyword)) ||
+      (doc.subject && doc.subject.toLowerCase().includes(keyword)) ||
+      (doc.author && doc.author.toLowerCase().includes(keyword))
+    );
+  });
+
+  const COMMUNITY_PAGE_SIZE = 9;
+  const communityTotalPages = Math.max(1, Math.ceil(filteredCommunityDocs.length / COMMUNITY_PAGE_SIZE));
+  const currentCommunityDocs = filteredCommunityDocs.slice(
+    (communityPage - 1) * COMMUNITY_PAGE_SIZE,
+    communityPage * COMMUNITY_PAGE_SIZE
+  );
+
+  const pinnedCommunityDocs = currentCommunityDocs.filter((doc) => doc.isPinned);
+  const regularCommunityDocs = currentCommunityDocs.filter((doc) => !doc.isPinned);
 
   // Document Management Tab States
   const [uploadTitle, setUploadTitle] = useState("");
@@ -522,7 +617,7 @@ export default function Home() {
     { name: "Home", icon: HomeIcon, label: "Tổng quan học tập" },
     { name: "Document Management", icon: FolderOpen, label: "Kho học liệu cá nhân" },
     { name: "AI Assistant", icon: Bot, label: "Trợ lý Nghiên cứu AI" },
-    { name: "Sharing & Collaboration", icon: Share2, label: "Hợp tác & Nghiên cứu" },
+    { name: "Community", icon: Users, label: "Cộng đồng" },
     { name: "Notifications", icon: Bell, label: "Thông báo học thuật" },
     { name: "Personal Profile", icon: UserIcon, label: "Hồ sơ & Bảo mật" }
   ];
@@ -816,8 +911,8 @@ export default function Home() {
                         </span>
 
                         <div className="flex items-center gap-2 opacity-80">
-                          <FileText className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-                          <span className="text-[9px] font-extrabold text-slate-400 tracking-widest uppercase">{doc.file_type || "PDF"}</span>
+                          {getFileIcon(doc.file_type || getFileType(doc.file_url), "w-5 h-5")}
+                          <span className="text-[9px] font-extrabold text-slate-400 dark:text-slate-500 tracking-widest uppercase">{doc.file_type || getFileType(doc.file_url) || "PDF"}</span>
                         </div>
                       </div>
 
@@ -842,7 +937,7 @@ export default function Home() {
               <Card className="liquid-glass liquid-glass-hover rounded-xl p-5 flex flex-col gap-3.5 shadow-sm">
                 <div className="flex items-center justify-between text-xs text-slate-400 dark:text-slate-500 uppercase tracking-widest font-bold">
                   <span className="flex items-center gap-2"><Users className="w-4 h-4 text-purple-500" /> Cộng đồng môn học</span>
-                  <button onClick={() => setActiveTab("Sharing & Collaboration")} className="text-[10px] text-purple-600 font-bold hover:underline">Vào sảnh chung</button>
+                  <button onClick={() => setActiveTab("Community")} className="text-[10px] text-purple-600 font-bold hover:underline">Vào sảnh chung</button>
                 </div>
                 <div className="flex flex-col gap-2">
                   <div className="text-lg font-bold text-slate-850 dark:text-slate-100">Học tập & Thảo luận chung</div>
@@ -1240,7 +1335,7 @@ export default function Home() {
                         filteredDocuments.map((doc) => (
                           <tr key={doc.document_id} className="hover:bg-white/40 dark:hover:bg-white/5 transition-colors cursor-pointer group border-b border-slate-200/30 dark:border-white/5">
                             <td className="px-5 py-3.5 flex items-center gap-2 text-slate-800 dark:text-slate-200 font-bold max-w-xs truncate">
-                              <FileText className="w-4 h-4 text-purple-500 shrink-0" />
+                              {getFileIcon(doc.file_type || getFileType(doc.file_url), "w-4 h-4 shrink-0")}
                               <div className="flex flex-col min-w-0">
                                 <span className="truncate group-hover:text-purple-600 transition-colors">{doc.title}</span>
                                 {doc.tags && Array.isArray(doc.tags) && doc.tags.length > 0 && (
@@ -1442,50 +1537,132 @@ export default function Home() {
           </div>
         )}
 
-        {/* ── SCREEN 4: SHARING & COLLABORATION ── */}
-        {activeTab === "Sharing & Collaboration" && (
-          <div className="flex flex-col gap-6 max-w-5xl w-full mx-auto animate-spring-up">
+        {/* ── SCREEN 4: COMMUNITY ── */}
+        {activeTab === "Community" && (
+          <div className="flex flex-col gap-6 max-w-5xl w-full mx-auto animate-spring-up text-left">
             <header className="flex flex-col gap-1 border-b border-slate-100 dark:border-slate-800/60 pb-5 select-none text-left">
-              <span className="text-xs font-bold text-purple-600 dark:text-purple-400 uppercase tracking-widest">Không gian cộng tác</span>
-              <h1 className="text-2xl md:text-3xl font-black text-black dark:text-white tracking-tight mt-1">
-                Tài liệu chia sẻ nhóm
+              <span className="text-xs font-bold text-purple-600 dark:text-purple-400 uppercase tracking-widest">Cộng đồng học tập</span>
+              <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight mt-1">
+                Tài liệu chia sẻ cộng đồng
               </h1>
               <span className="text-xs text-slate-500 font-medium mt-1">
-                Tham khảo học liệu từ giảng viên hoặc tham gia các nhóm học tập trực tuyến mở rộng.
+                Tìm kiếm và tham khảo toàn bộ tài liệu chia sẻ từ các học viên khác trên toàn hệ thống.
               </span>
             </header>
 
-            {/* Shared files */}
-            <section className="flex flex-col gap-4 mt-2">
-              <h2 className="text-sm font-black text-black dark:text-white uppercase tracking-wider flex items-center gap-2">
-                <span className="w-1 h-3.5 bg-purple-600 dark:bg-purple-500 rounded" />
-                Tài liệu học tập được chia sẻ
-              </h2>
+            {/* Search */}
+            <div className="w-full flex justify-center mt-2">
+              <SearchBar 
+                search={communitySearch} 
+                setSearch={setCommunitySearch} 
+                className="max-w-2xl mx-auto" 
+              />
+            </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                {sharedDocs.map((doc) => (
-                  <Card key={doc.id} className="liquid-glass liquid-glass-hover rounded-xl p-4 flex flex-col justify-between gap-4 shadow-sm">
-                    <div className="flex flex-col gap-1.5">
-                      <div className="flex justify-between items-center">
-                        <span className="text-[9px] font-extrabold text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/40 px-2 py-0.5 rounded border border-purple-500/10">
-                          {doc.subject_code}
-                        </span>
-                        <span className="text-[10px] text-slate-400 font-bold">{formatFileSize(doc.file_size)}</span>
-                      </div>
-                      <span className="text-xs font-bold text-slate-800 dark:text-slate-150 truncate mt-1">{doc.title}</span>
-                      <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold">Người gửi: {doc.owner_name}</span>
-                    </div>
+            {/* Stats */}
+            <div className="h-10 flex items-center justify-center select-none">
+              {!communityLoading && communitySearch && (
+                <div className="px-3.5 py-1.5 bg-purple-500/8 dark:bg-purple-500/12 text-purple-750 dark:text-purple-300 rounded-full border border-purple-500/10 text-[10px] font-bold uppercase tracking-wider animate-in fade-in zoom-in-95 duration-200">
+                  Tìm thấy {filteredCommunityDocs.length} tài liệu học tập
+                </div>
+              )}
+            </div>
 
-                    <Button className="w-full bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700/60 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs py-2 rounded-lg flex items-center justify-center gap-2 cursor-pointer shadow-none">
-                      <Download className="w-4 h-4" /> Xem chi tiết
-                    </Button>
-                  </Card>
-                ))}
+            {/* Loading */}
+            {communityLoading && (
+              <div className="flex flex-col justify-center items-center py-20 space-y-4">
+                <div className="w-8 h-8 border-4 border-purple-500/20 border-t-purple-600 rounded-full animate-spin" />
+                <span className="text-xs font-bold text-slate-400 dark:text-slate-500 tracking-wider uppercase animate-pulse">
+                  Đang tải danh mục cộng đồng...
+                </span>
               </div>
-            </section>
+            )}
+
+            {/* Document List Grid */}
+            {!communityLoading && (
+              <>
+                {filteredCommunityDocs.length > 0 && (
+                  <div className="w-full flex flex-col space-y-6">
+                    {/* HÀNG 1: HIỂN THỊ CÁC TÀI LIỆU ĐÃ GHIM */}
+                    {pinnedCommunityDocs.length > 0 && (
+                      <div className="space-y-3 bg-purple-50/20 dark:bg-purple-950/5 p-4 rounded-2xl border border-purple-100/30 text-left w-full">
+                        <div className="text-xs font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider flex items-center gap-1.5 pl-1">
+                          <span>📌 Tài liệu ghim đầu trang</span>
+                          <span className="bg-purple-500 text-white text-[10px] px-2 py-0.5 rounded-full font-extrabold">
+                            {pinnedCommunityDocs.length}
+                          </span>
+                        </div>
+                        <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 xl:grid-cols-3 w-full">
+                          {pinnedCommunityDocs.map((doc) => (
+                            <DocumentCard
+                              key={doc.id}
+                              doc={doc}
+                              isPinned={doc.isPinned}
+                              onTogglePin={() => handleToggleCommunityPin(doc.id)}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* HÀNG 2: HIỂN THỊ CÁC TÀI LIỆU CÒN LẠI */}
+                    <div className="space-y-3 text-left w-full">
+                      {pinnedCommunityDocs.length > 0 && (
+                        <div className="text-xs font-bold text-slate-450 uppercase tracking-wider pl-1">
+                          📂 Tài liệu cộng đồng khác
+                        </div>
+                      )}
+
+                      {regularCommunityDocs.length > 0 ? (
+                        <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 xl:grid-cols-3 w-full">
+                          {regularCommunityDocs.map((doc) => (
+                            <DocumentCard
+                              key={doc.id}
+                              doc={doc}
+                              isPinned={doc.isPinned}
+                              onTogglePin={() => handleToggleCommunityPin(doc.id)}
+                            />
+                          ))}
+                        </div>
+                      ) : (
+                        pinnedCommunityDocs.length > 0 && (
+                          <div className="text-center py-6 text-slate-400 text-xs font-medium bg-white/40 dark:bg-black/10 rounded-2xl border border-slate-100 dark:border-white/5">
+                            Không còn tài liệu nào khác trên trang này.
+                          </div>
+                        )
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Empty State */}
+                {filteredCommunityDocs.length === 0 && (
+                  <div className="text-center py-20 bg-white/30 dark:bg-[#0f111a]/30 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 p-8">
+                    <div className="text-5xl mb-4">📂</div>
+                    <p className="text-sm font-bold text-slate-850 dark:text-slate-200 m-0">
+                      Không tìm thấy tài liệu phù hợp
+                    </p>
+                    <p className="text-xs text-slate-450 mt-2 m-0">
+                      Vui lòng thử tìm kiếm bằng một từ khóa khác.
+                    </p>
+                  </div>
+                )}
+
+                {/* Pagination */}
+                {filteredCommunityDocs.length > 0 && (
+                  <div className="mt-6 flex justify-center">
+                    <Pagination
+                      page={communityPage}
+                      totalPages={communityTotalPages}
+                      setPage={setCommunityPage}
+                    />
+                  </div>
+                )}
+              </>
+            )}
 
             {/* Study Groups */}
-            <section className="flex flex-col gap-4 mt-4">
+            <section className="flex flex-col gap-4 mt-6">
               <h2 className="text-sm font-black text-black dark:text-white uppercase tracking-wider flex items-center gap-2">
                 <span className="w-1 h-3.5 bg-purple-600 dark:bg-purple-500 rounded" />
                 Nhóm học thảo luận trực tuyến

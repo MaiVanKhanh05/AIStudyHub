@@ -67,6 +67,8 @@ CREATE TABLE document (
     upload_status VARCHAR(20) DEFAULT 'SUCCESS',
     visibility VARCHAR(20) DEFAULT 'PRIVATE',
     ai_summary TEXT,
+    views INT DEFAULT 0,
+    downloads INT DEFAULT 0,
     upload_date TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT FK_document_user FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
     CONSTRAINT FK_document_subject FOREIGN KEY (subject_code) REFERENCES subject(subject_code) ON UPDATE CASCADE
