@@ -1,46 +1,28 @@
 @import "tailwindcss";
-<<<<<<< HEAD
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
 @custom-variant dark (&:is(.dark *));
-=======
->>>>>>> feature-document-list
 
 :root {
   --text: #6b6375;
   --text-h: #08060d;
   --bg: #fff;
-<<<<<<< HEAD
   --border: oklch(0.922 0 0);
   --code-bg: #f4f3ec;
   --accent: oklch(0.97 0 0);
-=======
-  --border: #e5e4e7;
-  --code-bg: #f4f3ec;
-  --accent: #aa3bff;
->>>>>>> feature-document-list
   --accent-bg: rgba(170, 59, 255, 0.1);
   --accent-border: rgba(170, 59, 255, 0.5);
   --social-bg: rgba(244, 243, 236, 0.5);
   --shadow:
     rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
 
-<<<<<<< HEAD
   --sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --heading: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --mono: ui-monospace, Consolas, monospace;
 
   font: 16px/150% var(--sans);
   letter-spacing: -0.011em;
-=======
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --mono: ui-monospace, Consolas, monospace;
-
-  font: 18px/145% var(--sans);
-  letter-spacing: 0.18px;
->>>>>>> feature-document-list
   color-scheme: light dark;
   color: var(--text);
   background: var(--bg);
@@ -52,8 +34,6 @@
   @media (max-width: 1024px) {
     font-size: 16px;
   }
-<<<<<<< HEAD
-
   --background: oklch(1 0 0);
 
   --foreground: oklch(0.145 0 0);
@@ -113,8 +93,6 @@
   --sidebar-border: oklch(0.922 0 0);
 
   --sidebar-ring: oklch(0.708 0 0)
-=======
->>>>>>> feature-document-list
 }
 
 @media (prefers-color-scheme: dark) {
@@ -142,15 +120,7 @@ body {
 }
 
 #root {
-<<<<<<< HEAD
   width: 100%;
-=======
-  width: 1126px;
-  max-width: 100%;
-  margin: 0 auto;
-  text-align: center;
-  border-inline: 1px solid var(--border);
->>>>>>> feature-document-list
   min-height: 100svh;
   display: flex;
   flex-direction: column;
