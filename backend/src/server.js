@@ -16,6 +16,7 @@ app.use(express.json());
 app.use("/api/users", userRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/documents", documentRoutes);
+app.use("/documents", documentRoutes);
 app.use("/api/admin", adminRoutes);
 
 const PORT = Number(process.env.PORT) || 5000;
