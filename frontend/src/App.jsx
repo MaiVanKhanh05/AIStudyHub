@@ -9,7 +9,7 @@ import AdminDashboard from "./pages/admin/AdminDashboard";
 import DocumentList from "./pages/DocumentList";
 import UploadPage from "./pages/UploadPage";
 import { Button } from "@/components/ui/button";
-import { LogOut, Home as HomeIcon, User as UserIcon, BookOpen, FileText, Upload } from "lucide-react";
+import { LogOut, Home as HomeIcon, User as UserIcon, BookOpen, FolderOpen, Upload } from "lucide-react";
 import { Toaster } from "sonner";
 
 function AppLayout() {
@@ -47,7 +47,7 @@ function AppLayout() {
               Home
             </Link>
             <Link to="/documents" className="flex items-center gap-1.5 text-sm font-semibold hover:text-purple-600 dark:hover:text-purple-400 transition-colors">
-              <FileText className="w-4 h-4" />
+              <FolderOpen className="w-4 h-4 text-purple-600" />
               Documents
             </Link>
             <Link to="/upload" className="flex items-center gap-1.5 text-sm font-semibold hover:text-purple-600 dark:hover:text-purple-400 transition-colors">
@@ -86,14 +86,14 @@ function AppLayout() {
       )}
       <Routes>
         <Route path="/" element={<Home />} />
+        <Route path="/documents" element={<DocumentList />} />
+        <Route path="/upload" element={<UploadPage />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/oauth-callback" element={<OAuthCallback />} />
         <Route path="/admin/*" element={<AdminDashboard />} />
-        <Route path="/documents" element={<DocumentList />} />
-        <Route path="/upload" element={<UploadPage />} />
       </Routes>
     </>
   );

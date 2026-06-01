@@ -111,3 +111,31 @@ export const deleteDocument = async (id, userId) => {
         throw error;
     }
 };
+
+// Increment view count in database
+export const incrementViewCount = async (id) => {
+    try {
+        const { rows } = await pool.query(
+            "UPDATE document SET views = COALESCE(views, 0) + 1 WHERE document_id = $1 RETURNING *",
+            [id]
+        );
+        return rows[0];
+    } catch (error) {
+        console.error("Error incrementing view count in repository:", error);
+        throw error;
+    }
+};
+
+// Increment download count in database
+export const incrementDownloadCount = async (id) => {
+    try {
+        const { rows } = await pool.query(
+            "UPDATE document SET downloads = COALESCE(downloads, 0) + 1 WHERE document_id = $1 RETURNING *",
+            [id]
+        );
+        return rows[0];
+    } catch (error) {
+        console.error("Error incrementing download count in repository:", error);
+        throw error;
+    }
+};

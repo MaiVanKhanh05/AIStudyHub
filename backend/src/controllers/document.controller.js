@@ -72,3 +72,35 @@ export const deleteDoc = async (req, res) => {
         return res.status(500).json({ error: "Failed to delete document" });
     }
 };
+
+// PUT /api/documents/:id/view
+export const increaseView = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const updatedDoc = await documentService.incrementViewCount(id);
+        if (updatedDoc) {
+            res.json({ success: true, views: updatedDoc.views });
+        } else {
+            res.status(404).json({ error: "Document not found" });
+        }
+    } catch (error) {
+        console.error("Error in increaseView controller:", error);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+};
+
+// PUT /api/documents/:id/download
+export const increaseDownload = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const updatedDoc = await documentService.incrementDownloadCount(id);
+        if (updatedDoc) {
+            res.json({ success: true, downloads: updatedDoc.downloads });
+        } else {
+            res.status(404).json({ error: "Document not found" });
+        }
+    } catch (error) {
+        console.error("Error in increaseDownload controller:", error);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+};
