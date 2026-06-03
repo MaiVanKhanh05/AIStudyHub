@@ -119,7 +119,13 @@ export const register = async (req, res) => {
 
         const trimmedEmail = email.trim().toLowerCase();
 
-        // 1. Kiểm tra email trùng lặp
+        // 1. Dọn dẹp tài khoản cũ chưa xác thực OTP (để người dùng có thể đăng ký lại)
+        await pool.query("DELETE FROM users WHERE email = $1 AND status = 'PENDING_OTP'", [trimmedEmail]);
+        if (role === "STUDENT") {
+            await pool.query("DELETE FROM users WHERE user_id = $1 AND status = 'PENDING_OTP'", [mssv.trim().toUpperCase()]);
+        }
+
+        // 2. Kiểm tra email trùng lặp (với các tài khoản đã kích hoạt)
         const { rows: existingUser } = await pool.query(
             "SELECT * FROM users WHERE email = $1",
             [trimmedEmail]
@@ -393,6 +399,7 @@ export const resetPassword = async (req, res) => {
         const trimmedToken = token.trim();
 
         let userId = null;
+        let existingPasswordHash = null;
         let isOtp = trimmedToken.length === 6 && /^\d+$/.test(trimmedToken);
 
         if (isOtp) {
@@ -412,7 +419,7 @@ export const resetPassword = async (req, res) => {
 
             // Get user_id from users
             const { rows: userRows } = await pool.query(
-                "SELECT user_id FROM users WHERE email = $1",
+                "SELECT user_id, password_hash FROM users WHERE email = $1",
                 [trimmedEmail]
             );
 
@@ -421,6 +428,7 @@ export const resetPassword = async (req, res) => {
             }
 
             userId = userRows[0].user_id;
+            existingPasswordHash = userRows[0].password_hash;
 
             // Mark OTP as verified
             await pool.query(
@@ -431,7 +439,7 @@ export const resetPassword = async (req, res) => {
         } else {
             // Old token verification flow
             const { rows: resetRows } = await pool.query(
-                `SELECT pr.*, u.user_id 
+                `SELECT pr.*, u.user_id, u.password_hash 
                  FROM password_reset pr
                  JOIN users u ON pr.user_id = u.user_id
                  WHERE u.email = $1 AND pr.token_hash = $2 AND pr.is_used = FALSE AND pr.expiry_time > NOW()`,
@@ -444,12 +452,21 @@ export const resetPassword = async (req, res) => {
 
             const resetRecord = resetRows[0];
             userId = resetRecord.user_id;
+            existingPasswordHash = resetRecord.password_hash;
 
             // Mark token as used
             await pool.query(
                 "UPDATE password_reset SET is_used = TRUE WHERE reset_id = $1",
                 [resetRecord.reset_id]
             );
+        }
+
+        // Check if the new password is the same as the old password
+        if (existingPasswordHash) {
+            const isMatch = await bcrypt.compare(newPassword, existingPasswordHash);
+            if (isMatch) {
+                return res.status(400).json({ error: "Mật khẩu mới không được trùng với mật khẩu hiện tại." });
+            }
         }
 
         // Hash new password
@@ -474,6 +491,10 @@ export const changePassword = async (req, res) => {
         const { userId, currentPassword, newPassword } = req.body;
         if (!userId || !currentPassword || !newPassword) {
             return res.status(400).json({ error: "Vui lòng điền đầy đủ mật khẩu hiện tại và mật khẩu mới." });
+        }
+        
+        if (currentPassword === newPassword) {
+            return res.status(400).json({ error: "Mật khẩu mới không được trùng với mật khẩu hiện tại." });
         }
 
         // 1. Tìm người dùng trong cơ sở dữ liệu

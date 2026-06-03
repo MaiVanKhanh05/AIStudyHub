@@ -1,6 +1,6 @@
 import { Router } from "express";
 import * as documentController from "../controllers/document.controller.js";
-import { authenticateToken } from "../middlewares/validation.middleware.js";
+import { authenticateToken, optionalAuthenticateToken } from "../middlewares/validation.middleware.js";
 
 const router = Router();
 
@@ -24,5 +24,8 @@ router.put("/:id/download", documentController.increaseDownload);
 
 // PUT /api/documents/:id/share
 router.put("/:id/share", authenticateToken, documentController.shareDoc);
+
+// GET /api/documents/:id
+router.get("/:id", optionalAuthenticateToken, documentController.getDocById);
 
 export default router;

@@ -105,6 +105,8 @@ export default function Home() {
   const [communityPage, setCommunityPage] = useState(1);
   const [communityDocs, setCommunityDocs] = useState([]);
   const [communityLoading, setCommunityLoading] = useState(false);
+  const [communityFilterMode, setCommunityFilterMode] = useState("ALL");
+
 
   const fetchCommunityDocs = async () => {
     setCommunityLoading(true);
@@ -142,13 +144,17 @@ export default function Home() {
     );
   };
 
-  const filteredCommunityDocs = communityDocs.filter((doc) => {
+  const mySharedCommunityDocs = user ? communityDocs.filter(doc => doc.user_id === user.user_id) : [];
+  const sourceCommunityDocs = communityFilterMode === "ALL" ? communityDocs : mySharedCommunityDocs;
+
+  const filteredCommunityDocs = sourceCommunityDocs.filter((doc) => {
     if (!communitySearch) return true;
     const keyword = communitySearch.toLowerCase().trim();
     return (
       (doc.title && doc.title.toLowerCase().includes(keyword)) ||
       (doc.subject && doc.subject.toLowerCase().includes(keyword)) ||
-      (doc.author && doc.author.toLowerCase().includes(keyword))
+      (doc.author && doc.author.toLowerCase().includes(keyword)) ||
+      (doc.subject_code && doc.subject_code.toLowerCase().includes(keyword))
     );
   });
 
@@ -1281,9 +1287,16 @@ export default function Home() {
                   Danh mục tài liệu học phần ({filteredDocuments.length})
                 </h2>
 
-                {/* Filters */}
-                <div className="flex items-center gap-2 relative">
-                  <span className="text-xs font-bold text-slate-500">Lọc theo:</span>
+                {/* Search & Filters */}
+                <div className="flex flex-col sm:flex-row items-center gap-4">
+                  <SearchBar 
+                    search={searchQuery}
+                    setSearch={setSearchQuery}
+                    className="w-full sm:w-[250px]"
+                  />
+                  
+                  <div className="flex items-center gap-2 relative">
+                    <span className="text-xs font-bold text-slate-500">Lọc theo:</span>
                   <div
                     onClick={(e) => {
                       e.stopPropagation();
@@ -1329,8 +1342,9 @@ export default function Home() {
                   )}
                 </div>
               </div>
+            </div>
 
-              {/* Table List of documents */}
+            {/* Table List of documents */}
               <div className="w-full border border-slate-200/30 dark:border-white/5 rounded-xl overflow-hidden bg-white/30 dark:bg-[#0f111a]/45 backdrop-blur-xl shadow-[inset_0_1px_1px_rgba(255,255,255,0.25)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] shadow-sm">
                 <div className="w-full overflow-x-auto">
                   <table className="w-full text-left border-collapse text-xs select-none">
@@ -1616,6 +1630,56 @@ export default function Home() {
               </span>
             </header>
 
+            {/* Bài đã share của tôi */}
+            {user && communityFilterMode === "ALL" && mySharedCommunityDocs.length > 0 && !communityLoading && (
+              <div className="mb-2 bg-white dark:bg-slate-900 rounded-[24px] p-6 shadow-sm border border-slate-100 dark:border-slate-800">
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center text-purple-600 dark:text-purple-400">
+                      <FolderOpen size={20} />
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">Tài liệu bạn đã chia sẻ</h2>
+                      <p className="text-sm text-slate-500 dark:text-slate-400">Bạn đã đóng góp {mySharedCommunityDocs.length} tài liệu cho cộng đồng</p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => setCommunityFilterMode("MY_SHARED")}
+                    className="flex items-center gap-2 text-sm font-bold text-purple-600 hover:text-purple-700 bg-purple-50 hover:bg-purple-100 dark:text-purple-400 dark:bg-purple-900/20 dark:hover:bg-purple-900/40 px-4 py-2.5 rounded-xl transition-colors"
+                  >
+                    Xem tất cả
+                    <ArrowUpRight size={16} />
+                  </button>
+                </div>
+                
+                <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+                  {mySharedCommunityDocs.slice(0, 3).map((doc) => (
+                      <DocumentCard
+                        key={doc.document_id || doc.id}
+                        doc={doc}
+                        isPersonal={false}
+                        isMyShared={true}
+                      />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Nút quay lại khi đang xem bài của tôi */}
+            {communityFilterMode === "MY_SHARED" && (
+              <div className="mb-2 flex items-center justify-between">
+                <h2 className="text-2xl font-bold text-purple-700 dark:text-purple-400 flex items-center gap-2">
+                  <BookOpen size={24} /> Toàn bộ bài bạn đã chia sẻ ({mySharedCommunityDocs.length})
+                </h2>
+                <button 
+                  onClick={() => setCommunityFilterMode("ALL")}
+                  className="text-sm font-bold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300 underline decoration-slate-300 dark:decoration-slate-700 underline-offset-4"
+                >
+                  Quay lại thư viện chung
+                </button>
+              </div>
+            )}
+
             {/* Search */}
             <div className="w-full flex justify-center mt-2">
               <SearchBar
@@ -1665,6 +1729,8 @@ export default function Home() {
                               doc={doc}
                               isPinned={doc.isPinned}
                               onTogglePin={() => handleToggleCommunityPin(doc.id)}
+                              isPersonal={false}
+                              isMyShared={communityFilterMode === "MY_SHARED"}
                             />
                           ))}
                         </div>
@@ -1687,6 +1753,8 @@ export default function Home() {
                               doc={doc}
                               isPinned={doc.isPinned}
                               onTogglePin={() => handleToggleCommunityPin(doc.id)}
+                              isPersonal={false}
+                              isMyShared={communityFilterMode === "MY_SHARED"}
                             />
                           ))}
                         </div>

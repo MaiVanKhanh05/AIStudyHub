@@ -8,6 +8,7 @@ import OAuthCallback from "./pages/Authentication/OAuthCallbackPage";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import DocumentList from "./pages/DocumentList";
 import UploadPage from "./pages/UploadPage";
+import PreviewPage from "./pages/PreviewPage";
 import { Button } from "@/components/ui/button";
 import { LogOut, Home as HomeIcon, User as UserIcon, BookOpen, FolderOpen, Upload } from "lucide-react";
 import { Toaster } from "sonner";
@@ -15,7 +16,7 @@ import { Toaster } from "sonner";
 function AppLayout() {
   const location = useLocation();
   const navigate = useNavigate();
-  const hideNav = ["/login", "/register", "/forgot-password", "/reset-password", "/", "/oauth-callback"].includes(location.pathname) || location.pathname.startsWith("/admin");
+  const hideNav = ["/login", "/register", "/forgot-password", "/reset-password", "/", "/oauth-callback"].includes(location.pathname) || location.pathname.startsWith("/admin") || location.pathname.startsWith("/preview");
 
   // Retrieve user session
   const token = localStorage.getItem("token") || sessionStorage.getItem("token");
@@ -94,6 +95,7 @@ function AppLayout() {
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/oauth-callback" element={<OAuthCallback />} />
         <Route path="/admin/*" element={<AdminDashboard />} />
+        <Route path="/preview/:id" element={<PreviewPage />} />
       </Routes>
     </>
   );

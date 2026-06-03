@@ -1,5 +1,6 @@
 import { Copy, Download, ExternalLink, X } from "lucide-react";
 import { useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { toast } from "sonner";
 
 const IMAGE_EXTENSIONS = ["jpg", "jpeg", "png", "gif", "webp", "bmp", "svg"];
@@ -51,14 +52,17 @@ export default function DocumentPreviewModal({ doc, onClose }) {
   if (!doc) return null;
 
   const handleCopyUrl = async () => {
-    if (!fileUrl) {
-      toast.error("Khong tim thay URL file");
+    const docId = doc?.document_id || doc?.id;
+    const previewUrl = docId ? `${window.location.origin}/preview/${docId}` : fileUrl;
+    
+    if (!previewUrl) {
+      toast.error("Không tìm thấy URL");
       return;
     }
 
-    await navigator.clipboard.writeText(fileUrl);
+    await navigator.clipboard.writeText(previewUrl);
     setCopied(true);
-    toast.success("Đã sao chép URL!");
+    toast.success("Đã sao chép liên kết xem trước!");
     setTimeout(() => setCopied(false), 2000);
   };
 
@@ -77,11 +81,8 @@ export default function DocumentPreviewModal({ doc, onClose }) {
     document.body.removeChild(element);
   };
 
-  return (
-    <div
-      className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50 p-4"
-      onClick={onClose}
-    >
+  return createPortal(
+    <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 md:p-6 animate-in fade-in duration-200" onClick={onClose}>
       <div
         className="bg-white dark:bg-slate-950 rounded-xl shadow-2xl max-w-6xl w-full h-[90vh] overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
@@ -169,7 +170,8 @@ export default function DocumentPreviewModal({ doc, onClose }) {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

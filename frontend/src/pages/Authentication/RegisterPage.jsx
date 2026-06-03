@@ -212,9 +212,16 @@ export default function RegisterPage() {
       return;
     }
 
-    if (role === "STUDENT" && !mssv.trim()) {
-      setError("Mã số sinh viên (MSSV) là bắt buộc đối với sinh viên.");
-      return;
+    if (role === "STUDENT") {
+      const mssvTrimmed = mssv.trim();
+      if (!mssvTrimmed) {
+        setError("Mã số sinh viên (MSSV) là bắt buộc đối với sinh viên.");
+        return;
+      }
+      if (!/^[A-Za-z]{2}\d{6}$/.test(mssvTrimmed)) {
+        setError("MSSV phải bắt đầu bằng 2 chữ cái và theo sau là 6 chữ số (ví dụ: se190808).");
+        return;
+      }
     }
 
     if (password !== confirmPassword) {
