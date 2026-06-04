@@ -3,32 +3,64 @@ import * as documentService from "../services/document.service.js";
 // GET /api/documents/dashboard
 export const getDashboard = async (req, res) => {
     try {
-        const { userId } = req.query;
+        const userId = req.userId;
         if (!userId) {
-            return res.status(400).json({ error: "Missing userId query parameter" });
+            return res.status(400).json({ error: "userId is required" });
         }
 
         const data = await documentService.getDashboardData(userId);
-        res.json(data);
+        return res.json(data);
     } catch (error) {
-        console.error("Error in getDashboard controller:", error);
-        res.status(500).json({ error: "Internal Server Error" });
+        console.error("Error loading dashboard documents:", error);
+        return res.status(500).json({ error: "Failed to load dashboard data" });
+    }
+};
+
+// GET /api/documents/community
+export const getCommunityDocs = async (req, res) => {
+    try {
+        const docs = await documentService.getCommunityDocs();
+        return res.json(docs);
+    } catch (error) {
+        console.error("Error loading community documents:", error);
+        return res.status(500).json({ error: "Failed to load community data" });
     }
 };
 
 // POST /api/documents/upload
 export const createNewDoc = async (req, res) => {
     try {
-        const docData = req.body;
-        if (!docData.user_id || !docData.title || !docData.subject_code || !docData.file_url) {
-            return res.status(400).json({ error: "Missing required document upload parameters" });
+        const userId = req.userId || req.query.userId;
+        if (!userId) {
+            return res.status(401).json({ error: "Authentication required" });
         }
 
-        const newDoc = await documentService.uploadNewDocument(docData);
-        res.status(201).json(newDoc);
+        const { title, description, file_url, file_name, file_type, file_size, subject, visibility, tags } = req.body;
+
+        if (!title || !file_url) {
+            return res.status(400).json({ error: "Title and file_url are required" });
+        }
+
+        const docData = {
+            user_id: userId,
+            subject_code: subject || null,
+            title,
+            description: description || null,
+            file_url,
+            file_size: file_size || 0,
+            file_type: file_type || "unknown",
+            visibility: visibility || "PRIVATE",
+            tags: tags || []
+        };
+
+        const doc = await documentService.uploadNewDocument(docData);
+        return res.status(201).json({
+            message: "Document uploaded successfully",
+            document: doc
+        });
     } catch (error) {
-        console.error("Error in createNewDoc controller:", error);
-        res.status(500).json({ error: "Internal Server Error" });
+        console.error("Error creating document:", error);
+        return res.status(500).json({ error: "Failed to upload document" });
     }
 };
 
@@ -36,21 +68,19 @@ export const createNewDoc = async (req, res) => {
 export const deleteDoc = async (req, res) => {
     try {
         const { id } = req.params;
-        const { userId } = req.query;
-
-        if (!userId) {
-            return res.status(400).json({ error: "Missing owner userId verification parameter" });
+        const userId = req.userId;
+        if (!id || !userId) {
+            return res.status(400).json({ error: "Missing document or user information" });
         }
-
-        const deleted = await documentService.deleteUserDocument(id, userId);
-        if (deleted) {
-            res.json({ success: true, message: "Document deleted successfully" });
+        const success = await documentService.deleteUserDocument(Number(id), userId);
+        if (success) {
+            return res.json({ message: "Document deleted successfully" });
         } else {
-            res.status(404).json({ error: "Document not found or unauthorized deletion request" });
+            return res.status(404).json({ error: "Document not found or you don't have permission to delete it" });
         }
     } catch (error) {
-        console.error("Error in deleteDoc controller:", error);
-        res.status(500).json({ error: "Internal Server Error" });
+        console.error("Error deleting document in controller:", error);
+        return res.status(500).json({ error: "Failed to delete document" });
     }
 };
 
@@ -83,5 +113,30 @@ export const increaseDownload = async (req, res) => {
     } catch (error) {
         console.error("Error in increaseDownload controller:", error);
         res.status(500).json({ error: "Internal Server Error" });
+    }
+};
+
+
+
+// PUT /api/documents/:id/share
+export const shareDoc = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const userId = req.userId;
+        const { description } = req.body;
+        
+        if (!id || !userId) {
+            return res.status(400).json({ error: "Missing document or user information" });
+        }
+        
+        const updatedDoc = await documentService.shareDocument(id, userId, description);
+        if (updatedDoc) {
+            return res.json({ message: "Document shared successfully", document: updatedDoc });
+        } else {
+            return res.status(404).json({ error: "Document not found or permission denied" });
+        }
+    } catch (error) {
+        console.error("Error sharing document:", error);
+        return res.status(500).json({ error: "Failed to share document" });
     }
 };
