@@ -1078,10 +1078,16 @@ export default function Home() {
 
             {/* Search */}
             <div className="w-full flex justify-center">
-              <SearchBar 
-                search={communitySearch} 
-                setSearch={setCommunitySearch} 
-                className="max-w-2xl mx-auto" 
+              <SearchBar
+                search={communitySearch}
+                setSearch={setCommunitySearch}
+                userId={user?.user_id || null}
+                onSearch={(keyword) => {
+                  setCommunitySearch(keyword);
+                  setCommunityPage(1);
+                }}
+                placeholder="Tìm kiếm tài liệu cộng đồng, môn học, tác giả..."
+                className="max-w-2xl mx-auto"
               />
             </div>
 
@@ -1157,6 +1163,25 @@ export default function Home() {
                           </div>
                         )
                       )}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* Study Groups */}
+            <section className="flex flex-col gap-4 mt-4">
+              <h2 className="text-sm font-extrabold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
+                <span className="w-1 h-3.5 bg-purple-600 dark:bg-purple-500 rounded" />
+                Nhóm học thảo luận trực tuyến
+              </h2>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                {studyGroups.map((group) => (
+                  <Card key={group.id} className="liquid-glass liquid-glass-hover rounded-xl p-5 flex flex-col md:flex-row items-center justify-between gap-4 shadow-sm">
+                    <div className="flex flex-col gap-1 text-center md:text-left">
+                      <span className="text-xs font-bold text-slate-850 dark:text-slate-100">{group.name}</span>
+                      <span className="text-[10px] text-slate-450 font-bold">Môn học: {group.subject} | Sĩ số: {group.members} học viên</span>
                     </div>
                     <Button
                       onClick={() => alert(`Đang gia nhập ${group.name}...`)}

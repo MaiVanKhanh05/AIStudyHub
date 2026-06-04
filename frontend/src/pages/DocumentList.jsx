@@ -12,6 +12,10 @@ export default function DocumentList() {
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
 
+  // Lấy userId của user đã đăng nhập (nếu có)
+  const userStr = localStorage.getItem("user") || sessionStorage.getItem("user");
+  const currentUser = userStr ? JSON.parse(userStr) : null;
+
   // LOAD DATA
   useEffect(() => {
     setLoading(true);
@@ -87,6 +91,11 @@ export default function DocumentList() {
         <SearchBar
           search={search}
           setSearch={setSearch}
+          userId={currentUser?.user_id || null}
+          onSearch={(keyword) => {
+            setSearch(keyword);
+            setPage(1);
+          }}
         />
 
         {/* Stats */}

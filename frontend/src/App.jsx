@@ -7,7 +7,6 @@ import ForgotPassword from "./pages/Authentication/ForgotPasswordPage";
 import ResetPassword from "./pages/Authentication/ResetPasswordPage";
 import OAuthCallback from "./pages/Authentication/OAuthCallbackPage";
 import AdminDashboard from "./pages/admin/AdminDashboard";
-import DocumentList from "./pages/DocumentList";
 import { Button } from "@/components/ui/button";
 import { LogOut, Home as HomeIcon, User as UserIcon, BookOpen, FolderOpen } from "lucide-react";
 
@@ -59,7 +58,7 @@ function AppLayout() {
                 <Button
                   variant="ghost"
                   onClick={handleLogout}
-                  className="h-8 gap-1.5 text-xs font-bold text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-lg cursor-pointer"
+                  className="h-8 gap-1.5 text-xs font-bold text-red-650 hover:text-red-750 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-lg cursor-pointer"
                 >
                   <LogOut className="w-3.5 h-3.5" />
                   Logout
@@ -87,7 +86,6 @@ function AppLayout() {
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/oauth-callback" element={<OAuthCallback />} />
         <Route path="/admin/*" element={<AdminDashboard />} />
-        <Route path="/documents" element={<DocumentList />} />
       </Routes>
     </>
   );
