@@ -25,26 +25,25 @@ export default function Pagination({ page, setPage, totalPages = 1 }) {
   };
 
   return (
-    <div className="mt-12 flex flex-col items-center gap-3 select-none animate-in fade-in duration-300">
-
+    <div className="flex flex-col items-center gap-2 select-none animate-in fade-in duration-300">
       {/* TEXT THÔNG TIN TRANG CHỮ IN HOA NHỎ GỌN */}
-      <p className="text-xs font-semibold tracking-wider text-gray-400 uppercase">
+      <p className="text-[10px] font-bold tracking-wider text-slate-450 dark:text-slate-500 uppercase">
         Page {page} of {totalPages}
       </p>
 
       {/* THANH ĐIỀU HƯỚNG LIỀN KHỐI (NỀN KÍNH MỜ) */}
-      <div className="flex items-center gap-1 bg-white/60 backdrop-blur-md p-1.5 rounded-2xl border border-gray-100 shadow-[0_8px_30px_rgba(0,0,0,0.02)]">
+      <div className="flex items-center gap-1 bg-white/60 dark:bg-[#0f111a]/45 backdrop-blur-md p-1.5 rounded-2xl border border-slate-100 dark:border-white/5 shadow-[0_8px_30px_rgba(0,0,0,0.02)] dark:shadow-none">
 
         {/* NÚT QUAY LẠI (PREV) */}
         <button
           onClick={() => setPage(page - 1)}
           disabled={page === 1}
           className="
-            px-4 h-10
+            px-4 h-9
             rounded-xl text-xs font-semibold
-            bg-transparent text-gray-600
-            hover:bg-gray-50 hover:text-gray-900
-            disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-gray-600
+            bg-transparent text-slate-650 dark:text-slate-400
+            hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-slate-100
+            disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-400
             disabled:cursor-not-allowed
             transition-all duration-200 active:scale-95
           "
@@ -58,22 +57,22 @@ export default function Pagination({ page, setPage, totalPages = 1 }) {
             p === "..." ? (
               <span
                 key={`ellipsis-${index}`}
-                className="w-8 h-10 flex items-center justify-center text-gray-400 font-bold text-xs"
+                className="w-8 h-9 flex items-center justify-center text-slate-400 dark:text-slate-500 font-bold text-xs"
               >
                 ...
               </span>
             ) : (
               <button
-                key={p}
+                key={`page-${index}`}
                 onClick={() => setPage(p)}
                 className={`
-                  w-10 h-10
+                  w-9 h-9
                   rounded-xl
                   text-xs font-bold
                   transition-all duration-300 active:scale-95
                   ${page === p
-                    ? "bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-md shadow-blue-500/20 scale-105"
-                    : "bg-transparent text-gray-500 hover:bg-gray-50 hover:text-gray-800"
+                    ? "bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 text-white shadow-md shadow-purple-500/15 scale-105 border-none"
+                    : "bg-transparent text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:text-slate-800 dark:hover:text-slate-200"
                   }
                 `}
               >
@@ -88,11 +87,11 @@ export default function Pagination({ page, setPage, totalPages = 1 }) {
           onClick={() => setPage(page + 1)}
           disabled={page === totalPages}
           className="
-            px-4 h-10
+            px-4 h-9
             rounded-xl text-xs font-semibold
-            bg-transparent text-gray-600
-            hover:bg-gray-50 hover:text-gray-900
-            disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-gray-600
+            bg-transparent text-slate-650 dark:text-slate-400
+            hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-slate-100
+            disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-400
             disabled:cursor-not-allowed
             transition-all duration-200 active:scale-95
           "

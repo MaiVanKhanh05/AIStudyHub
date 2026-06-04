@@ -3,30 +3,64 @@ import * as documentService from "../services/document.service.js";
 // GET /api/documents/dashboard
 export const getDashboard = async (req, res) => {
     try {
-        const userId = req.query.userId || req.userId;
+        const userId = req.userId;
         if (!userId) {
-            return res.status(400).json({ error: "userId là bắt buộc" });
+            return res.status(400).json({ error: "userId is required" });
         }
 
-        const data = await documentService.getDashboardData(Number(userId));
+        const data = await documentService.getDashboardData(userId);
         return res.json(data);
     } catch (error) {
         console.error("Error loading dashboard documents:", error);
-        return res.status(500).json({ error: "Không thể lấy dữ liệu dashboard" });
+        return res.status(500).json({ error: "Failed to load dashboard data" });
+    }
+};
+
+// GET /api/documents/community
+export const getCommunityDocs = async (req, res) => {
+    try {
+        const docs = await documentService.getCommunityDocs();
+        return res.json(docs);
+    } catch (error) {
+        console.error("Error loading community documents:", error);
+        return res.status(500).json({ error: "Failed to load community data" });
     }
 };
 
 // POST /api/documents/upload
 export const createNewDoc = async (req, res) => {
     try {
-        const doc = await documentService.uploadNewDocument(req.body);
+        const userId = req.userId || req.query.userId;
+        if (!userId) {
+            return res.status(401).json({ error: "Authentication required" });
+        }
+
+        const { title, description, file_url, file_name, file_type, file_size, subject, visibility, tags } = req.body;
+
+        if (!title || !file_url) {
+            return res.status(400).json({ error: "Title and file_url are required" });
+        }
+
+        const docData = {
+            user_id: userId,
+            subject_code: subject || null,
+            title,
+            description: description || null,
+            file_url,
+            file_size: file_size || 0,
+            file_type: file_type || "unknown",
+            visibility: visibility || "PRIVATE",
+            tags: tags || []
+        };
+
+        const doc = await documentService.uploadNewDocument(docData);
         return res.status(201).json({
-            message: "Tải lên tài liệu thành công",
+            message: "Document uploaded successfully",
             document: doc
         });
     } catch (error) {
         console.error("Error creating document:", error);
-        return res.status(500).json({ error: "Không thể tải lên tài liệu" });
+        return res.status(500).json({ error: "Failed to upload document" });
     }
 };
 
@@ -34,18 +68,75 @@ export const createNewDoc = async (req, res) => {
 export const deleteDoc = async (req, res) => {
     try {
         const { id } = req.params;
-        const userId = req.query.userId || req.userId;
+        const userId = req.userId;
         if (!id || !userId) {
-            return res.status(400).json({ error: "Thiếu thông tin tài liệu hoặc người dùng" });
+            return res.status(400).json({ error: "Missing document or user information" });
         }
-        const success = await documentService.deleteUserDocument(Number(id), Number(userId));
+        const success = await documentService.deleteUserDocument(Number(id), userId);
         if (success) {
-            return res.json({ message: "Xóa tài liệu thành công" });
+            return res.json({ message: "Document deleted successfully" });
         } else {
-            return res.status(404).json({ error: "Tài liệu không tồn tại hoặc bạn không có quyền xóa" });
+            return res.status(404).json({ error: "Document not found or you don't have permission to delete it" });
         }
     } catch (error) {
         console.error("Error deleting document in controller:", error);
-        return res.status(500).json({ error: "Không thể xóa tài liệu" });
+        return res.status(500).json({ error: "Failed to delete document" });
+    }
+};
+
+// PUT /api/documents/:id/view
+export const increaseView = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const updatedDoc = await documentService.incrementViewCount(id);
+        if (updatedDoc) {
+            res.json({ success: true, views: updatedDoc.views });
+        } else {
+            res.status(404).json({ error: "Document not found" });
+        }
+    } catch (error) {
+        console.error("Error in increaseView controller:", error);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+};
+
+// PUT /api/documents/:id/download
+export const increaseDownload = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const updatedDoc = await documentService.incrementDownloadCount(id);
+        if (updatedDoc) {
+            res.json({ success: true, downloads: updatedDoc.downloads });
+        } else {
+            res.status(404).json({ error: "Document not found" });
+        }
+    } catch (error) {
+        console.error("Error in increaseDownload controller:", error);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+};
+
+
+
+// PUT /api/documents/:id/share
+export const shareDoc = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const userId = req.userId;
+        const { description } = req.body;
+        
+        if (!id || !userId) {
+            return res.status(400).json({ error: "Missing document or user information" });
+        }
+        
+        const updatedDoc = await documentService.shareDocument(id, userId, description);
+        if (updatedDoc) {
+            return res.json({ message: "Document shared successfully", document: updatedDoc });
+        } else {
+            return res.status(404).json({ error: "Document not found or permission denied" });
+        }
+    } catch (error) {
+        console.error("Error sharing document:", error);
+        return res.status(500).json({ error: "Failed to share document" });
     }
 };
