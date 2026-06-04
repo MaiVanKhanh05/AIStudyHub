@@ -36,8 +36,16 @@ export const uploadFileToSupabase = async (file, bucket = "documents", userId = 
         }
         if (!file) throw new Error("No file provided");
 
-        // Keep original file name as requested
-        const fileName = file.name;
+        // Sanitize file name to avoid "Invalid key" errors with Supabase Storage
+        const sanitizeFileName = (name) => {
+            return name
+                .normalize("NFD")
+                .replace(/[\u0300-\u036f]/g, "") // Remove accents
+                .replace(/đ/g, "d").replace(/Đ/g, "D") // Handle Vietnamese 'đ'
+                .replace(/[^a-zA-Z0-9.-]/g, "_") // Replace spaces and special chars with underscore
+                .replace(/_+/g, "_"); // Remove consecutive underscores
+        };
+        const fileName = sanitizeFileName(file.name);
         const filePath = userId ? `${userId}/${fileName}` : fileName;
 
         const { data, error } = await supabase.storage

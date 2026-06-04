@@ -7,6 +7,9 @@ const router = Router();
 // GET /api/documents/dashboard
 router.get("/dashboard", authenticateToken, documentController.getDashboard);
 
+// GET /api/documents/community
+router.get("/community", authenticateToken, documentController.getCommunityDocs);
+
 // POST /api/documents/upload
 router.post("/upload", authenticateToken, documentController.createNewDoc);
 
@@ -18,5 +21,8 @@ router.put("/:id/view", documentController.increaseView);
 
 // PUT /api/documents/:id/download (PUT /documents/:id/download)
 router.put("/:id/download", documentController.increaseDownload);
+
+// PUT /api/documents/:id/share
+router.put("/:id/share", authenticateToken, documentController.shareDoc);
 
 export default router;

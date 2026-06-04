@@ -191,12 +191,12 @@ export default function DocumentList() {
         {/* Document List */}
         {!loading && (
           <>
-            {/* Lưới hiển thị 1 dòng 3 card */}
             <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
               {currentDocs.map((doc) => (
                 <DocumentCard
                   key={doc.id}
                   doc={doc}
+                  isPersonal={true}
                 />
               ))}
             </div>
