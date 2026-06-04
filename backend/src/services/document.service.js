@@ -1,10 +1,21 @@
 import * as documentRepository from "../repositories/document.repository.js";
+import * as tagRepository from "../repositories/tag.repository.js";
+import * as subjectRepository from "../repositories/subject.repository.js";
 
 // Retrieve dashboard aggregates: user documents and total storage consumption
 export const getDashboardData = async (userId) => {
     try {
-        let documents = await documentRepository.getUserDocuments(userId);
-        const storageUsage = await documentRepository.getStorageUsage(userId);
+        let documents = [];
+        let storageUsage = 0;
+
+        try {
+            documents = await documentRepository.getUserDocuments(userId);
+            storageUsage = await documentRepository.getStorageUsage(userId);
+        } catch (dbError) {
+            console.error("Database query error, using fallback mock documents:", dbError);
+            // Fallback to empty documents if database fails
+            documents = [];
+        }
 
         // Fallback mock documents to keep the workspace visually complete if the DB is empty
         if (documents.length === 0) {
@@ -54,10 +65,69 @@ export const getDashboardData = async (userId) => {
     }
 };
 
+// Retrieve all public community documents
+export const getCommunityDocs = async () => {
+    try {
+        return await documentRepository.getCommunityDocuments();
+    } catch (error) {
+        throw error;
+    }
+};
+
+export const shareDocument = async (documentId, userId, description) => {
+    try {
+        return await documentRepository.updateDocumentVisibility(documentId, userId, 'PUBLIC', description);
+    } catch (error) {
+        throw error;
+    }
+};
+
 // Create new document file entry
 export const uploadNewDocument = async (docData) => {
     try {
-        const newDoc = await documentRepository.createDocument(docData);
+        const { tags, ...restDocData } = docData;
+
+        // Auto-resolve or create subject_code if provided to avoid foreign key violations
+        const subjectCode = restDocData.subject_code || restDocData.subject;
+        if (subjectCode) {
+            const resolvedSubject = await subjectRepository.getOrCreateSubject(subjectCode);
+            if (resolvedSubject) {
+                restDocData.subject_code = resolvedSubject.subject_code;
+            } else {
+                restDocData.subject_code = null;
+            }
+        } else {
+            restDocData.subject_code = null;
+        }
+        if (restDocData.subject !== undefined) {
+            delete restDocData.subject;
+        }
+
+        // Auto-rename if title already exists in the system
+        restDocData.title = await documentRepository.getUniqueTitle(restDocData.title);
+
+        const newDoc = await documentRepository.createDocument(restDocData);
+
+        if (newDoc) {
+            const tagList = tags && Array.isArray(tags) ? tags : [];
+            const resolvedTags = [];
+            const tagIds = [];
+
+            for (const tagName of tagList) {
+                const tagObj = await tagRepository.getOrCreateTag(tagName);
+                if (tagObj) {
+                    tagIds.push(tagObj.tag_id);
+                    resolvedTags.push(tagObj);
+                }
+            }
+
+            if (tagIds.length > 0) {
+                await tagRepository.associateTagsWithDocument(newDoc.document_id, tagIds);
+            }
+
+            newDoc.tags = resolvedTags;
+        }
+
         return newDoc;
     } catch (error) {
         throw error;
