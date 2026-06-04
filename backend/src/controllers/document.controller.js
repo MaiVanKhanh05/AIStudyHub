@@ -140,3 +140,25 @@ export const shareDoc = async (req, res) => {
         return res.status(500).json({ error: "Failed to share document" });
     }
 };
+
+// GET /api/documents/:id
+export const getDocById = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const userId = req.userId; // from optionalAuthenticateToken
+        
+        const doc = await documentService.getDocumentById(id);
+        if (!doc) {
+            return res.status(404).json({ error: "Document not found" });
+        }
+        
+        if (doc.visibility === "PRIVATE" && doc.user_id !== userId) {
+            return res.status(403).json({ error: "Access denied. This document is private." });
+        }
+        
+        return res.json({ document: doc });
+    } catch (error) {
+        console.error("Error fetching document by ID:", error);
+        return res.status(500).json({ error: "Failed to fetch document" });
+    }
+};

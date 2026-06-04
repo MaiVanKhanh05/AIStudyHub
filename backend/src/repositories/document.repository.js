@@ -177,3 +177,27 @@ export const updateDocumentVisibility = async (documentId, userId, visibility, d
         throw error;
     }
 };
+
+export const getDocumentById = async (documentId) => {
+    try {
+        const { rows } = await pool.query(
+            `SELECT d.*, (u.last_name || ' ' || u.first_name) as author, s.subject_name,
+                    COALESCE(
+                        (SELECT json_agg(json_build_object('tag_id', t.tag_id, 'tag_name', t.tag_name))
+                         FROM tags t
+                         JOIN document_tags dt ON t.tag_id = dt.tag_id
+                         WHERE dt.document_id = d.document_id),
+                        '[]'::json
+                    ) as tags
+             FROM document d
+             JOIN users u ON d.user_id = u.user_id
+             LEFT JOIN subject s ON d.subject_code = s.subject_code
+             WHERE d.document_id = $1`,
+            [documentId]
+        );
+        return rows[0] ? new Document(rows[0]) : null;
+    } catch (error) {
+        console.error("Error fetching document by ID:", error);
+        throw error;
+    }
+};
