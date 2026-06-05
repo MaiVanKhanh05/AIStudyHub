@@ -110,8 +110,10 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
   }, [open]);
 
   const increaseView = async () => {
+    const docId = doc?.document_id || doc?.id;
+    if (!docId) return;
     try {
-      await fetch(`http://localhost:5000/documents/${doc.id}/view`, {
+      await fetch(`http://localhost:5000/documents/${docId}/view`, {
         method: "PUT",
       });
     } catch { }
@@ -126,8 +128,10 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
   };
 
   const increaseDownload = async () => {
+    const docId = doc?.document_id || doc?.id;
+    if (!docId) return;
     try {
-      await fetch(`http://localhost:5000/documents/${doc.id}/download`, {
+      await fetch(`http://localhost:5000/documents/${docId}/download`, {
         method: "PUT",
       });
     } catch { }
@@ -168,12 +172,14 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
 
   const handleEdit = (e) => {
     e.stopPropagation();
-    alert("Edit " + doc.id);
+    const docId = doc?.document_id || doc?.id;
+    alert("Edit " + docId);
   };
 
   const handleDelete = (e) => {
     e.stopPropagation();
-    alert("Delete " + doc.id);
+    const docId = doc?.document_id || doc?.id;
+    alert("Delete " + docId);
   };
 
   return (

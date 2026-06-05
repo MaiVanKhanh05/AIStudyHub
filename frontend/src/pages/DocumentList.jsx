@@ -167,7 +167,18 @@ export default function DocumentList() {
         <SearchBar
           search={search}
           setSearch={setSearch}
+          userId={(() => {
+            try {
+              const u = JSON.parse(localStorage.getItem("user") || sessionStorage.getItem("user") || "null");
+              return u?.user_id || null;
+            } catch { return null; }
+          })()}
+          onSearch={(keyword) => {
+            setSearch(keyword);
+            setPage(1);
+          }}
         />
+
 
         {/* Stats */}
         {/* ⚡ CỐT LÕI: Thêm div bọc cố định chiều cao h-14 để giữ khoảng cách luôn giãn ra hoàn hảo như Ảnh 1 */}
