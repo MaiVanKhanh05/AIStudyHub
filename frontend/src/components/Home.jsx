@@ -146,6 +146,26 @@ export default function Home() {
     }
   };
 
+
+  const fetchCommunityDocs = async () => {
+    setCommunityLoading(true);
+    try {
+      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+      const res = await fetch("http://localhost:5000/api/documents/community", {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setCommunityDocs(data);
+      }
+    } catch (err) {
+      console.error("Error fetching community documents:", err);
+    } finally {
+      setCommunityLoading(false);
+    }
+  };
+
+
   useEffect(() => {
     if (activeTab === "Community") {
       fetchCommunityDocs();
@@ -1136,30 +1156,60 @@ export default function Home() {
                             sub.subject_code.toLowerCase().includes(subjectSearchInput.toLowerCase()) ||
                             sub.subject_name.toLowerCase().includes(subjectSearchInput.toLowerCase())
                           ).length === 0 ? (
-                            <span className="text-[10px] text-slate-400 font-bold italic text-center py-2">Không tìm thấy học phần</span>
-                          ) : (
-                            subjectsList
-                              .filter(sub =>
-                                sub.subject_code.toLowerCase().includes(subjectSearchInput.toLowerCase()) ||
-                                sub.subject_name.toLowerCase().includes(subjectSearchInput.toLowerCase())
-                              )
-                              .map(sub => (
+                            <div className="flex flex-col gap-1 p-1">
+                              <span className="text-[10px] text-slate-400 font-bold italic text-center py-1">Không tìm thấy học phần</span>
+                              {subjectSearchInput.trim() && (
                                 <button
-                                  key={sub.subject_code}
                                   type="button"
                                   onClick={() => {
-                                    setUploadSubject(sub.subject_code);
+                                    setUploadSubject(subjectSearchInput.trim().toUpperCase());
                                     setSubjectSearchInput("");
                                     setShowSubjectDropdown(false);
                                   }}
-                                  className={`w-full text-left px-2.5 py-2 text-[11px] font-bold rounded-lg transition-colors flex items-center justify-between ${uploadSubject === sub.subject_code
-                                    ? "bg-purple-600/10 text-purple-600 dark:text-purple-400"
-                                    : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
-                                    }`}
+                                  className="w-full text-left px-2.5 py-2 text-[11px] font-bold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/30 rounded-lg transition-colors flex items-center justify-between border border-purple-500/20"
                                 >
-                                  <span className="truncate">{sub.subject_code} ({sub.subject_name})</span>
+                                  <span>+ Thêm mã môn mới: "{subjectSearchInput.trim().toUpperCase()}"</span>
                                 </button>
-                              ))
+                              )}
+                            </div>
+                          ) : (
+                            <>
+                              {subjectSearchInput.trim() && !subjectsList.some(sub => sub.subject_code.toLowerCase() === subjectSearchInput.trim().toLowerCase()) && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setUploadSubject(subjectSearchInput.trim().toUpperCase());
+                                    setSubjectSearchInput("");
+                                    setShowSubjectDropdown(false);
+                                  }}
+                                  className="w-full text-left px-2.5 py-2 mb-1 text-[11px] font-bold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/30 rounded-lg transition-colors flex items-center justify-between border border-purple-500/20"
+                                >
+                                  <span>+ Thêm mã môn mới: "{subjectSearchInput.trim().toUpperCase()}"</span>
+                                </button>
+                              )}
+                              {subjectsList
+                                .filter(sub =>
+                                  sub.subject_code.toLowerCase().includes(subjectSearchInput.toLowerCase()) ||
+                                  sub.subject_name.toLowerCase().includes(subjectSearchInput.toLowerCase())
+                                )
+                                .map(sub => (
+                                  <button
+                                    key={sub.subject_code}
+                                    type="button"
+                                    onClick={() => {
+                                      setUploadSubject(sub.subject_code);
+                                      setSubjectSearchInput("");
+                                      setShowSubjectDropdown(false);
+                                    }}
+                                    className={`w-full text-left px-2.5 py-2 text-[11px] font-bold rounded-lg transition-colors flex items-center justify-between ${uploadSubject === sub.subject_code
+                                      ? "bg-purple-600/10 text-purple-600 dark:text-purple-400"
+                                      : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                                      }`}
+                                  >
+                                    <span className="truncate">{sub.subject_code} ({sub.subject_name})</span>
+                                  </button>
+                                ))}
+                            </>
                           )}
                         </div>
                       </div>
