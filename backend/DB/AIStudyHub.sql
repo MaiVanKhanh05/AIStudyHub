@@ -58,7 +58,7 @@ CREATE TABLE subject (
 CREATE TABLE document (
     document_id SERIAL PRIMARY KEY,
     user_id VARCHAR(50) NOT NULL, -- Đồng bộ kiểu dữ liệu
-    subject_code VARCHAR(20) NOT NULL,
+    subject_code VARCHAR(20),
     title VARCHAR(255) NOT NULL,
     description TEXT,
     file_url VARCHAR(500) NOT NULL,

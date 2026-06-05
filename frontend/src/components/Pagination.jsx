@@ -63,7 +63,7 @@ export default function Pagination({ page, setPage, totalPages = 1 }) {
               </span>
             ) : (
               <button
-                key={p}
+                key={`page-${index}`}
                 onClick={() => setPage(p)}
                 className={`
                   w-9 h-9
