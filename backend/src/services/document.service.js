@@ -160,3 +160,11 @@ export const incrementDownloadCount = async (id) => {
         throw error;
     }
 };
+
+export const getDocumentById = async (id) => {
+    try {
+        return await documentRepository.getDocumentById(id);
+    } catch (error) {
+        throw error;
+    }
+};

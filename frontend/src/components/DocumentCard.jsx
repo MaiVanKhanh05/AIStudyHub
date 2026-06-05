@@ -17,8 +17,12 @@ import {
   Sparkles,
   Clock,
   User,
-  BookOpen
+  BookOpen,
+  Trash2,
+  Pin,
+  Link2
 } from "lucide-react";
+import { toast } from "sonner";
 import DocumentPreviewModal from "./DocumentPreviewModal";
 import { getSimulatedContent } from "../utils/documentUtils";
 
@@ -57,7 +61,7 @@ function getFileType(url = "") {
   return "other";
 }
 
-export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, onShare }) {
+export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, onShare, isMyShared }) {
   const [open, setOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [bookmarked, setBookmarked] = useState(false);
@@ -166,20 +170,20 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
 
   const handleCopy = (e) => {
     e.stopPropagation();
-    navigator.clipboard.writeText(doc.file_url);
-    alert("Copied link!");
+    const docId = doc.document_id || doc.id;
+    const previewUrl = docId ? `${window.location.origin}/preview/${docId}` : (doc.file_url || "https://aistudyhub.com");
+    navigator.clipboard.writeText(previewUrl);
+    toast.success("Đã sao chép liên kết xem trước vào clipboard!");
   };
 
   const handleEdit = (e) => {
     e.stopPropagation();
-    const docId = doc?.document_id || doc?.id;
-    alert("Edit " + docId);
+    toast.info("Tính năng sửa tài liệu đang được cập nhật");
   };
 
   const handleDelete = (e) => {
     e.stopPropagation();
-    const docId = doc?.document_id || doc?.id;
-    alert("Delete " + docId);
+    toast.info("Tính năng xóa tài liệu đang được cập nhật");
   };
 
   return (
@@ -253,9 +257,9 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
                     <>
                       <button
                         onClick={(e) => { setMenuOpen(false); handleDownload(e); }}
-                        className="menu-item font-medium text-slate-700 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-slate-800/60"
+                        className="menu-item font-medium text-slate-700 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-slate-800/60 flex items-center"
                       >
-                        ⬇️ Tải xuống
+                        <Download className="w-4 h-4 mr-2" /> Tải xuống
                       </button>
                       <button
                         onClick={(e) => {
@@ -267,16 +271,16 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
                             handleCopy(e);
                           }
                         }}
-                        className="menu-item font-medium text-slate-700 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-slate-800/60"
+                        className="menu-item font-medium text-slate-700 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-slate-800/60 flex items-center"
                       >
-                        🔗 Chia sẻ
+                        <Share2 className="w-4 h-4 mr-2" /> Chia sẻ
                       </button>
-                      <div className="h-px bg-slate-100 dark:bg-slate-800/60" />
+                      <div className="h-px bg-slate-100 dark:bg-slate-800/60 my-1" />
                       <button
                         onClick={(e) => { setMenuOpen(false); handleDelete(e); }}
-                        className="menu-item danger font-medium hover:bg-red-50 dark:hover:bg-red-950/20"
+                        className="menu-item danger font-medium hover:bg-red-50 dark:hover:bg-red-950/20 flex items-center text-red-600"
                       >
-                        🗑 Gỡ bỏ
+                        <Trash2 className="w-4 h-4 mr-2" /> Gỡ bỏ
                       </button>
                     </>
                   ) : (
@@ -284,36 +288,34 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
                       {onTogglePin && (
                         <button
                           onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onTogglePin(); }}
-                          className="menu-item font-medium text-slate-700 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-slate-800/60"
+                          className="menu-item font-medium text-slate-700 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-slate-800/60 flex items-center"
                         >
-                          📌 Ghim lên đầu
+                          <Pin className="w-4 h-4 mr-2" /> {isPinned ? "Bỏ ghim" : "Ghim lên đầu"}
                         </button>
                       )}
                       <button
-                        onClick={(e) => { setMenuOpen(false); handleEdit(e); }}
-                        className="menu-item font-medium text-slate-700 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-slate-800/60"
-                      >
-                        ✏️ Sửa bài
-                      </button>
-                      <button
                         onClick={(e) => { setMenuOpen(false); handleCopy(e); }}
-                        className="menu-item font-medium text-slate-700 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-slate-800/60"
+                        className="menu-item font-medium text-slate-700 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-slate-800/60 flex items-center"
                       >
-                        🔗 Sao chép link
+                        <Link2 className="w-4 h-4 mr-2" /> Sao chép link
                       </button>
                       <button
                         onClick={(e) => { setMenuOpen(false); handleDownload(e); }}
-                        className="menu-item font-medium text-slate-700 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-slate-800/60"
+                        className="menu-item font-medium text-slate-700 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-slate-800/60 flex items-center"
                       >
-                        ⬇️ Tải xuống file
+                        <Download className="w-4 h-4 mr-2" /> Tải xuống file
                       </button>
-                      <div className="h-px bg-slate-100 dark:bg-slate-800/60" />
-                      <button
-                        onClick={(e) => { setMenuOpen(false); handleDelete(e); }}
-                        className="menu-item danger font-medium hover:bg-red-50 dark:hover:bg-red-950/20"
-                      >
-                        🗑 Xóa file
-                      </button>
+                      {isMyShared && (
+                        <>
+                          <div className="h-px bg-slate-100 dark:bg-slate-800/60 my-1" />
+                          <button
+                            onClick={(e) => { setMenuOpen(false); handleDelete(e); }}
+                            className="menu-item danger font-medium hover:bg-red-50 dark:hover:bg-red-950/20 flex items-center text-red-600"
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" /> Xóa file
+                          </button>
+                        </>
+                      )}
                     </>
                   )}
                 </div>
@@ -337,7 +339,7 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
 
             {/* Ngày cập nhật */}
             <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500">
-              Updated: {doc?.upload_date || "2026-05-30"}
+              Updated: {doc?.upload_date ? new Date(doc.upload_date).toLocaleDateString("vi-VN") : "N/A"}
             </p>
           </div>
 
@@ -610,7 +612,9 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        navigator.clipboard.writeText(doc.file_url);
+                        const docId = doc.document_id || doc.id;
+                        const previewUrl = docId ? `${window.location.origin}/preview/${docId}` : (doc.file_url || "https://aistudyhub.com");
+                        navigator.clipboard.writeText(previewUrl);
                         setCopied(true);
                         setTimeout(() => setCopied(false), 2000);
                       }}
