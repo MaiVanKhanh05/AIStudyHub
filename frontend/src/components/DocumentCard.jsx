@@ -17,8 +17,12 @@ import {
   Sparkles,
   Clock,
   User,
-  BookOpen
+  BookOpen,
+  Trash2,
+  Pin,
+  Link2
 } from "lucide-react";
+import { toast } from "sonner";
 import DocumentPreviewModal from "./DocumentPreviewModal";
 import { getSimulatedContent } from "../utils/documentUtils";
 
@@ -64,11 +68,6 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
   const [hasViewed, setHasViewed] = useState(false);
   const [copied, setCopied] = useState(false);
   const [previewDoc, setPreviewDoc] = useState(null);
-
-  // States for Edit Document feature
-  const [isEditingModalOpen, setIsEditingModalOpen] = useState(false);
-  const [editTitle, setEditTitle] = useState(doc?.title || doc?.document_name || "");
-  const [isSaving, setIsSaving] = useState(false);
 
   // State quản lý số lượt xem và lượt tải cục bộ dựa trên dữ liệu thật
   const [viewCount, setViewCount] = useState(doc?.views || 0);
@@ -167,8 +166,10 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
 
   const handleCopy = (e) => {
     e.stopPropagation();
-    navigator.clipboard.writeText(doc.file_url);
-    alert("Copied link!");
+    const docId = doc.document_id || doc.id;
+    const previewUrl = docId ? `${window.location.origin}/preview/${docId}` : (doc.file_url || "https://aistudyhub.com");
+    navigator.clipboard.writeText(previewUrl);
+    toast.success("Đã sao chép liên kết xem trước vào clipboard!");
   };
 
   const handleEdit = (e) => {
@@ -178,7 +179,7 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
 
   const handleDelete = (e) => {
     e.stopPropagation();
-    alert("Delete " + doc.id);
+    toast.info("Tính năng xóa tài liệu đang được cập nhật");
   };
 
   return (
@@ -252,9 +253,9 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
                     <>
                       <button
                         onClick={(e) => { setMenuOpen(false); handleDownload(e); }}
-                        className="menu-item font-medium text-slate-700 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-slate-800/60"
+                        className="menu-item font-medium text-slate-700 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-slate-800/60 flex items-center"
                       >
-                        ⬇️ Tải xuống
+                        <Download className="w-4 h-4 mr-2" /> Tải xuống
                       </button>
                       <button
                         onClick={(e) => {
@@ -266,16 +267,16 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
                             handleCopy(e);
                           }
                         }}
-                        className="menu-item font-medium text-slate-700 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-slate-800/60"
+                        className="menu-item font-medium text-slate-700 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-slate-800/60 flex items-center"
                       >
-                        🔗 Chia sẻ
+                        <Share2 className="w-4 h-4 mr-2" /> Chia sẻ
                       </button>
                       <div className="h-px bg-slate-100 dark:bg-slate-800/60 my-1" />
                       <button
                         onClick={(e) => { setMenuOpen(false); handleDelete(e); }}
-                        className="menu-item danger font-medium hover:bg-red-50 dark:hover:bg-red-950/20"
+                        className="menu-item danger font-medium hover:bg-red-50 dark:hover:bg-red-950/20 flex items-center text-red-600"
                       >
-                        🗑 Gỡ bỏ
+                        <Trash2 className="w-4 h-4 mr-2" /> Gỡ bỏ
                       </button>
                     </>
                   ) : (
@@ -283,28 +284,22 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
                       {onTogglePin && (
                         <button
                           onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onTogglePin(); }}
-                          className="menu-item font-medium text-slate-700 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-slate-800/60"
+                          className="menu-item font-medium text-slate-700 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-slate-800/60 flex items-center"
                         >
-                          📌 Ghim lên đầu
+                          <Pin className="w-4 h-4 mr-2" /> {isPinned ? "Bỏ ghim" : "Ghim lên đầu"}
                         </button>
                       )}
                       <button
-                        onClick={(e) => { setMenuOpen(false); handleEdit(e); }}
-                        className="menu-item font-medium text-slate-700 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-slate-800/60"
-                      >
-                        ✏️ Sửa bài
-                      </button>
-                      <button
                         onClick={(e) => { setMenuOpen(false); handleCopy(e); }}
-                        className="menu-item font-medium text-slate-700 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-slate-800/60"
+                        className="menu-item font-medium text-slate-700 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-slate-800/60 flex items-center"
                       >
-                        🔗 Sao chép link
+                        <Link2 className="w-4 h-4 mr-2" /> Sao chép link
                       </button>
                       <button
                         onClick={(e) => { setMenuOpen(false); handleDownload(e); }}
-                        className="menu-item font-medium text-slate-700 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-slate-800/60"
+                        className="menu-item font-medium text-slate-700 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-slate-800/60 flex items-center"
                       >
-                        ⬇️ Tải xuống file
+                        <Download className="w-4 h-4 mr-2" /> Tải xuống file
                       </button>
                       {isMyShared && (
                         <>
@@ -340,7 +335,7 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
 
             {/* Ngày cập nhật */}
             <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500">
-              Updated: {doc?.upload_date || "2026-05-30"}
+              Updated: {doc?.upload_date ? new Date(doc.upload_date).toLocaleDateString("vi-VN") : "N/A"}
             </p>
           </div>
 
@@ -613,7 +608,9 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        navigator.clipboard.writeText(doc.file_url);
+                        const docId = doc.document_id || doc.id;
+                        const previewUrl = docId ? `${window.location.origin}/preview/${docId}` : (doc.file_url || "https://aistudyhub.com");
+                        navigator.clipboard.writeText(previewUrl);
                         setCopied(true);
                         setTimeout(() => setCopied(false), 2000);
                       }}
@@ -691,67 +688,6 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
           onClose={() => setPreviewDoc(null)}
         />
       )}
-
-      {/* EDIT MODAL */}
-      <EditModalComponent
-        isEditingModalOpen={isEditingModalOpen}
-        setIsEditingModalOpen={setIsEditingModalOpen}
-        editTitle={editTitle}
-        setEditTitle={setEditTitle}
-        handleSaveEdit={handleSaveEdit}
-        isSaving={isSaving}
-      />
     </>
-  );
-}
-{/* EDIT MODAL */ }
-export function EditModalComponent({ isEditingModalOpen, setIsEditingModalOpen, editTitle, setEditTitle, handleSaveEdit, isSaving }) {
-  if (!isEditingModalOpen) return null;
-  return (
-    <div
-      className="fixed inset-0 bg-slate-950/45 backdrop-blur-md flex items-center justify-center p-4 z-[60] animate-in fade-in duration-200"
-      onClick={() => setIsEditingModalOpen(false)}
-    >
-      <div
-        className="bg-white dark:bg-slate-900 w-full max-w-md rounded-2xl p-6 shadow-xl border border-slate-200 dark:border-slate-800 relative animate-in zoom-in-95 duration-200"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4">Chỉnh sửa tài liệu</h3>
-
-        <form onSubmit={handleSaveEdit} className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wide">
-              Tên tài liệu
-            </label>
-            <input
-              type="text"
-              value={editTitle}
-              onChange={(e) => setEditTitle(e.target.value)}
-              placeholder="Nhập tên tài liệu..."
-              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-              autoFocus
-            />
-          </div>
-
-          <div className="flex gap-3 justify-end mt-2">
-            <button
-              type="button"
-              onClick={() => setIsEditingModalOpen(false)}
-              className="px-4 py-2 text-sm font-bold text-slate-600 dark:text-slate-400 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-lg transition-colors cursor-pointer"
-              disabled={isSaving}
-            >
-              Hủy
-            </button>
-            <button
-              type="submit"
-              disabled={isSaving}
-              className="px-4 py-2 text-sm font-bold text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors cursor-pointer flex items-center justify-center min-w-[100px]"
-            >
-              {isSaving ? "Đang lưu..." : "Save Changes"}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
   );
 }
