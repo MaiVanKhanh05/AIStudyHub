@@ -104,30 +104,29 @@ export default function Home() {
   const [communityDocs, setCommunityDocs] = useState([]);
   const [communityLoading, setCommunityLoading] = useState(false);
 
+
+  const fetchCommunityDocs = async () => {
+    setCommunityLoading(true);
+    try {
+      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+      const res = await fetch("http://localhost:5000/api/documents/community", {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setCommunityDocs(data);
+      }
+    } catch (err) {
+      console.error("Error fetching community documents:", err);
+    } finally {
+      setCommunityLoading(false);
+    }
+  };
+
+
   useEffect(() => {
     if (activeTab === "Community") {
-      setCommunityLoading(true);
-      setTimeout(() => {
-        const mockData = [
-          { id: 1, title: "AI Basics", author: "An Nguyen", subject: "AI", file_type: "PDF", upload_date: "2026-05-30", downloads: 24, views: 105, isPinned: false },
-          { id: 2, title: "Database Design", author: "Binh Tran", subject: "DBMS", file_type: "DOCX", upload_date: "2026-05-29", downloads: 12, views: 48, isPinned: false },
-          { id: 3, title: "Machine Learning", author: "Nam Le", subject: "AI", file_type: "PDF", upload_date: "2026-05-28", downloads: 35, views: 189, isPinned: false },
-          { id: 4, title: "Networking", author: "Hoa Tran", subject: "CCNA", file_type: "PDF", upload_date: "2026-05-27", downloads: 8, views: 32, isPinned: false },
-          { id: 5, title: "Java OOP", author: "Minh Nguyen", subject: "Programming", file_type: "DOCX", upload_date: "2026-05-26", downloads: 19, views: 76, isPinned: false },
-        ];
-
-        const extendedData = [];
-        for (let i = 0; i < 35; i++) {
-          const originalDoc = mockData[i % mockData.length];
-          extendedData.push({
-            ...originalDoc,
-            id: i + 1,
-            title: `${originalDoc.title} (Vol ${Math.floor(i / mockData.length) + 1})`
-          });
-        }
-        setCommunityDocs(extendedData);
-        setCommunityLoading(false);
-      }, 500);
+      fetchCommunityDocs();
     }
   }, [activeTab]);
 
@@ -1091,30 +1090,60 @@ export default function Home() {
                             sub.subject_code.toLowerCase().includes(subjectSearchInput.toLowerCase()) ||
                             sub.subject_name.toLowerCase().includes(subjectSearchInput.toLowerCase())
                           ).length === 0 ? (
-                            <span className="text-[10px] text-slate-400 font-bold italic text-center py-2">Không tìm thấy học phần</span>
-                          ) : (
-                            subjectsList
-                              .filter(sub =>
-                                sub.subject_code.toLowerCase().includes(subjectSearchInput.toLowerCase()) ||
-                                sub.subject_name.toLowerCase().includes(subjectSearchInput.toLowerCase())
-                              )
-                              .map(sub => (
+                            <div className="flex flex-col gap-1 p-1">
+                              <span className="text-[10px] text-slate-400 font-bold italic text-center py-1">Không tìm thấy học phần</span>
+                              {subjectSearchInput.trim() && (
                                 <button
-                                  key={sub.subject_code}
                                   type="button"
                                   onClick={() => {
-                                    setUploadSubject(sub.subject_code);
+                                    setUploadSubject(subjectSearchInput.trim().toUpperCase());
                                     setSubjectSearchInput("");
                                     setShowSubjectDropdown(false);
                                   }}
-                                  className={`w-full text-left px-2.5 py-2 text-[11px] font-bold rounded-lg transition-colors flex items-center justify-between ${uploadSubject === sub.subject_code
-                                    ? "bg-purple-600/10 text-purple-600 dark:text-purple-400"
-                                    : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
-                                    }`}
+                                  className="w-full text-left px-2.5 py-2 text-[11px] font-bold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/30 rounded-lg transition-colors flex items-center justify-between border border-purple-500/20"
                                 >
-                                  <span className="truncate">{sub.subject_code} ({sub.subject_name})</span>
+                                  <span>+ Thêm mã môn mới: "{subjectSearchInput.trim().toUpperCase()}"</span>
                                 </button>
-                              ))
+                              )}
+                            </div>
+                          ) : (
+                            <>
+                              {subjectSearchInput.trim() && !subjectsList.some(sub => sub.subject_code.toLowerCase() === subjectSearchInput.trim().toLowerCase()) && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setUploadSubject(subjectSearchInput.trim().toUpperCase());
+                                    setSubjectSearchInput("");
+                                    setShowSubjectDropdown(false);
+                                  }}
+                                  className="w-full text-left px-2.5 py-2 mb-1 text-[11px] font-bold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/30 rounded-lg transition-colors flex items-center justify-between border border-purple-500/20"
+                                >
+                                  <span>+ Thêm mã môn mới: "{subjectSearchInput.trim().toUpperCase()}"</span>
+                                </button>
+                              )}
+                              {subjectsList
+                                .filter(sub =>
+                                  sub.subject_code.toLowerCase().includes(subjectSearchInput.toLowerCase()) ||
+                                  sub.subject_name.toLowerCase().includes(subjectSearchInput.toLowerCase())
+                                )
+                                .map(sub => (
+                                  <button
+                                    key={sub.subject_code}
+                                    type="button"
+                                    onClick={() => {
+                                      setUploadSubject(sub.subject_code);
+                                      setSubjectSearchInput("");
+                                      setShowSubjectDropdown(false);
+                                    }}
+                                    className={`w-full text-left px-2.5 py-2 text-[11px] font-bold rounded-lg transition-colors flex items-center justify-between ${uploadSubject === sub.subject_code
+                                      ? "bg-purple-600/10 text-purple-600 dark:text-purple-400"
+                                      : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                                      }`}
+                                  >
+                                    <span className="truncate">{sub.subject_code} ({sub.subject_name})</span>
+                                  </button>
+                                ))}
+                            </>
                           )}
                         </div>
                       </div>
