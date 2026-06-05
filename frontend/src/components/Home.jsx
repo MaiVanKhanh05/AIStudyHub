@@ -198,7 +198,7 @@ export default function Home() {
   const handleToggleCommunityPin = (id) => {
     setCommunityDocs((prevDocs) =>
       prevDocs.map((doc) =>
-        doc.id === id ? { ...doc, isPinned: !doc.isPinned } : doc
+        (doc.document_id || doc.id) === id ? { ...doc, isPinned: !doc.isPinned } : doc
       )
     );
   };
@@ -1775,89 +1775,15 @@ export default function Home() {
               <SearchBar
                 search={communitySearch}
                 setSearch={setCommunitySearch}
+                userId={user?.user_id || null}
+                onSearch={(keyword) => {
+                  setCommunitySearch(keyword);
+                  setCommunityPage(1);
+                }}
+                placeholder="Tìm kiếm tài liệu cộng đồng, môn học, tác giả..."
                 className="max-w-2xl mx-auto"
-                onEnter={handleCommunitySearch}
               />
             </div>
-
-            {/* ── SEARCH HISTORY SECTION ── */}
-            {communitySearchHistory.length > 0 && (
-              <div className="w-full max-w-2xl mx-auto animate-in fade-in slide-in-from-top-1 duration-200">
-                {/* Header row */}
-                <div className="flex items-center justify-between mb-2.5 px-0.5">
-                  <div className="flex items-center gap-1.5">
-                    <Clock className="w-3 h-3 text-slate-400 dark:text-slate-500" />
-                    <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
-                      Lịch sử tìm kiếm
-                    </span>
-                    <span className="text-[9px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 px-1.5 py-0.5 rounded-full">
-                      {communitySearchHistory.length}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {/* View All / Collapse toggle */}
-                    {communitySearchHistory.length > 10 && (
-                      <button
-                        onClick={() => setShowAllHistory((v) => !v)}
-                        className="text-[10px] font-bold text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300 hover:underline underline-offset-2 transition-colors cursor-pointer"
-                      >
-                        {showAllHistory
-                          ? "Thu gọn"
-                          : `Xem tất cả (${communitySearchHistory.length})`}
-                      </button>
-                    )}
-                    {/* Clear all */}
-                    <button
-                      onClick={() => { clearCommunitySearchHistory(); setShowAllHistory(false); }}
-                      className="flex items-center gap-1 text-[10px] font-bold text-slate-400 hover:text-red-500 dark:hover:text-red-400 transition-colors px-2 py-1 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/20 cursor-pointer"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                      Xóa tất cả
-                    </button>
-                  </div>
-                </div>
-
-                {/* Chips list */}
-                <div className="flex flex-wrap gap-2">
-                  {(showAllHistory
-                    ? communitySearchHistory
-                    : communitySearchHistory.slice(0, 10)
-                  ).map((keyword, idx) => (
-                    <div
-                      key={`${keyword}-${idx}`}
-                      className="group/chip flex items-center gap-1.5 pl-3 pr-1.5 py-1.5 rounded-full border border-slate-200/70 dark:border-white/8 bg-white/70 dark:bg-[#0f111a]/60 backdrop-blur-sm hover:border-purple-400/50 dark:hover:border-purple-500/40 hover:bg-purple-50/60 dark:hover:bg-purple-900/15 transition-all duration-200 cursor-pointer shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
-                    >
-                      {/* Keyword button */}
-                      <button
-                        onClick={() => { handleCommunitySearch(keyword); }}
-                        className="text-[11px] font-semibold text-slate-600 dark:text-slate-300 group-hover/chip:text-purple-700 dark:group-hover/chip:text-purple-300 transition-colors whitespace-nowrap cursor-pointer"
-                      >
-                        {keyword}
-                      </button>
-                      {/* Remove single item */}
-                      <button
-                        onClick={(e) => { e.stopPropagation(); removeCommunitySearchHistory(keyword); }}
-                        className="w-4 h-4 flex items-center justify-center rounded-full text-slate-350 dark:text-slate-600 hover:bg-red-100 dark:hover:bg-red-950/30 hover:text-red-500 dark:hover:text-red-400 transition-all opacity-60 group-hover/chip:opacity-100 cursor-pointer"
-                        title="Xóa mục này"
-                      >
-                        <X className="w-2.5 h-2.5" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-
-                {/* "View All" expand button — shown below chips when collapsed & total > 10 */}
-                {!showAllHistory && communitySearchHistory.length > 10 && (
-                  <button
-                    onClick={() => setShowAllHistory(true)}
-                    className="mt-2.5 w-full flex items-center justify-center gap-1.5 py-2 rounded-xl border border-dashed border-slate-200 dark:border-white/8 text-[10px] font-bold text-slate-400 dark:text-slate-500 hover:text-purple-600 dark:hover:text-purple-400 hover:border-purple-400/40 hover:bg-purple-50/40 dark:hover:bg-purple-900/10 transition-all duration-200 cursor-pointer"
-                  >
-                    <ChevronRight className="w-3 h-3 rotate-90" />
-                    Xem tất cả {communitySearchHistory.length} lịch sử tìm kiếm
-                  </button>
-                )}
-              </div>
-            )}
 
             {/* Stats */}
             <div className="h-10 flex items-center justify-center select-none">
@@ -1895,7 +1821,7 @@ export default function Home() {
                         <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 xl:grid-cols-3 w-full">
                           {pinnedCommunityDocs.map((doc) => (
                             <DocumentCard
-                              key={doc.id}
+                              key={doc.document_id || doc.id}
                               doc={doc}
                               isPinned={doc.isPinned}
                               onTogglePin={() => handleToggleCommunityPin(doc.id)}
@@ -1919,7 +1845,7 @@ export default function Home() {
                         <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 xl:grid-cols-3 w-full">
                           {regularCommunityDocs.map((doc) => (
                             <DocumentCard
-                              key={doc.id}
+                              key={doc.document_id || doc.id}
                               doc={doc}
                               isPinned={doc.isPinned}
                               onTogglePin={() => handleToggleCommunityPin(doc.id)}
