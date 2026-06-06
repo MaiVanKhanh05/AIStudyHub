@@ -74,6 +74,17 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
     return getFileType(doc?.file_url);
   }, [doc?.file_url]);
 
+  const formattedUploadDate = useMemo(() => {
+    if (!doc?.upload_date) return "30 Thg 05, 2026";
+    try {
+      const d = new Date(doc.upload_date);
+      if (isNaN(d.getTime())) return doc.upload_date;
+      return d.toLocaleDateString("vi-VN", { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+    } catch {
+      return doc.upload_date;
+    }
+  }, [doc?.upload_date]);
+
   // Tự động đóng menu khi click ra ngoài vùng trống
   useEffect(() => {
     if (!menuOpen) return;
@@ -337,7 +348,7 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
 
             {/* Ngày cập nhật */}
             <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500">
-              Updated: {doc?.upload_date || "2026-05-30"}
+              Updated: {formattedUploadDate}
             </p>
           </div>
 
@@ -405,7 +416,7 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
                 <p className="text-[10px] sm:text-xs text-slate-400 dark:text-slate-500 mt-1 font-semibold flex items-center gap-2">
                   <span className="flex items-center gap-1"><User className="w-3.5 h-3.5 text-purple-500/60" /> {doc?.author || doc?.uploader_name || "An Nguyen"}</span>
                   <span className="text-slate-200 dark:text-slate-800">|</span>
-                  <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5 text-purple-500/60" /> {doc?.upload_date || "2026-05-30"}</span>
+                  <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5 text-purple-500/60" /> {formattedUploadDate}</span>
                 </p>
               </div>
             </div>

@@ -88,17 +88,18 @@ export const uploadNewDocument = async (docData) => {
         const { tags, ...restDocData } = docData;
 
         // Auto-resolve or create subject_code if provided to avoid foreign key violations
-        const subjectCode = restDocData.subject_code || restDocData.subject;
-        if (subjectCode) {
-            const resolvedSubject = await subjectRepository.getOrCreateSubject(subjectCode);
-            if (resolvedSubject) {
-                restDocData.subject_code = resolvedSubject.subject_code;
-            } else {
-                restDocData.subject_code = null;
-            }
-        } else {
-            restDocData.subject_code = null;
+        let subjectCode = restDocData.subject_code || restDocData.subject;
+        if (!subjectCode || subjectCode === "Chọn môn học") {
+            subjectCode = "OTHER";
         }
+        
+        const resolvedSubject = await subjectRepository.getOrCreateSubject(subjectCode, "Other Subject");
+        if (resolvedSubject) {
+            restDocData.subject_code = resolvedSubject.subject_code;
+        } else {
+            restDocData.subject_code = "OTHER";
+        }
+
         if (restDocData.subject !== undefined) {
             delete restDocData.subject;
         }
@@ -160,3 +161,44 @@ export const incrementDownloadCount = async (id) => {
         throw error;
     }
 };
+
+// Edit document metadata (title, subject, tags)
+export const editDocument = async (documentId, userId, { title, subject, tags, description }) => {
+    try {
+        // Resolve subject
+        let subjectCode = subject;
+        if (!subjectCode || subjectCode === "Chọn môn học") {
+            subjectCode = "OTHER";
+        }
+        const resolvedSubject = await subjectRepository.getOrCreateSubject(subjectCode, "Other Subject");
+        const finalSubjectCode = resolvedSubject ? resolvedSubject.subject_code : "OTHER";
+
+        // Update document meta
+        const updatedDoc = await documentRepository.updateDocumentMeta(documentId, userId, {
+            title: title.trim(),
+            subject_code: finalSubjectCode,
+            description: description || null,
+        });
+
+        if (!updatedDoc) return null;
+
+        // Replace tags
+        const tagList = Array.isArray(tags) ? tags : [];
+        const tagIds = [];
+        const resolvedTags = [];
+        for (const tagName of tagList) {
+            const tagObj = await tagRepository.getOrCreateTag(tagName);
+            if (tagObj) {
+                tagIds.push(tagObj.tag_id);
+                resolvedTags.push(tagObj);
+            }
+        }
+        await documentRepository.replaceDocumentTags(documentId, tagIds);
+        updatedDoc.tags = resolvedTags;
+
+        return updatedDoc;
+    } catch (error) {
+        throw error;
+    }
+};
+

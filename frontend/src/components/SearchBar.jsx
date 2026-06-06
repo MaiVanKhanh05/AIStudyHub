@@ -1,256 +1,250 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Search, X, Clock, Trash2, ChevronRight } from "lucide-react";
+import { Search, X, Clock, Trash2, ChevronDown, ChevronUp } from "lucide-react";
 
-const API_BASE = "http://localhost:5000";
-const LOCAL_KEY = "aistudyhub_search_history_local";
-const MAX_LOCAL = 50;
+// ── Constants ─────────────────────────────────────────────────────────────────
+const API_BASE   = "http://localhost:5000";
+const STORE_KEY  = "aistudyhub_search_history";
+const MAX_STORED = 50;          // max entries kept in localStorage
+const PREVIEW    = 10;          // items shown before "View All"
 
-function getLocalHistory() {
-  try {
-    return JSON.parse(localStorage.getItem(LOCAL_KEY) || "[]");
-  } catch {
-    return [];
-  }
-}
-function saveLocalHistory(list) {
-  localStorage.setItem(LOCAL_KEY, JSON.stringify(list));
+// ── LocalStorage helpers ──────────────────────────────────────────────────────
+function readLocal() {
+  try { return JSON.parse(localStorage.getItem(STORE_KEY) || "[]"); }
+  catch { return []; }
 }
 
+function writeLocal(list) {
+  localStorage.setItem(STORE_KEY, JSON.stringify(list.slice(0, MAX_STORED)));
+}
+
+// ── SearchBar component ───────────────────────────────────────────────────────
 /**
- * SearchBar — controlled input + floating history dropdown.
- *
- * Props:
- *   search      {string}    displayed/applied search value (controlled by parent)
- *   setSearch   {Function}  update parent search state (live filtering)
- *   onSearch    {Function}  called on Enter / icon-click / history item click
- *   userId      {string}    optional — syncs history to backend when provided
- *   placeholder {string}
- *   className   {string}
+ * Props
+ *   search      string    controlled value (applied keyword for parent filtering)
+ *   setSearch   fn        update parent search state on every keystroke
+ *   onSearch    fn        called with committed keyword on Enter / icon click / history click
+ *   userId      string?   when provided, history also syncs with backend
+ *   placeholder string?
+ *   className   string?
  */
 export default function SearchBar({
   search,
   setSearch,
   onSearch,
-  userId = null,
+  userId      = null,
   placeholder = "Tìm kiếm tài liệu, môn học, tác giả...",
-  className = "max-w-2xl mx-auto",
+  className   = "max-w-2xl mx-auto",
 }) {
-  // inputValue: what is typed in the box (independent of applied search)
-  const [inputValue, setInputValue] = useState(search || "");
-  const [history, setHistory] = useState([]);
-  const [showDropdown, setShowDropdown] = useState(false);
-  const [showAll, setShowAll] = useState(false);
-  const wrapperRef = useRef(null);
-  const inputRef = useRef(null);
+  const [inputValue,   setInputValue]   = useState(search || "");
+  const [history,      setHistory]      = useState([]);
+  const [open,         setOpen]         = useState(false);
+  const [expanded,     setExpanded]     = useState(false);
 
-  // Keep inputValue in sync when parent resets search (e.g. clear)
-  useEffect(() => {
-    if (!search) setInputValue("");
-  }, [search]);
+  const wrapper = useRef(null);
+  const inputEl = useRef(null);
 
-  // ── Token helper ─────────────────────────────────────────────────────────
-  const token = () =>
-    localStorage.getItem("token") || sessionStorage.getItem("token");
+  // Sync input when parent clears search
+  useEffect(() => { if (!search) setInputValue(""); }, [search]);
 
-  // ── Load history (local + backend if userId) ─────────────────────────────
+  // ── Auth token ──────────────────────────────────────────────────────────────
+  const getToken = () =>
+    localStorage.getItem("token") || sessionStorage.getItem("token") || "";
+
+  // ── Load & merge history ────────────────────────────────────────────────────
   const loadHistory = useCallback(async () => {
-    // Always start from localStorage
-    let merged = getLocalHistory();
+    let items = readLocal();
 
-    if (userId && token()) {
+    // If logged in, merge with backend (remote takes precedence)
+    if (userId && getToken()) {
       try {
         const res = await fetch(
-          `${API_BASE}/api/search-history?userId=${userId}&limit=0`,
-          { headers: { Authorization: `Bearer ${token()}` } }
+          `${API_BASE}/api/search-history?userId=${encodeURIComponent(userId)}&limit=0`,
+          { headers: { Authorization: `Bearer ${getToken()}` } }
         );
         if (res.ok) {
           const remote = await res.json();
-          const remoteKeywords = remote.map((r) => r.keyword);
+          const remoteKeywords = new Set(remote.map((r) => r.keyword));
+
           const remoteItems = remote.map((r) => ({
-            search_id: r.search_id,
+            id:  r.history_id,
             keyword: r.keyword,
-            searched_at: r.searched_at,
-            source: "remote",
+            at:  r.searched_at,
+            src: "remote",
           }));
-          const localOnly = merged
-            .filter((l) => !remoteKeywords.includes(l.keyword))
-            .map((l) => ({ ...l, source: "local" }));
-          merged = [...remoteItems, ...localOnly].sort(
-            (a, b) => new Date(b.searched_at || 0) - new Date(a.searched_at || 0)
+
+          const localOnly = items
+            .filter((l) => !remoteKeywords.has(l.keyword))
+            .map((l, i) => ({
+              id:  l.id || `local-${i}`,
+              keyword: l.keyword,
+              at:  l.at || l.searched_at || new Date(0).toISOString(),
+              src: "local",
+            }));
+
+          items = [...remoteItems, ...localOnly].sort(
+            (a, b) => new Date(b.at) - new Date(a.at)
           );
         }
-      } catch (_) {}
+      } catch { /* network error – fall through to local */ }
     } else {
-      merged = merged.map((l, i) => ({
-        search_id: l.search_id || `local-${i}`,
+      items = items.map((l, i) => ({
+        id:  l.id || `local-${i}`,
         keyword: l.keyword,
-        searched_at: l.searched_at,
-        source: "local",
+        at:  l.at || l.searched_at || new Date(0).toISOString(),
+        src: "local",
       }));
     }
 
-    // ── Final deduplication by keyword (safety net) ──────────────────────────
+    // Deduplicate by keyword
     const seen = new Set();
-    merged = merged.filter((item) => {
-      if (seen.has(item.keyword)) return false;
-      seen.add(item.keyword);
+    items = items.filter(({ keyword }) => {
+      if (seen.has(keyword)) return false;
+      seen.add(keyword);
       return true;
     });
 
-    setHistory(merged);
+    setHistory(items);
   }, [userId]);
 
-  useEffect(() => {
-    loadHistory();
-  }, [loadHistory]);
+  useEffect(() => { loadHistory(); }, [loadHistory]);
 
   // Close dropdown on outside click
   useEffect(() => {
-    const handler = (e) => {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target)) {
-        setShowDropdown(false);
-        setShowAll(false);
+    const onDown = (e) => {
+      if (wrapper.current && !wrapper.current.contains(e.target)) {
+        setOpen(false);
+        setExpanded(false);
       }
     };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
   }, []);
 
-  // ── Save keyword to local + backend ──────────────────────────────────────
+  // ── Save keyword ────────────────────────────────────────────────────────────
   const saveKeyword = async (keyword) => {
-    if (!keyword.trim()) return;
     const kw = keyword.trim();
+    if (!kw) return;
 
-    // Save to localStorage
-    const existing = getLocalHistory().filter((h) => h.keyword !== kw);
-    const updated = [
-      { search_id: `local-${Date.now()}`, keyword: kw, searched_at: new Date().toISOString() },
-      ...existing,
-    ].slice(0, MAX_LOCAL);
-    saveLocalHistory(updated);
+    // LocalStorage: upsert (remove old entry, prepend new)
+    const prev = readLocal().filter((h) => h.keyword !== kw);
+    writeLocal([{ id: `local-${Date.now()}`, keyword: kw, at: new Date().toISOString() }, ...prev]);
 
-    // Save to backend if logged in
-    if (userId && token()) {
+    // Backend sync
+    if (userId && getToken()) {
       try {
         await fetch(`${API_BASE}/api/search-history`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${token()}`,
+            Authorization: `Bearer ${getToken()}`,
           },
           body: JSON.stringify({ userId, keyword: kw }),
         });
-      } catch (_) {}
+      } catch { /* ignore */ }
     }
 
     await loadHistory();
   };
 
-  // ── Delete single item ────────────────────────────────────────────────────
-  const deleteItem = async (item, e) => {
+  // ── Delete one item ─────────────────────────────────────────────────────────
+  const deleteOne = async (item, e) => {
     e.stopPropagation();
 
-    // Remove from localStorage
-    const updated = getLocalHistory().filter((h) => h.keyword !== item.keyword);
-    saveLocalHistory(updated);
+    writeLocal(readLocal().filter((h) => h.keyword !== item.keyword));
 
-    // Remove from backend if remote
-    if (item.source === "remote" && userId && token()) {
+    if (item.src === "remote" && userId && getToken()) {
       try {
-        await fetch(`${API_BASE}/api/search-history/${item.search_id}`, {
+        await fetch(`${API_BASE}/api/search-history/${item.id}`, {
           method: "DELETE",
-          headers: { Authorization: `Bearer ${token()}` },
+          headers: { Authorization: `Bearer ${getToken()}` },
         });
-      } catch (_) {}
+      } catch { /* ignore */ }
     }
+
     setHistory((prev) => prev.filter((h) => h.keyword !== item.keyword));
   };
 
-  // ── Clear all ─────────────────────────────────────────────────────────────
+  // ── Clear all ───────────────────────────────────────────────────────────────
   const clearAll = async (e) => {
     e.stopPropagation();
-    saveLocalHistory([]);
-    if (userId && token()) {
+    writeLocal([]);
+
+    if (userId && getToken()) {
       try {
-        await fetch(`${API_BASE}/api/search-history?userId=${userId}`, {
-          method: "DELETE",
-          headers: { Authorization: `Bearer ${token()}` },
-        });
-      } catch (_) {}
+        await fetch(
+          `${API_BASE}/api/search-history?userId=${encodeURIComponent(userId)}`,
+          { method: "DELETE", headers: { Authorization: `Bearer ${getToken()}` } }
+        );
+      } catch { /* ignore */ }
     }
+
     setHistory([]);
+    setExpanded(false);
   };
 
-  // ── Commit search (Enter / icon click / history click) ────────────────────
-  const commitSearch = async (keyword) => {
-    if (!keyword.trim()) return;
-    await saveKeyword(keyword.trim());
-    setInputValue(keyword.trim());
-    setSearch(keyword.trim());      // update parent for filtering
-    if (onSearch) onSearch(keyword.trim());
-    setShowDropdown(false);
-    setShowAll(false);
+  // ── Commit search ───────────────────────────────────────────────────────────
+  const commit = async (keyword) => {
+    const kw = keyword.trim();
+    if (!kw) return;
+    await saveKeyword(kw);
+    setInputValue(kw);
+    setSearch(kw);
+    if (onSearch) onSearch(kw);
+    setOpen(false);
+    setExpanded(false);
   };
 
-  // ── Input handlers ────────────────────────────────────────────────────────
-  const handleChange = (e) => {
+  // ── Input handlers ──────────────────────────────────────────────────────────
+  const onChange = (e) => {
     const val = e.target.value;
     setInputValue(val);
-    // Live filtering via setSearch (parent), does NOT trigger layout shift
-    // because SearchBar itself is position:relative + dropdown is absolute
-    setSearch(val);
+    setSearch(val);           // live parent filter – does NOT cause layout shift
   };
 
-  const handleKeyDown = (e) => {
-    if (e.key === "Enter") {
-      commitSearch(inputValue);
-    }
-    if (e.key === "Escape") {
-      setShowDropdown(false);
-      setShowAll(false);
-    }
+  const onKeyDown = (e) => {
+    if (e.key === "Enter")  commit(inputValue);
+    if (e.key === "Escape") { setOpen(false); setExpanded(false); }
   };
 
-  const handleClear = () => {
+  const onClear = () => {
     setInputValue("");
     setSearch("");
-    inputRef.current?.focus();
+    inputEl.current?.focus();
   };
 
-  // ── Visible items ─────────────────────────────────────────────────────────  // Show top 10 by default; "View All" is always available when not yet expanded
-  const visibleItems = showAll ? history : history.slice(0, 10);
-  const hasMore = !showAll && history.length > 0;
-  const isOpen = showDropdown && history.length > 0;
+  // ── Derived ─────────────────────────────────────────────────────────────────
+  const visible   = expanded ? history : history.slice(0, PREVIEW);
+  const isOpen    = open && history.length > 0;
+  const hasHistory = history.length > 0;
 
+  // ── Render ───────────────────────────────────────────────────────────────────
   return (
-    <div
-      ref={wrapperRef}
-      className={`relative w-full ${className} select-none`}
-    >
-      {/* ── Input shell ─────────────────────────────────────────────────── */}
-      <div
-        className={`relative p-1 rounded-xl bg-white/40 dark:bg-[#0f111a]/45 backdrop-blur-xl border transition-all duration-300
-          ${isOpen
-            ? "border-purple-500/40 shadow-[0_8px_30px_rgba(168,85,247,0.08)] rounded-b-none border-b-0"
-            : "border-slate-200/30 dark:border-white/5 shadow-sm focus-within:border-purple-500/35 focus-within:shadow-[0_8px_30px_rgba(168,85,247,0.05)]"
-          }`}
-      >
-        {/* Search icon (click to commit) */}
+    // position:relative → dropdown is absolute → zero layout shift
+    <div ref={wrapper} className={`relative w-full ${className} select-none`}>
+
+      {/* ── Input shell ──────────────────────────────────────────────────── */}
+      <div className={[
+        "relative p-1 rounded-xl backdrop-blur-xl border transition-all duration-300",
+        "bg-white/40 dark:bg-[#0f111a]/45",
+        isOpen
+          ? "border-purple-500/40 shadow-[0_8px_30px_rgba(168,85,247,0.08)] rounded-b-none border-b-0"
+          : "border-slate-200/30 dark:border-white/5 shadow-sm focus-within:border-purple-500/35 focus-within:shadow-[0_8px_30px_rgba(168,85,247,0.05)]",
+      ].join(" ")}>
+
+        {/* Search icon */}
         <Search
-          onClick={() => commitSearch(inputValue)}
-          className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500 hover:text-purple-600 dark:hover:text-purple-400 transition-colors duration-300 cursor-pointer z-10"
+          onClick={() => commit(inputValue)}
+          className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500 hover:text-purple-600 dark:hover:text-purple-400 transition-colors duration-200 cursor-pointer z-10"
         />
 
-        {/* Input */}
+        {/* Text input */}
         <input
-          ref={inputRef}
+          ref={inputEl}
           type="text"
           value={inputValue}
-          onChange={handleChange}
-          onKeyDown={handleKeyDown}
-          onFocus={() => {
-            if (history.length > 0) setShowDropdown(true);
-          }}
+          onChange={onChange}
+          onKeyDown={onKeyDown}
+          onFocus={() => { if (hasHistory) setOpen(true); }}
           placeholder={placeholder}
           className="w-full rounded-lg bg-white/80 dark:bg-[#0c0d13]/80 border-none pl-11 pr-11 py-2.5 text-xs placeholder:text-slate-400 dark:placeholder:text-slate-600 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-purple-500/40 transition-all duration-300"
         />
@@ -258,8 +252,8 @@ export default function SearchBar({
         {/* Clear button */}
         {inputValue && (
           <button
-            onClick={handleClear}
             type="button"
+            onClick={onClear}
             className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded-md bg-slate-100 hover:bg-red-50 text-slate-400 hover:text-red-500 dark:bg-slate-800 dark:hover:bg-red-950/30 dark:hover:text-red-400 transition-all duration-200 active:scale-95 z-10"
           >
             <X className="w-3 h-3" />
@@ -267,28 +261,24 @@ export default function SearchBar({
         )}
       </div>
 
-      {/* ── Dropdown (absolute — never shifts page layout) ─────────────────── */}
+      {/* ── Dropdown (absolute – never pushes content down) ───────────────── */}
       {isOpen && (
-        <div
-          className="absolute left-0 right-0 top-full z-50
-            bg-white/98 dark:bg-[#0f111a]/98 backdrop-blur-xl
-            border border-purple-500/20 dark:border-purple-500/15 border-t-0
-            rounded-b-xl shadow-2xl shadow-black/10
-            overflow-hidden
-            animate-in fade-in duration-150"
-        >
-          {/* Header */}
+        <div className="absolute left-0 right-0 top-full z-50 overflow-hidden rounded-b-xl border border-t-0 border-purple-500/20 dark:border-purple-500/15 bg-white/98 dark:bg-[#0f111a]/98 backdrop-blur-xl shadow-2xl shadow-black/10 animate-in fade-in duration-150">
+
+          {/* Header row */}
           <div className="flex items-center justify-between px-4 pt-3 pb-2 border-b border-slate-100 dark:border-slate-800/60">
             <div className="flex items-center gap-1.5">
               <Clock className="w-3 h-3 text-slate-400" />
               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
                 Lịch sử tìm kiếm
               </span>
-              <span className="text-[9px] font-bold bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded-full border border-purple-500/10">
+              <span className="text-[9px] font-bold bg-purple-50 dark:bg-purple-950/40 text-purple-500 dark:text-purple-400 px-1.5 py-0.5 rounded-full border border-purple-500/10">
                 {history.length}
               </span>
             </div>
+
             <button
+              type="button"
               onClick={clearAll}
               className="flex items-center gap-1 text-[10px] font-bold text-slate-400 hover:text-red-500 transition-colors duration-150 cursor-pointer"
             >
@@ -297,25 +287,25 @@ export default function SearchBar({
             </button>
           </div>
 
-          {/* Items list */}
+          {/* History list */}
           <ul className="py-1 max-h-64 overflow-y-auto">
-            {visibleItems.map((item, idx) => (
+            {visible.map((item, idx) => (
               <li key={`${item.keyword}-${idx}`}>
                 <button
                   type="button"
-                  onClick={() => commitSearch(item.keyword)}
+                  onClick={() => commit(item.keyword)}
                   className="w-full flex items-center justify-between gap-3 px-4 py-2.5 text-left hover:bg-purple-50/70 dark:hover:bg-purple-950/15 group transition-colors duration-100 cursor-pointer"
                 >
-                  <div className="flex items-center gap-2.5 min-w-0">
+                  <span className="flex items-center gap-2.5 min-w-0">
                     <Clock className="w-3 h-3 text-slate-300 dark:text-slate-600 shrink-0" />
                     <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 truncate group-hover:text-purple-700 dark:group-hover:text-purple-300 transition-colors">
                       {item.keyword}
                     </span>
-                  </div>
+                  </span>
                   <span
                     role="button"
-                    onClick={(e) => deleteItem(item, e)}
-                    className="w-5 h-5 shrink-0 flex items-center justify-center rounded-md opacity-0 group-hover:opacity-100 hover:bg-red-50 dark:hover:bg-red-950/30 text-slate-300 hover:text-red-500 transition-all duration-150 cursor-pointer"
+                    onClick={(e) => deleteOne(item, e)}
+                    className="w-5 h-5 shrink-0 flex items-center justify-center rounded-md text-slate-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 opacity-0 group-hover:opacity-100 transition-all duration-150 cursor-pointer"
                   >
                     <X className="w-3 h-3" />
                   </span>
@@ -324,17 +314,16 @@ export default function SearchBar({
             ))}
           </ul>
 
-          {/* View all / Collapse toggle — always visible */}
+          {/* View All / Collapse — always visible */}
           <button
             type="button"
-            onClick={() => setShowAll((v) => !v)}
+            onClick={() => setExpanded((v) => !v)}
             className="w-full flex items-center justify-center gap-1.5 py-2.5 text-[10px] font-black text-purple-600 dark:text-purple-400 hover:bg-purple-50/50 dark:hover:bg-purple-950/10 border-t border-slate-100 dark:border-slate-800/60 transition-colors duration-150 cursor-pointer"
           >
-            {showAll ? (
-              <>Thu gọn<ChevronRight className="w-3 h-3 rotate-90" /></>
-            ) : (
-              <>Xem tất cả ({history.length} mục)<ChevronRight className="w-3 h-3" /></>
-            )}
+            {expanded
+              ? <><ChevronUp className="w-3 h-3" /> Thu gọn</>
+              : <><ChevronDown className="w-3 h-3" /> Xem tất cả ({history.length} mục)</>
+            }
           </button>
         </div>
       )}

@@ -177,3 +177,38 @@ export const updateDocumentVisibility = async (documentId, userId, visibility, d
         throw error;
     }
 };
+
+// Update document title, subject and tags (restricted to owner)
+export const updateDocumentMeta = async (documentId, userId, { title, subject_code, description }) => {
+    try {
+        const { rows } = await pool.query(
+            `UPDATE document
+             SET title = $1, subject_code = $2, description = $3
+             WHERE document_id = $4 AND user_id = $5
+             RETURNING *`,
+            [title, subject_code, description, documentId, userId]
+        );
+        return rows[0] ? new Document(rows[0]) : null;
+    } catch (error) {
+        console.error("Error updating document meta:", error);
+        throw error;
+    }
+};
+
+// Replace all tags for a document
+export const replaceDocumentTags = async (documentId, tagIds) => {
+    try {
+        // Remove all existing tags
+        await pool.query("DELETE FROM document_tags WHERE document_id = $1", [documentId]);
+        // Insert new tags
+        for (const tagId of tagIds) {
+            await pool.query(
+                "INSERT INTO document_tags (document_id, tag_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
+                [documentId, tagId]
+            );
+        }
+    } catch (error) {
+        console.error("Error replacing document tags:", error);
+        throw error;
+    }
+};
