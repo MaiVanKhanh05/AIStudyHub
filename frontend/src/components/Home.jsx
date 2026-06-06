@@ -130,6 +130,7 @@ export default function Home() {
     }
   };
 
+
   useEffect(() => {
     if (activeTab === "Community") {
       fetchCommunityDocs();

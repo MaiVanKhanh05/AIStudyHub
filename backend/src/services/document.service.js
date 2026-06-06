@@ -88,20 +88,18 @@ export const uploadNewDocument = async (docData) => {
         const { tags, ...restDocData } = docData;
 
         // Auto-resolve or create subject_code if provided to avoid foreign key violations
-        let subjectCode = "OTHER";
-        const incomingSubject = restDocData.subject_code || restDocData.subject;
-        if (incomingSubject && incomingSubject.trim() !== "") {
-            const resolvedSubject = await subjectRepository.getOrCreateSubject(incomingSubject.trim().toUpperCase(), incomingSubject.trim().toUpperCase());
-            if (resolvedSubject) {
-                subjectCode = resolvedSubject.subject_code;
-            }
+        let subjectCode = restDocData.subject_code || restDocData.subject;
+        if (!subjectCode || subjectCode === "Chọn môn học") {
+            subjectCode = "OTHER";
         }
         
-        if (subjectCode === "OTHER") {
-            await subjectRepository.getOrCreateSubject("OTHER", "OTHER");
+        const resolvedSubject = await subjectRepository.getOrCreateSubject(subjectCode, "Other Subject");
+        if (resolvedSubject) {
+            restDocData.subject_code = resolvedSubject.subject_code;
+        } else {
+            restDocData.subject_code = "OTHER";
         }
-        restDocData.subject_code = subjectCode;
-        
+
         if (restDocData.subject !== undefined) {
             delete restDocData.subject;
         }

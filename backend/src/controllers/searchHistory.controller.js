@@ -42,12 +42,11 @@ export const getHistory = async (req, res) => {
 export const deleteItem = async (req, res) => {
     try {
         const { id } = req.params;
-        const userId = req.query.userId || req.body?.userId;
         if (!id) {
             return res.status(400).json({ error: "history_id is required" });
         }
-        // Use the authenticated userId from middleware if available
-        const ownerUserId = req.userId || userId;
+        // Use authenticated userId from middleware
+        const ownerUserId = req.userId || req.query.userId || req.body?.userId;
         if (!ownerUserId) {
             return res.status(400).json({ error: "userId is required" });
         }
@@ -61,6 +60,7 @@ export const deleteItem = async (req, res) => {
         return res.status(500).json({ error: "Failed to delete history item" });
     }
 };
+
 
 /**
  * DELETE /api/search-history?userId=xxx
