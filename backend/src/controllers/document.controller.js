@@ -118,29 +118,7 @@ export const increaseDownload = async (req, res) => {
 
 
 
-// PUT /api/documents/:id  – edit title / subject / tags
-export const editDoc = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const userId = req.userId;
-        if (!id || !userId) {
-            return res.status(400).json({ error: "Missing document or user information" });
-        }
-        const { title, subject, tags, description } = req.body;
-        if (!title || !title.trim()) {
-            return res.status(400).json({ error: "Title is required" });
-        }
-        const updatedDoc = await documentService.editDocument(Number(id), userId, { title, subject, tags, description });
-        if (updatedDoc) {
-            return res.json({ message: "Document updated successfully", document: updatedDoc });
-        } else {
-            return res.status(404).json({ error: "Document not found or permission denied" });
-        }
-    } catch (error) {
-        console.error("Error editing document:", error);
-        return res.status(500).json({ error: "Failed to update document" });
-    }
-};
+
 
 // PUT /api/documents/:id/share
 export const shareDoc = async (req, res) => {

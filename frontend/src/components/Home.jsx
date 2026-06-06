@@ -128,43 +128,6 @@ export default function Home() {
     }
   };
 
-  const fetchCommunityDocs = async () => {
-    setCommunityLoading(true);
-    try {
-      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-      const res = await fetch("http://localhost:5000/api/documents/community", {
-        headers: { "Authorization": `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setCommunityDocs(data);
-      }
-    } catch (err) {
-      console.error("Error fetching community documents:", err);
-    } finally {
-      setCommunityLoading(false);
-    }
-  };
-
-
-  const fetchCommunityDocs = async () => {
-    setCommunityLoading(true);
-    try {
-      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-      const res = await fetch("http://localhost:5000/api/documents/community", {
-        headers: { "Authorization": `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setCommunityDocs(data);
-      }
-    } catch (err) {
-      console.error("Error fetching community documents:", err);
-    } finally {
-      setCommunityLoading(false);
-    }
-  };
-
 
   useEffect(() => {
     if (activeTab === "Community") {
