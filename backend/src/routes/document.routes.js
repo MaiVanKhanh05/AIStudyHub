@@ -1,6 +1,6 @@
 import { Router } from "express";
 import * as documentController from "../controllers/document.controller.js";
-import { authenticateToken } from "../middlewares/validation.middleware.js";
+import { authenticateToken, optionalAuthenticateToken } from "../middlewares/validation.middleware.js";
 
 const router = Router();
 
@@ -13,11 +13,13 @@ router.get("/community", authenticateToken, documentController.getCommunityDocs)
 // POST /api/documents/upload
 router.post("/upload", authenticateToken, documentController.createNewDoc);
 
-// PUT /api/documents/:id  – edit title / subject / tags
-router.put("/:id/edit", authenticateToken, documentController.editDoc);
+
 
 // PUT /api/documents/:id/share
 router.put("/:id/share", authenticateToken, documentController.shareDoc);
+
+// GET /api/documents/:id
+router.get("/:id", optionalAuthenticateToken, documentController.getDocById);
 
 // PUT /api/documents/:id/view
 router.put("/:id/view", documentController.increaseView);

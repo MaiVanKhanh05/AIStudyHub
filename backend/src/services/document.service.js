@@ -162,43 +162,10 @@ export const incrementDownloadCount = async (id) => {
     }
 };
 
-// Edit document metadata (title, subject, tags)
-export const editDocument = async (documentId, userId, { title, subject, tags, description }) => {
+export const getDocumentById = async (id) => {
     try {
-        // Resolve subject
-        let subjectCode = subject;
-        if (!subjectCode || subjectCode === "Chọn môn học") {
-            subjectCode = "OTHER";
-        }
-        const resolvedSubject = await subjectRepository.getOrCreateSubject(subjectCode, "Other Subject");
-        const finalSubjectCode = resolvedSubject ? resolvedSubject.subject_code : "OTHER";
-
-        // Update document meta
-        const updatedDoc = await documentRepository.updateDocumentMeta(documentId, userId, {
-            title: title.trim(),
-            subject_code: finalSubjectCode,
-            description: description || null,
-        });
-
-        if (!updatedDoc) return null;
-
-        // Replace tags
-        const tagList = Array.isArray(tags) ? tags : [];
-        const tagIds = [];
-        const resolvedTags = [];
-        for (const tagName of tagList) {
-            const tagObj = await tagRepository.getOrCreateTag(tagName);
-            if (tagObj) {
-                tagIds.push(tagObj.tag_id);
-                resolvedTags.push(tagObj);
-            }
-        }
-        await documentRepository.replaceDocumentTags(documentId, tagIds);
-        updatedDoc.tags = resolvedTags;
-
-        return updatedDoc;
+        return await documentRepository.getDocumentById(id);
     } catch (error) {
         throw error;
     }
 };
-

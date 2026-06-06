@@ -178,37 +178,26 @@ export const updateDocumentVisibility = async (documentId, userId, visibility, d
     }
 };
 
-// Update document title, subject and tags (restricted to owner)
-export const updateDocumentMeta = async (documentId, userId, { title, subject_code, description }) => {
+export const getDocumentById = async (documentId) => {
     try {
         const { rows } = await pool.query(
-            `UPDATE document
-             SET title = $1, subject_code = $2, description = $3
-             WHERE document_id = $4 AND user_id = $5
-             RETURNING *`,
-            [title, subject_code, description, documentId, userId]
+            `SELECT d.*, (u.last_name || ' ' || u.first_name) as author, s.subject_name,
+                    COALESCE(
+                        (SELECT json_agg(json_build_object('tag_id', t.tag_id, 'tag_name', t.tag_name))
+                         FROM tags t
+                         JOIN document_tags dt ON t.tag_id = dt.tag_id
+                         WHERE dt.document_id = d.document_id),
+                        '[]'::json
+                    ) as tags
+             FROM document d
+             JOIN users u ON d.user_id = u.user_id
+             LEFT JOIN subject s ON d.subject_code = s.subject_code
+             WHERE d.document_id = $1`,
+            [documentId]
         );
         return rows[0] ? new Document(rows[0]) : null;
     } catch (error) {
-        console.error("Error updating document meta:", error);
-        throw error;
-    }
-};
-
-// Replace all tags for a document
-export const replaceDocumentTags = async (documentId, tagIds) => {
-    try {
-        // Remove all existing tags
-        await pool.query("DELETE FROM document_tags WHERE document_id = $1", [documentId]);
-        // Insert new tags
-        for (const tagId of tagIds) {
-            await pool.query(
-                "INSERT INTO document_tags (document_id, tag_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
-                [documentId, tagId]
-            );
-        }
-    } catch (error) {
-        console.error("Error replacing document tags:", error);
+        console.error("Error fetching document by ID:", error);
         throw error;
     }
 };

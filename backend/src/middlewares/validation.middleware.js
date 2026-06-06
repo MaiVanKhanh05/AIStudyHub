@@ -35,6 +35,28 @@ export const authenticateToken = (req, res, next) => {
     }
 };
 
+// Optional JWT Authentication Middleware
+export const optionalAuthenticateToken = (req, res, next) => {
+    try {
+        const authHeader = req.headers["authorization"];
+        const token = authHeader && authHeader.split(" ")[1];
+
+        if (!token) {
+            return next();
+        }
+
+        jwt.verify(token, process.env.JWT_SECRET || "your-secret-key", (err, user) => {
+            if (!err) {
+                req.userId = user.userId || user.id;
+                req.user = user;
+            }
+            next();
+        });
+    } catch (error) {
+        next();
+    }
+};
+
 // Validation rules for Registration
 export const validateRegister = [
     body("email")
@@ -45,6 +67,11 @@ export const validateRegister = [
     body("password")
         .notEmpty().withMessage("Mật khẩu không được để trống")
         .isLength({ min: 6 }).withMessage("Mật khẩu phải chứa ít nhất 6 ký tự"),
+    body("mssv")
+        .if(body("role").equals("STUDENT"))
+        .trim()
+        .notEmpty().withMessage("Mã số sinh viên (MSSV) là bắt buộc đối với sinh viên.")
+        .matches(/^[A-Za-z]{2}\d{6}$/).withMessage("MSSV phải bắt đầu bằng 2 chữ cái và theo sau là 6 chữ số (ví dụ: se190808)."),
     handleValidationErrors
 ];
 
