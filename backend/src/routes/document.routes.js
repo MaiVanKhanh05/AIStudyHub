@@ -25,6 +25,9 @@ router.put("/:id/download", documentController.increaseDownload);
 // PUT /api/documents/:id/share
 router.put("/:id/share", authenticateToken, documentController.shareDoc);
 
+// PUT /api/documents/:id/edit
+router.put("/:id/edit", authenticateToken, documentController.editDoc);
+
 // GET /api/documents/:id
 router.get("/:id", optionalAuthenticateToken, documentController.getDocById);
 

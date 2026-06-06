@@ -8,8 +8,6 @@ export const saveSearchKeyword = async (userId, keyword) => {
     const { rows } = await pool.query(
         `INSERT INTO search_history (user_id, keyword, searched_at)
          VALUES ($1, $2, NOW())
-         ON CONFLICT ON CONSTRAINT UQ_search_history_user_keyword
-         DO UPDATE SET searched_at = NOW()
          RETURNING *`,
         [userId, keyword.trim()]
     );
@@ -23,12 +21,12 @@ export const saveSearchKeyword = async (userId, keyword) => {
  */
 export const getSearchHistory = async (userId, limit = 10) => {
     const query = limit > 0
-        ? `SELECT search_id, keyword, searched_at
+        ? `SELECT history_id, keyword, searched_at
            FROM search_history
            WHERE user_id = $1
            ORDER BY searched_at DESC
            LIMIT $2`
-        : `SELECT search_id, keyword, searched_at
+        : `SELECT history_id, keyword, searched_at
            FROM search_history
            WHERE user_id = $1
            ORDER BY searched_at DESC`;
@@ -41,10 +39,10 @@ export const getSearchHistory = async (userId, limit = 10) => {
 /**
  * Delete a single search history item (must belong to userId).
  */
-export const deleteSearchHistoryItem = async (searchId, userId) => {
+export const deleteSearchHistoryItem = async (historyId, userId) => {
     const { rowCount } = await pool.query(
-        "DELETE FROM search_history WHERE search_id = $1 AND user_id = $2",
-        [searchId, userId]
+        "DELETE FROM search_history WHERE history_id = $1 AND user_id = $2",
+        [historyId, userId]
     );
     return rowCount > 0;
 };

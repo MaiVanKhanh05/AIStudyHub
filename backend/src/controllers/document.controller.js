@@ -162,3 +162,24 @@ export const getDocById = async (req, res) => {
         return res.status(500).json({ error: "Failed to fetch document" });
     }
 };
+
+export const editDoc = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const userId = req.userId || req.body?.userId || req.query?.userId;
+        const { title, subject, tags, description } = req.body;
+        
+        if (!title) {
+            return res.status(400).json({ error: "Title is required" });
+        }
+        
+        const updatedDoc = await documentService.editDocument(id, userId, { title, subject, tags, description });
+        return res.json(updatedDoc);
+    } catch (error) {
+        console.error("Error editing document:", error);
+        if (error.message === "Document not found or unauthorized") {
+            return res.status(403).json({ error: error.message });
+        }
+        return res.status(500).json({ error: "Failed to edit document" });
+    }
+};

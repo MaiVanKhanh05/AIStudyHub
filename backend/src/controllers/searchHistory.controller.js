@@ -44,7 +44,7 @@ export const deleteItem = async (req, res) => {
         const { id } = req.params;
         const userId = req.query.userId || req.body?.userId;
         if (!id) {
-            return res.status(400).json({ error: "search_id is required" });
+            return res.status(400).json({ error: "history_id is required" });
         }
         // Use the authenticated userId from middleware if available
         const ownerUserId = req.userId || userId;

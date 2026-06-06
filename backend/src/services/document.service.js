@@ -88,17 +88,20 @@ export const uploadNewDocument = async (docData) => {
         const { tags, ...restDocData } = docData;
 
         // Auto-resolve or create subject_code if provided to avoid foreign key violations
-        const subjectCode = restDocData.subject_code || restDocData.subject;
-        if (subjectCode) {
-            const resolvedSubject = await subjectRepository.getOrCreateSubject(subjectCode);
+        let subjectCode = "OTHER";
+        const incomingSubject = restDocData.subject_code || restDocData.subject;
+        if (incomingSubject && incomingSubject.trim() !== "") {
+            const resolvedSubject = await subjectRepository.getOrCreateSubject(incomingSubject.trim().toUpperCase(), incomingSubject.trim().toUpperCase());
             if (resolvedSubject) {
-                restDocData.subject_code = resolvedSubject.subject_code;
-            } else {
-                restDocData.subject_code = null;
+                subjectCode = resolvedSubject.subject_code;
             }
-        } else {
-            restDocData.subject_code = null;
         }
+        
+        if (subjectCode === "OTHER") {
+            await subjectRepository.getOrCreateSubject("OTHER", "OTHER");
+        }
+        restDocData.subject_code = subjectCode;
+        
         if (restDocData.subject !== undefined) {
             delete restDocData.subject;
         }
@@ -164,6 +167,48 @@ export const incrementDownloadCount = async (id) => {
 export const getDocumentById = async (id) => {
     try {
         return await documentRepository.getDocumentById(id);
+    } catch (error) {
+        throw error;
+    }
+};
+
+export const editDocument = async (id, userId, { title, subject, tags, description }) => {
+    try {
+        let subjectCode = "OTHER";
+        if (subject && subject.trim() !== "") {
+            const subjCodeStr = subject.trim().toUpperCase();
+            const subjectObj = await subjectRepository.getOrCreateSubject(subjCodeStr, subjCodeStr);
+            if (subjectObj) {
+                subjectCode = subjectObj.subject_code;
+            }
+        }
+        
+        // Ensure "OTHER" exists if we fallback to it
+        if (subjectCode === "OTHER") {
+            await subjectRepository.getOrCreateSubject("OTHER", "OTHER");
+        }
+
+        const updatedDoc = await documentRepository.updateDocumentMeta(id, userId, { title, subject_code: subjectCode, description });
+        if (!updatedDoc) {
+            throw new Error("Document not found or unauthorized");
+        }
+
+        const tagList = tags && Array.isArray(tags) ? tags : [];
+        const tagIds = [];
+        const resolvedTags = [];
+
+        for (const tagName of tagList) {
+            const tagObj = await tagRepository.getOrCreateTag(tagName);
+            if (tagObj) {
+                tagIds.push(tagObj.tag_id);
+                resolvedTags.push(tagObj);
+            }
+        }
+
+        await documentRepository.replaceDocumentTags(id, tagIds);
+        updatedDoc.tags = resolvedTags;
+
+        return updatedDoc;
     } catch (error) {
         throw error;
     }
