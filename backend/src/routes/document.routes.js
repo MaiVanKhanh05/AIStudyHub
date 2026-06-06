@@ -13,19 +13,21 @@ router.get("/community", authenticateToken, documentController.getCommunityDocs)
 // POST /api/documents/upload
 router.post("/upload", authenticateToken, documentController.createNewDoc);
 
-// DELETE /api/documents/:id
-router.delete("/:id", authenticateToken, documentController.deleteDoc);
 
-// PUT /api/documents/:id/view (PUT /documents/:id/view)
-router.put("/:id/view", documentController.increaseView);
-
-// PUT /api/documents/:id/download (PUT /documents/:id/download)
-router.put("/:id/download", documentController.increaseDownload);
 
 // PUT /api/documents/:id/share
 router.put("/:id/share", authenticateToken, documentController.shareDoc);
 
 // GET /api/documents/:id
 router.get("/:id", optionalAuthenticateToken, documentController.getDocById);
+
+// PUT /api/documents/:id/view
+router.put("/:id/view", documentController.increaseView);
+
+// PUT /api/documents/:id/download
+router.put("/:id/download", documentController.increaseDownload);
+
+// DELETE /api/documents/:id
+router.delete("/:id", authenticateToken, documentController.deleteDoc);
 
 export default router;
