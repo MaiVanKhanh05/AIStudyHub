@@ -201,3 +201,37 @@ export const getDocumentById = async (documentId) => {
         throw error;
     }
 };
+
+export const updateDocumentMeta = async (documentId, userId, { title, subject_code, description }) => {
+    try {
+        const { rows } = await pool.query(
+            `UPDATE document
+             SET title = $1, subject_code = $2, description = $3
+             WHERE document_id = $4 AND user_id = $5
+             RETURNING *`,
+            [title, subject_code, description, documentId, userId]
+        );
+        return rows[0] ? new Document(rows[0]) : null;
+    } catch (error) {
+        console.error("Error updating document meta:", error);
+        throw error;
+    }
+};
+
+export const replaceDocumentTags = async (documentId, tagIds) => {
+    try {
+        await pool.query("BEGIN");
+        await pool.query("DELETE FROM document_tags WHERE document_id = $1", [documentId]);
+        
+        if (tagIds && tagIds.length > 0) {
+            const values = tagIds.map(tagId => `(${documentId}, ${tagId})`).join(", ");
+            await pool.query(`INSERT INTO document_tags (document_id, tag_id) VALUES ${values}`);
+        }
+        
+        await pool.query("COMMIT");
+    } catch (error) {
+        await pool.query("ROLLBACK");
+        console.error("Error replacing document tags:", error);
+        throw error;
+    }
+};
