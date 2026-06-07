@@ -35,6 +35,34 @@ export const authenticateToken = (req, res, next) => {
     }
 };
 
+// Require Admin Role Middleware — dùng sau authenticateToken
+export const requireAdmin = async (req, res, next) => {
+    try {
+        const { default: pool } = await import("../../DB/db.js");
+        const userId = req.userId;
+        if (!userId) {
+            return res.status(401).json({ error: "Không xác định được người dùng" });
+        }
+        const { rows } = await pool.query(
+            "SELECT role, status FROM users WHERE user_id = $1",
+            [userId]
+        );
+        if (rows.length === 0) {
+            return res.status(401).json({ error: "Tài khoản không tồn tại" });
+        }
+        const user = rows[0];
+        if (user.status === "LOCKED") {
+            return res.status(403).json({ error: "Tài khoản của bạn đã bị khóa" });
+        }
+        if (user.role !== "ADMIN") {
+            return res.status(403).json({ error: "Bạn không có quyền truy cập tính năng này" });
+        }
+        next();
+    } catch (error) {
+        return res.status(500).json({ error: "Lỗi xác thực quyền admin" });
+    }
+};
+
 // Optional JWT Authentication Middleware
 export const optionalAuthenticateToken = (req, res, next) => {
     try {
