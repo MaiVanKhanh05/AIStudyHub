@@ -70,11 +70,38 @@ export const getAllUsers = async (req, res) => {
 export const lockUser = async (req, res) => {
     try {
         const { id } = req.params;
+        const adminId = req.userId; // được set bởi authenticateToken middleware
+
+        // Không thể khóa chính mình
+        if (String(adminId) === String(id)) {
+            return res.status(400).json({ error: "Bạn không thể khóa tài khoản của chính mình" });
+        }
+
+        // Kiểm tra target user tồn tại
+        const { rows: targetRows } = await pool.query(
+            "SELECT user_id, role, status, email FROM users WHERE user_id = $1",
+            [id]
+        );
+        if (targetRows.length === 0) {
+            return res.status(404).json({ error: "Người dùng không tồn tại" });
+        }
+        const target = targetRows[0];
+
+        // Không thể khóa admin khác
+        if (target.role === "ADMIN") {
+            return res.status(400).json({ error: "Không thể khóa tài khoản Admin" });
+        }
+
+        // Đã bị khóa rồi
+        if (target.status === "LOCKED") {
+            return res.status(400).json({ error: "Tài khoản này đã được khóa từ trước" });
+        }
+
         await pool.query(
             "UPDATE users SET status = 'LOCKED', updated_at = NOW() WHERE user_id = $1",
             [id]
         );
-        res.json({ message: "Tài khoản đã bị khóa" });
+        res.json({ message: "Tài khoản đã bị khóa", userId: id, status: "LOCKED" });
     } catch (error) {
         console.error("Error locking user:", error);
         res.status(500).json({ error: "Internal Server Error" });
@@ -85,11 +112,27 @@ export const lockUser = async (req, res) => {
 export const unlockUser = async (req, res) => {
     try {
         const { id } = req.params;
+
+        // Kiểm tra target user tồn tại
+        const { rows: targetRows } = await pool.query(
+            "SELECT user_id, status, email FROM users WHERE user_id = $1",
+            [id]
+        );
+        if (targetRows.length === 0) {
+            return res.status(404).json({ error: "Người dùng không tồn tại" });
+        }
+        const target = targetRows[0];
+
+        // Chỉ mở khóa nếu đang LOCKED
+        if (target.status !== "LOCKED") {
+            return res.status(400).json({ error: "Tài khoản này không ở trạng thái bị khóa" });
+        }
+
         await pool.query(
             "UPDATE users SET status = 'ACTIVE', updated_at = NOW() WHERE user_id = $1",
             [id]
         );
-        res.json({ message: "Tài khoản đã được mở khóa" });
+        res.json({ message: "Tài khoản đã được mở khóa", userId: id, status: "ACTIVE" });
     } catch (error) {
         console.error("Error unlocking user:", error);
         res.status(500).json({ error: "Internal Server Error" });

@@ -599,8 +599,13 @@ export const googleOAuthCallback = async (req, res) => {
         const { rows } = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
 
         if (rows.length > 0) {
-            // User đã tồn tại → issue JWT và redirect
             const user = rows[0];
+
+            if (user.status === "LOCKED") {
+                return res.redirect(`${frontendUrl}/oauth-callback?error=locked&provider=google`);
+            }
+
+            // User đã tồn tại → issue JWT và redirect
             const token = jwt.sign(
                 { userId: user.user_id, email: user.email },
                 process.env.JWT_SECRET,
@@ -700,8 +705,13 @@ export const githubCallback = async (req, res) => {
         const { rows } = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
 
         if (rows.length > 0) {
-            // User đã tồn tại → issue JWT và redirect
             const user = rows[0];
+
+            if (user.status === "LOCKED") {
+                return res.redirect(`${frontendUrl}/oauth-callback?error=locked&provider=github`);
+            }
+
+            // User đã tồn tại → issue JWT và redirect
             const token = jwt.sign(
                 { userId: user.user_id, email: user.email },
                 process.env.JWT_SECRET,
@@ -784,8 +794,13 @@ export const facebookCallback = async (req, res) => {
         const { rows } = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
 
         if (rows.length > 0) {
-            // User đã tồn tại → issue JWT và redirect
             const user = rows[0];
+
+            if (user.status === "LOCKED") {
+                return res.redirect(`${frontendUrl}/oauth-callback?error=locked&provider=facebook`);
+            }
+
+            // User đã tồn tại → issue JWT và redirect
             const token = jwt.sign(
                 { userId: user.user_id, email: user.email },
                 process.env.JWT_SECRET,
