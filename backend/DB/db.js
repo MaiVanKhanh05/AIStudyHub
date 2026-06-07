@@ -28,7 +28,17 @@ export const connectDB = async () => {
         // Ensure views and downloads columns exist in the document table
         await pool.query("ALTER TABLE document ADD COLUMN IF NOT EXISTS views INT DEFAULT 0");
         await pool.query("ALTER TABLE document ADD COLUMN IF NOT EXISTS downloads INT DEFAULT 0");
-        console.log("Database schema columns (views, downloads) verified.");
+        
+        // Create document_bookmarks table for favorites feature
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS document_bookmarks (
+                user_id VARCHAR(50) REFERENCES users(user_id) ON DELETE CASCADE,
+                document_id INT REFERENCES document(document_id) ON DELETE CASCADE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (user_id, document_id)
+            )
+        `);
+        console.log("Database schema columns and tables verified.");
     } catch (error) {
         console.error("Error connecting to the database:", error);
         process.exit(1);

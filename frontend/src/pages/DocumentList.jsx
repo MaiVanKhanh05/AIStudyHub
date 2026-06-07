@@ -3,13 +3,14 @@ import axios from "axios";
 import DocumentCard from "../components/DocumentCard";
 import SearchBar from "../components/SearchBar";
 import Pagination from "../components/Pagination";
-import { FolderOpen, ArrowRight, BookOpen } from "lucide-react";
+import { FolderOpen, ArrowRight, BookOpen, Heart } from "lucide-react";
 
 // 1 trang hiển thị 30 card
 const PAGE_SIZE = 30;
 
 export default function DocumentList() {
   const [documents, setDocuments] = useState([]);
+  const [bookmarkedDocs, setBookmarkedDocs] = useState([]);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -30,8 +31,27 @@ export default function DocumentList() {
       try {
         const response = await axios.get("http://localhost:5000/api/documents/community");
         setDocuments(response.data);
+
+        // Fetch bookmarks if logged in
+        const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+        if (token) {
+          const bookmarkRes = await axios.get("http://localhost:5000/api/documents/bookmarks", {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          const bookmarksWithFlag = bookmarkRes.data.map(doc => ({ ...doc, isBookmarked: true }));
+          setBookmarkedDocs(bookmarksWithFlag);
+
+          // Update main documents array to set isBookmarked flag
+          setDocuments(prevDocs => {
+            const bookmarkIds = new Set(bookmarksWithFlag.map(b => b.document_id));
+            return prevDocs.map(doc => ({
+              ...doc,
+              isBookmarked: bookmarkIds.has(doc.document_id)
+            }));
+          });
+        }
       } catch (error) {
-        console.error("Lỗi khi tải danh sách cộng đồng:", error);
+        console.error("Lỗi khi tải dữ liệu:", error);
       } finally {
         setLoading(false);
       }
@@ -51,7 +71,9 @@ export default function DocumentList() {
   }, [search, filterMode]);
 
   // Chọn nguồn dữ liệu dựa theo tab hiện tại
-  const sourceDocs = filterMode === "ALL" ? documents : mySharedDocs;
+  let sourceDocs = documents;
+  if (filterMode === "MY_SHARED") sourceDocs = mySharedDocs;
+  if (filterMode === "MY_FAVORITES") sourceDocs = bookmarkedDocs;
 
   // ⚡ CẬP NHẬT: Bộ lọc đa năng tìm kiếm bằng tất cả các trường
   const filtered = sourceDocs.filter((doc) => {
@@ -122,11 +144,15 @@ export default function DocumentList() {
           </div>
         )}
 
-        {/* Nút quay lại khi đang xem "Bài của tôi" */}
-        {filterMode === "MY_SHARED" && (
+        {/* Nút quay lại khi đang xem "Bài của tôi" hoặc "Kho yêu thích" */}
+        {(filterMode === "MY_SHARED" || filterMode === "MY_FAVORITES") && (
           <div className="mb-6 flex items-center justify-between">
             <h2 className="text-2xl font-bold text-purple-700 flex items-center gap-2">
-              <BookOpen size={24} /> Toàn bộ bài bạn đã chia sẻ ({mySharedDocs.length})
+              {filterMode === "MY_SHARED" ? (
+                <><BookOpen size={24} /> Toàn bộ bài bạn đã chia sẻ ({mySharedDocs.length})</>
+              ) : (
+                <><Heart size={24} className="text-red-500 fill-red-500" /> Kho Học Liệu Yêu Thích ({bookmarkedDocs.length})</>
+              )}
             </h2>
             <button 
               onClick={() => setFilterMode("ALL")}
@@ -137,11 +163,75 @@ export default function DocumentList() {
           </div>
         )}
 
+        {/* Kho Yêu Thích Section - Hiển thị preview ở tab ALL */}
+        {currentUser && filterMode === "ALL" && !loading && (
+          <div className="mb-12 bg-white rounded-[24px] p-8 shadow-sm border border-slate-100">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center text-red-500">
+                  <Heart size={20} className="fill-current" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-slate-800">Kho Học Liệu Cá Nhân</h2>
+                  <p className="text-sm text-slate-500">Bạn đã lưu {bookmarkedDocs.length} tài liệu hữu ích</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => {
+                  setFilterMode("MY_FAVORITES");
+                  // Gọi lại API khi mở tab để cập nhật danh sách mới nhất
+                  const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+                  if (token) {
+                    axios.get("http://localhost:5000/api/documents/bookmarks", {
+                      headers: { Authorization: `Bearer ${token}` }
+                    }).then(res => {
+                      setBookmarkedDocs(res.data.map(doc => ({ ...doc, isBookmarked: true })));
+                    });
+                  }
+                }}
+                className="flex items-center gap-2 text-sm font-bold text-amber-600 hover:text-amber-700 bg-amber-50 hover:bg-amber-100 px-4 py-2.5 rounded-xl transition-colors"
+              >
+                Mở kho lưu trữ
+                <ArrowRight size={16} />
+              </button>
+            </div>
+            
+            {bookmarkedDocs.length === 0 ? (
+              <div className="py-10 text-center border-2 border-dashed border-slate-100 rounded-xl bg-slate-50">
+                <Heart size={32} className="mx-auto text-slate-300 mb-2" />
+                <p className="text-sm font-semibold text-slate-500">Chưa có tài liệu nào trong kho yêu thích</p>
+                <p className="text-xs text-slate-400 mt-1">Hãy nhấn biểu tượng trái tim trên tài liệu để lưu vào đây nhé.</p>
+              </div>
+            ) : (
+              <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
+                {bookmarkedDocs.slice(0, 3).map((doc) => (
+                  <DocumentCard
+                    key={doc.document_id}
+                    doc={doc}
+                    isPersonal={false}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Search */}
         <SearchBar
           search={search}
           setSearch={setSearch}
+          userId={(() => {
+            try {
+              const u = JSON.parse(localStorage.getItem("user") || sessionStorage.getItem("user") || "null");
+              return u?.user_id || null;
+            } catch { return null; }
+          })()}
+          onSearch={(keyword) => {
+            setSearch(keyword);
+            setPage(1);
+          }}
         />
+
 
         {/* Stats */}
         <div className="h-14 flex items-center justify-center">
