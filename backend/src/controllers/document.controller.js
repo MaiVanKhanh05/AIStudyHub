@@ -19,7 +19,8 @@ export const getDashboard = async (req, res) => {
 // GET /api/documents/community
 export const getCommunityDocs = async (req, res) => {
     try {
-        const docs = await documentService.getCommunityDocs();
+        const userId = req.userId || req.query.userId || null;
+        const docs = await documentService.getCommunityDocs(userId);
         return res.json(docs);
     } catch (error) {
         console.error("Error loading community documents:", error);
@@ -183,5 +184,36 @@ export const editDoc = async (req, res) => {
             return res.status(403).json({ error: error.message });
         }
         return res.status(500).json({ error: "Failed to edit document" });
+    }
+};
+
+// POST /api/documents/:id/bookmark
+export const toggleBookmark = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const userId = req.userId;
+        if (!id || !userId) {
+            return res.status(400).json({ error: "Missing document or user information" });
+        }
+        const result = await documentService.toggleBookmark(userId, id);
+        return res.json({ success: true, bookmarked: result.bookmarked });
+    } catch (error) {
+        console.error("Error toggling bookmark:", error);
+        return res.status(500).json({ error: "Failed to toggle bookmark" });
+    }
+};
+
+// GET /api/documents/bookmarks
+export const getBookmarks = async (req, res) => {
+    try {
+        const userId = req.userId;
+        if (!userId) {
+            return res.status(400).json({ error: "Missing user information" });
+        }
+        const docs = await documentService.getBookmarkedDocuments(userId);
+        return res.json(docs);
+    } catch (error) {
+        console.error("Error fetching bookmarked documents:", error);
+        return res.status(500).json({ error: "Failed to load bookmarks" });
     }
 };

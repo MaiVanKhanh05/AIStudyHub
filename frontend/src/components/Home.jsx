@@ -42,7 +42,8 @@ import {
   Clock,
   X,
   Pencil,
-  Save
+  Save,
+  Heart
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -100,6 +101,7 @@ export default function Home() {
 
   // States for dynamic documents and storage usage
   const [documents, setDocuments] = useState([]);
+  const [bookmarkedDocs, setBookmarkedDocs] = useState([]);
   const [storageUsage, setStorageUsage] = useState(0);
   const [loading, setLoading] = useState(true);
   const [currentDate, setCurrentDate] = useState("");
@@ -206,6 +208,7 @@ export default function Home() {
   const [shareModalDoc, setShareModalDoc] = useState(null);
   const [shareDescription, setShareDescription] = useState("");
   const [isSharing, setIsSharing] = useState(false);
+  const [docManageMode, setDocManageMode] = useState("UPLOADED"); // "UPLOADED" | "BOOKMARKED"
 
   useEffect(() => {
     if (!showSortMenu) return;
@@ -280,13 +283,22 @@ export default function Home() {
     try {
       setLoading(true);
       const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-      const response = await axios.get(`http://localhost:5000/api/documents/dashboard?userId=${user.user_id}`, {
-        headers: {
-          "Authorization": `Bearer ${token}`
-        }
-      });
-      setDocuments(response.data.documents || []);
-      setStorageUsage(response.data.storageUsage || 0);
+      
+      const [dashRes, bookmarkRes] = await Promise.all([
+        axios.get(`http://localhost:5000/api/documents/dashboard?userId=${user.user_id}`, {
+          headers: { "Authorization": `Bearer ${token}` }
+        }),
+        axios.get(`http://localhost:5000/api/documents/bookmarks`, {
+          headers: { "Authorization": `Bearer ${token}` }
+        }).catch(err => {
+          console.error("Error fetching bookmarks:", err);
+          return { data: [] }; // Fallback
+        })
+      ]);
+
+      setDocuments(dashRes.data.documents || []);
+      setStorageUsage(dashRes.data.storageUsage || 0);
+      setBookmarkedDocs(bookmarkRes.data || []);
     } catch (err) {
       console.error("Error fetching dashboard data:", err);
       toast.error("Không thể tải dữ liệu kho học liệu cá nhân.");
@@ -309,8 +321,12 @@ export default function Home() {
       navigate("/login");
       return;
     }
-    fetchDashboard();
-  }, [user?.user_id, navigate]);
+    
+    // Fetch when mounting or when active tab changes to these
+    if (activeTab === "Home" || activeTab === "Document Management" || activeTab === "Bookmarks") {
+      fetchDashboard();
+    }
+  }, [navigate, user?.user_id, activeTab]);
 
   // Fetch all subjects from database on mount for searching and selecting
   useEffect(() => {
@@ -688,6 +704,7 @@ export default function Home() {
   const navItems = [
     { name: "Home", icon: HomeIcon, label: "Tổng quan học tập" },
     { name: "Document Management", icon: FolderOpen, label: "Kho học liệu cá nhân" },
+    { name: "Bookmarks", icon: Heart, label: "Tài liệu Yêu thích" },
     { name: "AI Assistant", icon: Bot, label: "Trợ lý Nghiên cứu AI" },
     { name: "Community", icon: Users, label: "Cộng đồng" },
     { name: "Notifications", icon: Bell, label: "Thông báo học thuật" },
@@ -1350,9 +1367,10 @@ export default function Home() {
             {/* Documents filtering & Grid */}
             <section className="flex flex-col gap-4 mt-2">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                
                 <h2 className="text-sm font-black text-black dark:text-white uppercase tracking-wider flex items-center gap-2">
                   <span className="w-1 h-3.5 bg-purple-600 dark:bg-purple-500 rounded" />
-                  Danh mục tài liệu học phần ({filteredDocuments.length})
+                  Tài liệu đã tải lên ({documents.length})
                 </h2>
 
                 {/* Search & Filters */}
@@ -1519,6 +1537,7 @@ export default function Home() {
                                     <Download className="w-4 h-4 text-slate-400" />
                                     Tải xuống
                                   </button>
+                                  
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
@@ -1572,6 +1591,58 @@ export default function Home() {
                     </tbody>
                   </table>
                 </div>
+              </div>
+            </section>
+          </div>
+        )}
+
+        {/* ── NEW SCREEN: BOOKMARKS VIEW ── */}
+        {activeTab === "Bookmarks" && (
+          <div className="flex flex-col gap-6 max-w-5xl w-full mx-auto animate-spring-up">
+            <header className="flex flex-col gap-1 border-b border-slate-100 dark:border-slate-800/60 pb-5 select-none text-left">
+              <span className="text-xs font-bold text-red-500 uppercase tracking-widest">Bộ sưu tập của bạn</span>
+              <h1 className="text-2xl md:text-3xl font-black text-black dark:text-white tracking-tight mt-1 flex items-center gap-2">
+                Tài liệu Yêu thích
+                <Heart className="w-6 h-6 fill-red-500 text-red-500" />
+              </h1>
+              <span className="text-xs text-slate-500 font-medium mt-1">
+                Các tài liệu hay từ cộng đồng mà bạn đã đánh dấu.
+              </span>
+            </header>
+
+            <section className="flex flex-col gap-4 mt-2">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <h2 className="text-sm font-black text-black dark:text-white uppercase tracking-wider flex items-center gap-2">
+                  <span className="w-1 h-3.5 bg-red-500 rounded" />
+                  Danh mục yêu thích ({bookmarkedDocs.length})
+                </h2>
+              </div>
+
+              <div className="w-full flex flex-col space-y-6">
+                {bookmarkedDocs.length === 0 ? (
+                  <div className="text-center py-20 bg-white/30 dark:bg-[#0f111a]/30 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 p-8">
+                    <div className="text-5xl mb-4 text-slate-300 dark:text-slate-600">
+                      <Heart className="w-16 h-16 mx-auto opacity-50" />
+                    </div>
+                    <p className="text-sm font-bold text-slate-850 dark:text-slate-200 m-0">
+                      Bạn chưa yêu thích tài liệu nào
+                    </p>
+                    <p className="text-xs text-slate-450 mt-2 m-0">
+                      Hãy quay lại cộng đồng và thả tim những tài liệu hữu ích nhé.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 xl:grid-cols-3 w-full">
+                    {bookmarkedDocs.map((doc) => (
+                      <DocumentCard
+                        key={doc.document_id || doc.id}
+                        doc={{ ...doc, isBookmarked: true }}
+                        isPersonal={false}
+                        isMyShared={false}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
             </section>
           </div>

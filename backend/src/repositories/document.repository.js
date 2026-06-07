@@ -141,8 +141,11 @@ export const incrementDownloadCount = async (id) => {
 };
 
 // Retrieve all community/public documents
-export const getCommunityDocuments = async () => {
+export const getCommunityDocuments = async (userId = null) => {
     try {
+        const queryParams = userId ? [userId] : [];
+        const isBookmarkedSelect = userId ? `, EXISTS (SELECT 1 FROM document_bookmarks db WHERE db.document_id = d.document_id AND db.user_id = $1) as "isBookmarked"` : `, false as "isBookmarked"`;
+
         const { rows } = await pool.query(
             `SELECT d.*, (u.last_name || ' ' || u.first_name) as author, s.subject_name,
                     COALESCE(
@@ -152,13 +155,19 @@ export const getCommunityDocuments = async () => {
                          WHERE dt.document_id = d.document_id),
                         '[]'::json
                     ) as tags
+                    ${isBookmarkedSelect}
              FROM document d
              JOIN users u ON d.user_id = u.user_id
              LEFT JOIN subject s ON d.subject_code = s.subject_code
              WHERE d.visibility = 'PUBLIC'
-             ORDER BY d.upload_date DESC`
+             ORDER BY d.upload_date DESC`,
+             queryParams
         );
-        return rows.map(row => new Document(row));
+        return rows.map(row => {
+            const doc = new Document(row);
+            doc.isBookmarked = row.isBookmarked;
+            return doc;
+        });
     } catch (error) {
         console.error("Error fetching community documents:", error);
         throw error;
@@ -235,3 +244,60 @@ export const replaceDocumentTags = async (documentId, tagIds) => {
         throw error;
     }
 };
+
+// Toggle a bookmark for a document
+export const toggleBookmark = async (userId, documentId) => {
+    try {
+        const { rows } = await pool.query(
+            "SELECT 1 FROM document_bookmarks WHERE user_id = $1 AND document_id = $2",
+            [userId, documentId]
+        );
+
+        if (rows.length > 0) {
+            // Unbookmark
+            await pool.query(
+                "DELETE FROM document_bookmarks WHERE user_id = $1 AND document_id = $2",
+                [userId, documentId]
+            );
+            return { bookmarked: false };
+        } else {
+            // Bookmark
+            await pool.query(
+                "INSERT INTO document_bookmarks (user_id, document_id) VALUES ($1, $2)",
+                [userId, documentId]
+            );
+            return { bookmarked: true };
+        }
+    } catch (error) {
+        console.error("Error toggling document bookmark:", error);
+        throw error;
+    }
+};
+
+// Retrieve all documents bookmarked by a user
+export const getBookmarkedDocuments = async (userId) => {
+    try {
+        const { rows } = await pool.query(
+            `SELECT d.*, (u.last_name || ' ' || u.first_name) as author, s.subject_name,
+                    COALESCE(
+                        (SELECT json_agg(json_build_object('tag_id', t.tag_id, 'tag_name', t.tag_name))
+                         FROM tags t
+                         JOIN document_tags dt ON t.tag_id = dt.tag_id
+                         WHERE dt.document_id = d.document_id),
+                        '[]'::json
+                    ) as tags
+             FROM document d
+             JOIN users u ON d.user_id = u.user_id
+             LEFT JOIN subject s ON d.subject_code = s.subject_code
+             JOIN document_bookmarks b ON d.document_id = b.document_id
+             WHERE b.user_id = $1
+             ORDER BY b.created_at DESC`,
+            [userId]
+        );
+        return rows.map(row => new Document(row));
+    } catch (error) {
+        console.error("Error fetching bookmarked documents:", error);
+        throw error;
+    }
+};
+

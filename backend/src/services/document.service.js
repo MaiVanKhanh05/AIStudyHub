@@ -66,9 +66,9 @@ export const getDashboardData = async (userId) => {
 };
 
 // Retrieve all public community documents
-export const getCommunityDocs = async () => {
+export const getCommunityDocs = async (userId = null) => {
     try {
-        return await documentRepository.getCommunityDocuments();
+        return await documentRepository.getCommunityDocuments(userId);
     } catch (error) {
         throw error;
     }
@@ -208,6 +208,24 @@ export const editDocument = async (id, userId, { title, subject, tags, descripti
 
         return updatedDoc;
     } catch (error) {
+        throw error;
+    }
+};
+
+export const toggleBookmark = async (userId, documentId) => {
+    try {
+        return await documentRepository.toggleBookmark(userId, documentId);
+    } catch (error) {
+        console.error("Error toggling bookmark in service:", error);
+        throw error;
+    }
+};
+
+export const getBookmarkedDocuments = async (userId) => {
+    try {
+        return await documentRepository.getBookmarkedDocuments(userId);
+    } catch (error) {
+        console.error("Error fetching bookmarked documents in service:", error);
         throw error;
     }
 };
