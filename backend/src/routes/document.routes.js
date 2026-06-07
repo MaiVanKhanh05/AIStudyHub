@@ -10,10 +10,16 @@ router.get("/dashboard", authenticateToken, documentController.getDashboard);
 // GET /api/documents/community
 router.get("/community", authenticateToken, documentController.getCommunityDocs);
 
+// GET /api/documents/bookmarks
+router.get("/bookmarks", authenticateToken, documentController.getBookmarks);
+
 // POST /api/documents/upload
 router.post("/upload", authenticateToken, documentController.createNewDoc);
 
 
+
+// POST /api/documents/:id/bookmark
+router.post("/:id/bookmark", authenticateToken, documentController.toggleBookmark);
 
 // PUT /api/documents/:id/share
 router.put("/:id/share", authenticateToken, documentController.shareDoc);
