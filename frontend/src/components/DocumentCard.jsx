@@ -11,6 +11,7 @@ import {
   Share2,
   Check,
   Bookmark,
+  Heart,
   X,
   ZoomIn,
   ZoomOut,
@@ -64,7 +65,7 @@ function getFileType(url = "") {
 export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, onShare, isMyShared }) {
   const [open, setOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [bookmarked, setBookmarked] = useState(false);
+  const [bookmarked, setBookmarked] = useState(doc?.isBookmarked || false);
   const [hasViewed, setHasViewed] = useState(false);
   const [copied, setCopied] = useState(false);
   const [previewDoc, setPreviewDoc] = useState(null);
@@ -77,6 +78,17 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
   const finalFileType = useMemo(() => {
     return getFileType(doc?.file_url);
   }, [doc?.file_url]);
+
+  const formattedUploadDate = useMemo(() => {
+    if (!doc?.upload_date) return "30 Thg 05, 2026";
+    try {
+      const d = new Date(doc.upload_date);
+      if (isNaN(d.getTime())) return doc.upload_date;
+      return d.toLocaleDateString("vi-VN", { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+    } catch {
+      return doc.upload_date;
+    }
+  }, [doc?.upload_date]);
 
   // Tự động đóng menu khi click ra ngoài vùng trống
   useEffect(() => {
@@ -92,6 +104,12 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
       window.removeEventListener("click", closeMenu);
     };
   }, [menuOpen]);
+
+  useEffect(() => {
+    if (doc?.isBookmarked !== undefined) {
+      setBookmarked(doc.isBookmarked);
+    }
+  }, [doc?.isBookmarked]);
 
   useEffect(() => {
     const onKey = (e) => {
@@ -114,8 +132,10 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
   }, [open]);
 
   const increaseView = async () => {
+    const docId = doc?.document_id || doc?.id;
+    if (!docId) return;
     try {
-      await fetch(`http://localhost:5000/documents/${doc.id}/view`, {
+      await fetch(`http://localhost:5000/documents/${docId}/view`, {
         method: "PUT",
       });
     } catch { }
@@ -130,8 +150,10 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
   };
 
   const increaseDownload = async () => {
+    const docId = doc?.document_id || doc?.id;
+    if (!docId) return;
     try {
-      await fetch(`http://localhost:5000/documents/${doc.id}/download`, {
+      await fetch(`http://localhost:5000/documents/${docId}/download`, {
         method: "PUT",
       });
     } catch { }
@@ -182,6 +204,31 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
     toast.info("Tính năng xóa tài liệu đang được cập nhật");
   };
 
+  const handleBookmarkToggle = async (e) => {
+    e.stopPropagation();
+    const docId = doc?.document_id || doc?.id;
+    if (!docId) return;
+    try {
+      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+      const res = await fetch(`http://localhost:5000/api/documents/${docId}/bookmark`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setBookmarked(data.bookmarked);
+        if (data.bookmarked) {
+          toast.success("Đã thả tim lưu tài liệu vào Kho Yêu Thích! ❤️");
+        } else {
+          toast.info("Đã bỏ lưu tài liệu khỏi Kho Yêu Thích.");
+        }
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Lỗi khi lưu tài liệu.");
+    }
+  };
+
   return (
     <>
       {/* CARD LAYOUT */}
@@ -210,17 +257,14 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
 
           {/* FLOATING ACTION BUTTONS */}
           <div className="absolute top-2.5 right-2.5 flex gap-1 z-20">
-            {/* Nút Star Bookmark */}
+            {/* Nút Heart Bookmark */}
             <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setBookmarked(!bookmarked);
-              }}
-              className={`w-5.5 h-5.5 rounded bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm flex items-center justify-center text-[11px] hover:scale-105 active:scale-95 transition-all duration-200
-                ${bookmarked ? "text-yellow-500" : "text-gray-300 dark:text-gray-600"}
+              onClick={handleBookmarkToggle}
+              className={`w-6 h-6 rounded-full bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm flex items-center justify-center hover:scale-110 active:scale-95 transition-all duration-300
+                ${bookmarked ? "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800/50" : ""}
               `}
             >
-              {bookmarked ? "★" : "☆"}
+              <Heart className={`w-3.5 h-3.5 transition-colors duration-300 ${bookmarked ? "fill-red-500 text-red-500" : "text-gray-400 dark:text-gray-500"}`} />
             </button>
 
             {/* Nút Kebab Menu */}
@@ -335,7 +379,7 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
 
             {/* Ngày cập nhật */}
             <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500">
-              Updated: {doc?.upload_date ? new Date(doc.upload_date).toLocaleDateString("vi-VN") : "N/A"}
+              Updated: {formattedUploadDate}
             </p>
           </div>
 
@@ -403,7 +447,7 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
                 <p className="text-[10px] sm:text-xs text-slate-400 dark:text-slate-500 mt-1 font-semibold flex items-center gap-2">
                   <span className="flex items-center gap-1"><User className="w-3.5 h-3.5 text-purple-500/60" /> {doc?.author || doc?.uploader_name || "An Nguyen"}</span>
                   <span className="text-slate-200 dark:text-slate-800">|</span>
-                  <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5 text-purple-500/60" /> {doc?.upload_date || "2026-05-30"}</span>
+                  <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5 text-purple-500/60" /> {formattedUploadDate}</span>
                 </p>
               </div>
             </div>
@@ -589,19 +633,19 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
 
                   {/* Secondary utility actions */}
                   <div className="grid grid-cols-2 gap-2 select-none mt-2">
-                    {/* Star bookmark toggle */}
+                    {/* Heart bookmark toggle */}
                     <button
-                      onClick={() => setBookmarked(!bookmarked)}
+                      onClick={handleBookmarkToggle}
                       className={`
-                        py-2 rounded-lg border text-[10px] font-extrabold flex items-center justify-center gap-1.5 transition-all duration-200 cursor-pointer active:scale-[0.97]
+                        py-2 rounded-lg border text-[10px] font-extrabold flex items-center justify-center gap-1.5 transition-all duration-300 cursor-pointer active:scale-[0.97]
                         ${bookmarked
-                          ? "bg-amber-500/10 border-amber-500/30 text-amber-500 dark:text-amber-400"
+                          ? "bg-red-500/10 border-red-500/30 text-red-600 dark:text-red-400"
                           : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-850"
                         }
                       `}
                     >
-                      <Bookmark className="w-3.5 h-3.5 fill-current" />
-                      {bookmarked ? "Đã đánh dấu" : "Đánh dấu sao"}
+                      <Heart className={`w-3.5 h-3.5 ${bookmarked ? "fill-current" : ""}`} />
+                      {bookmarked ? "Đã yêu thích" : "Yêu thích"}
                     </button>
 
                     {/* Copy link button */}

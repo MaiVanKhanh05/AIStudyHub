@@ -36,6 +36,17 @@ export const connectDB = async () => {
         await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS gender VARCHAR(10)");
         await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS major VARCHAR(100)");
         console.log("Database schema columns for users (phone, dob, gender, major) verified.");
+        
+        // Create document_bookmarks table for favorites feature
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS document_bookmarks (
+                user_id VARCHAR(50) REFERENCES users(user_id) ON DELETE CASCADE,
+                document_id INT REFERENCES document(document_id) ON DELETE CASCADE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (user_id, document_id)
+            )
+        `);
+        console.log("Database schema columns and tables verified.");
     } catch (error) {
         console.error("Error connecting to the database:", error);
         process.exit(1);

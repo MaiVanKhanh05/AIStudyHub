@@ -43,6 +43,9 @@ import {
   X,
   Mail,
   Phone
+  Pencil,
+  Save,
+  Heart
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -107,6 +110,7 @@ export default function Home() {
 
   // States for dynamic documents and storage usage
   const [documents, setDocuments] = useState([]);
+  const [bookmarkedDocs, setBookmarkedDocs] = useState([]);
   const [storageUsage, setStorageUsage] = useState(0);
   const [loading, setLoading] = useState(true);
   const [currentDate, setCurrentDate] = useState("");
@@ -170,7 +174,7 @@ export default function Home() {
   const handleToggleCommunityPin = (id) => {
     setCommunityDocs((prevDocs) =>
       prevDocs.map((doc) =>
-        doc.id === id ? { ...doc, isPinned: !doc.isPinned } : doc
+        (doc.document_id || doc.id) === id ? { ...doc, isPinned: !doc.isPinned } : doc
       )
     );
   };
@@ -213,6 +217,7 @@ export default function Home() {
   const [shareModalDoc, setShareModalDoc] = useState(null);
   const [shareDescription, setShareDescription] = useState("");
   const [isSharing, setIsSharing] = useState(false);
+  const [docManageMode, setDocManageMode] = useState("UPLOADED"); // "UPLOADED" | "BOOKMARKED"
 
   useEffect(() => {
     if (!showSortMenu) return;
@@ -242,6 +247,17 @@ export default function Home() {
   const [showTagSuggestions, setShowTagSuggestions] = useState(false);
   const [deleteConfirmDocId, setDeleteConfirmDocId] = useState(null);
   const [duplicateConfirmData, setDuplicateConfirmData] = useState(null);
+
+  // States for Edit Document feature
+  const [editModalDoc, setEditModalDoc] = useState(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editSubject, setEditSubject] = useState("");
+  const [editTags, setEditTags] = useState([]);
+  const [editTagInput, setEditTagInput] = useState("");
+  const [editTagSuggestions, setEditTagSuggestions] = useState([]);
+  const [editSubjectSearch, setEditSubjectSearch] = useState("");
+  const [showEditSubjectDropdown, setShowEditSubjectDropdown] = useState(false);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   // AI Assistant Chatbot States
   const [aiMessages, setAiMessages] = useState([
@@ -432,13 +448,22 @@ export default function Home() {
     try {
       setLoading(true);
       const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-      const response = await axios.get(`http://localhost:5000/api/documents/dashboard?userId=${user.user_id}`, {
-        headers: {
-          "Authorization": `Bearer ${token}`
-        }
-      });
-      setDocuments(response.data.documents || []);
-      setStorageUsage(response.data.storageUsage || 0);
+      
+      const [dashRes, bookmarkRes] = await Promise.all([
+        axios.get(`http://localhost:5000/api/documents/dashboard?userId=${user.user_id}`, {
+          headers: { "Authorization": `Bearer ${token}` }
+        }),
+        axios.get(`http://localhost:5000/api/documents/bookmarks`, {
+          headers: { "Authorization": `Bearer ${token}` }
+        }).catch(err => {
+          console.error("Error fetching bookmarks:", err);
+          return { data: [] }; // Fallback
+        })
+      ]);
+
+      setDocuments(dashRes.data.documents || []);
+      setStorageUsage(dashRes.data.storageUsage || 0);
+      setBookmarkedDocs(bookmarkRes.data || []);
     } catch (err) {
       console.error("Error fetching dashboard data:", err);
       toast.error("Không thể tải dữ liệu kho học liệu cá nhân.");
@@ -461,8 +486,12 @@ export default function Home() {
       navigate("/login");
       return;
     }
-    fetchDashboard();
-  }, [user?.user_id, navigate]);
+    
+    // Fetch when mounting or when active tab changes to these
+    if (activeTab === "Home" || activeTab === "Document Management" || activeTab === "Bookmarks") {
+      fetchDashboard();
+    }
+  }, [navigate, user?.user_id, activeTab]);
 
   // Fetch all subjects from database on mount for searching and selecting
   useEffect(() => {
@@ -714,6 +743,8 @@ export default function Home() {
     }
   };
 
+
+
   // Send AI Chat Message action
   const handleSendChatMessage = (textToSend) => {
     const text = textToSend || chatInput;
@@ -838,6 +869,7 @@ export default function Home() {
   const navItems = [
     { name: "Home", icon: HomeIcon, label: "Tổng quan học tập" },
     { name: "Document Management", icon: FolderOpen, label: "Kho học liệu cá nhân" },
+    { name: "Bookmarks", icon: Heart, label: "Tài liệu Yêu thích" },
     { name: "AI Assistant", icon: Bot, label: "Trợ lý Nghiên cứu AI" },
     { name: "Community", icon: Users, label: "Cộng đồng" },
     { name: "Notifications", icon: Bell, label: "Thông báo học thuật" },
@@ -1506,9 +1538,10 @@ export default function Home() {
             {/* Documents filtering & Grid */}
             <section className="flex flex-col gap-4 mt-2">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                
                 <h2 className="text-sm font-black text-black dark:text-white uppercase tracking-wider flex items-center gap-2">
                   <span className="w-1 h-3.5 bg-purple-600 dark:bg-purple-500 rounded" />
-                  Danh mục tài liệu học phần ({filteredDocuments.length})
+                  Tài liệu đã tải lên ({documents.length})
                 </h2>
 
                 {/* Search & Filters */}
@@ -1675,6 +1708,7 @@ export default function Home() {
                                     <Download className="w-4 h-4 text-slate-400" />
                                     Tải xuống
                                   </button>
+                                  
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
@@ -1686,6 +1720,26 @@ export default function Home() {
                                   >
                                     <Share2 className="w-4 h-4 text-slate-400" />
                                     Chia sẻ
+                                  </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setOpenMenuId(null);
+                                      setEditModalDoc(doc);
+                                      setEditTitle(doc.title || doc.document_name || "");
+                                      setEditSubject(doc.subject_code || "");
+                                      setEditSubjectSearch(doc.subject_code || "");
+                                      const docTagNames = Array.isArray(doc.tags)
+                                        ? doc.tags.map(t => typeof t === "string" ? t : t.tag_name)
+                                        : [];
+                                      setEditTags(docTagNames);
+                                      setEditTagInput("");
+                                      setEditTagSuggestions([]);
+                                    }}
+                                    className="w-full flex items-center gap-2 text-left px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60 rounded-md transition-colors"
+                                  >
+                                    <Pencil className="w-4 h-4 text-slate-400" />
+                                    Chỉnh sửa
                                   </button>
                                   <div className="h-px bg-slate-100 dark:bg-slate-800/60 my-1" />
                                   <button
@@ -1708,6 +1762,58 @@ export default function Home() {
                     </tbody>
                   </table>
                 </div>
+              </div>
+            </section>
+          </div>
+        )}
+
+        {/* ── NEW SCREEN: BOOKMARKS VIEW ── */}
+        {activeTab === "Bookmarks" && (
+          <div className="flex flex-col gap-6 max-w-5xl w-full mx-auto animate-spring-up">
+            <header className="flex flex-col gap-1 border-b border-slate-100 dark:border-slate-800/60 pb-5 select-none text-left">
+              <span className="text-xs font-bold text-red-500 uppercase tracking-widest">Bộ sưu tập của bạn</span>
+              <h1 className="text-2xl md:text-3xl font-black text-black dark:text-white tracking-tight mt-1 flex items-center gap-2">
+                Tài liệu Yêu thích
+                <Heart className="w-6 h-6 fill-red-500 text-red-500" />
+              </h1>
+              <span className="text-xs text-slate-500 font-medium mt-1">
+                Các tài liệu hay từ cộng đồng mà bạn đã đánh dấu.
+              </span>
+            </header>
+
+            <section className="flex flex-col gap-4 mt-2">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <h2 className="text-sm font-black text-black dark:text-white uppercase tracking-wider flex items-center gap-2">
+                  <span className="w-1 h-3.5 bg-red-500 rounded" />
+                  Danh mục yêu thích ({bookmarkedDocs.length})
+                </h2>
+              </div>
+
+              <div className="w-full flex flex-col space-y-6">
+                {bookmarkedDocs.length === 0 ? (
+                  <div className="text-center py-20 bg-white/30 dark:bg-[#0f111a]/30 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 p-8">
+                    <div className="text-5xl mb-4 text-slate-300 dark:text-slate-600">
+                      <Heart className="w-16 h-16 mx-auto opacity-50" />
+                    </div>
+                    <p className="text-sm font-bold text-slate-850 dark:text-slate-200 m-0">
+                      Bạn chưa yêu thích tài liệu nào
+                    </p>
+                    <p className="text-xs text-slate-450 mt-2 m-0">
+                      Hãy quay lại cộng đồng và thả tim những tài liệu hữu ích nhé.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 xl:grid-cols-3 w-full">
+                    {bookmarkedDocs.map((doc) => (
+                      <DocumentCard
+                        key={doc.document_id || doc.id}
+                        doc={{ ...doc, isBookmarked: true }}
+                        isPersonal={false}
+                        isMyShared={false}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
             </section>
           </div>
@@ -1915,89 +2021,15 @@ export default function Home() {
               <SearchBar
                 search={communitySearch}
                 setSearch={setCommunitySearch}
+                userId={user?.user_id || null}
+                onSearch={(keyword) => {
+                  setCommunitySearch(keyword);
+                  setCommunityPage(1);
+                }}
+                placeholder="Tìm kiếm tài liệu cộng đồng, môn học, tác giả..."
                 className="max-w-2xl mx-auto"
-                onEnter={handleCommunitySearch}
               />
             </div>
-
-            {/* ── SEARCH HISTORY SECTION ── */}
-            {communitySearchHistory.length > 0 && (
-              <div className="w-full max-w-2xl mx-auto animate-in fade-in slide-in-from-top-1 duration-200">
-                {/* Header row */}
-                <div className="flex items-center justify-between mb-2.5 px-0.5">
-                  <div className="flex items-center gap-1.5">
-                    <Clock className="w-3 h-3 text-slate-400 dark:text-slate-500" />
-                    <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
-                      Lịch sử tìm kiếm
-                    </span>
-                    <span className="text-[9px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 px-1.5 py-0.5 rounded-full">
-                      {communitySearchHistory.length}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {/* View All / Collapse toggle */}
-                    {communitySearchHistory.length > 10 && (
-                      <button
-                        onClick={() => setShowAllHistory((v) => !v)}
-                        className="text-[10px] font-bold text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300 hover:underline underline-offset-2 transition-colors cursor-pointer"
-                      >
-                        {showAllHistory
-                          ? "Thu gọn"
-                          : `Xem tất cả (${communitySearchHistory.length})`}
-                      </button>
-                    )}
-                    {/* Clear all */}
-                    <button
-                      onClick={() => { clearCommunitySearchHistory(); setShowAllHistory(false); }}
-                      className="flex items-center gap-1 text-[10px] font-bold text-slate-400 hover:text-red-500 dark:hover:text-red-400 transition-colors px-2 py-1 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/20 cursor-pointer"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                      Xóa tất cả
-                    </button>
-                  </div>
-                </div>
-
-                {/* Chips list */}
-                <div className="flex flex-wrap gap-2">
-                  {(showAllHistory
-                    ? communitySearchHistory
-                    : communitySearchHistory.slice(0, 10)
-                  ).map((keyword, idx) => (
-                    <div
-                      key={`${keyword}-${idx}`}
-                      className="group/chip flex items-center gap-1.5 pl-3 pr-1.5 py-1.5 rounded-full border border-slate-200/70 dark:border-white/8 bg-white/70 dark:bg-[#0f111a]/60 backdrop-blur-sm hover:border-purple-400/50 dark:hover:border-purple-500/40 hover:bg-purple-50/60 dark:hover:bg-purple-900/15 transition-all duration-200 cursor-pointer shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
-                    >
-                      {/* Keyword button */}
-                      <button
-                        onClick={() => { handleCommunitySearch(keyword); }}
-                        className="text-[11px] font-semibold text-slate-600 dark:text-slate-300 group-hover/chip:text-purple-700 dark:group-hover/chip:text-purple-300 transition-colors whitespace-nowrap cursor-pointer"
-                      >
-                        {keyword}
-                      </button>
-                      {/* Remove single item */}
-                      <button
-                        onClick={(e) => { e.stopPropagation(); removeCommunitySearchHistory(keyword); }}
-                        className="w-4 h-4 flex items-center justify-center rounded-full text-slate-350 dark:text-slate-600 hover:bg-red-100 dark:hover:bg-red-950/30 hover:text-red-500 dark:hover:text-red-400 transition-all opacity-60 group-hover/chip:opacity-100 cursor-pointer"
-                        title="Xóa mục này"
-                      >
-                        <X className="w-2.5 h-2.5" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-
-                {/* "View All" expand button — shown below chips when collapsed & total > 10 */}
-                {!showAllHistory && communitySearchHistory.length > 10 && (
-                  <button
-                    onClick={() => setShowAllHistory(true)}
-                    className="mt-2.5 w-full flex items-center justify-center gap-1.5 py-2 rounded-xl border border-dashed border-slate-200 dark:border-white/8 text-[10px] font-bold text-slate-400 dark:text-slate-500 hover:text-purple-600 dark:hover:text-purple-400 hover:border-purple-400/40 hover:bg-purple-50/40 dark:hover:bg-purple-900/10 transition-all duration-200 cursor-pointer"
-                  >
-                    <ChevronRight className="w-3 h-3 rotate-90" />
-                    Xem tất cả {communitySearchHistory.length} lịch sử tìm kiếm
-                  </button>
-                )}
-              </div>
-            )}
 
             {/* Stats */}
             <div className="h-10 flex items-center justify-center select-none">
@@ -2035,7 +2067,7 @@ export default function Home() {
                         <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 xl:grid-cols-3 w-full">
                           {pinnedCommunityDocs.map((doc) => (
                             <DocumentCard
-                              key={doc.id}
+                              key={doc.document_id || doc.id}
                               doc={doc}
                               isPinned={doc.isPinned}
                               onTogglePin={() => handleToggleCommunityPin(doc.id)}
@@ -2059,7 +2091,7 @@ export default function Home() {
                         <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 xl:grid-cols-3 w-full">
                           {regularCommunityDocs.map((doc) => (
                             <DocumentCard
-                              key={doc.id}
+                              key={doc.document_id || doc.id}
                               doc={doc}
                               isPinned={doc.isPinned}
                               onTogglePin={() => handleToggleCommunityPin(doc.id)}
@@ -2630,6 +2662,194 @@ export default function Home() {
           doc={previewDoc}
           onClose={() => setPreviewDoc(null)}
         />
+      )}
+      {/* ────── EDIT DOCUMENT MODAL ────── */}
+      {editModalDoc && (
+        <div className="fixed inset-0 bg-slate-900/60 dark:bg-black/70 backdrop-blur-md flex items-center justify-center z-[9999] animate-in fade-in duration-200" onClick={() => !isSavingEdit && setEditModalDoc(null)}>
+          <div className="w-full max-w-md p-6 bg-white/95 dark:bg-[#0f111a]/95 border border-slate-200/50 dark:border-white/10 rounded-2xl shadow-2xl flex flex-col gap-4 animate-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-950/40 text-purple-650 dark:text-purple-400 flex items-center justify-center border border-purple-500/10">
+                  <Pencil className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">Chỉnh sửa tài liệu</h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">Cập nhật thông tin tài liệu</p>
+                </div>
+              </div>
+              <button onClick={() => !isSavingEdit && setEditModalDoc(null)} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 transition-colors">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Title field */}
+            <div className="flex flex-col gap-1.5 mt-2">
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Tên tài liệu <span className="text-red-500">*</span></label>
+              <input
+                type="text"
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                placeholder="Nhập tên tài liệu..."
+                className="w-full p-2.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-xl outline-none focus:ring-2 focus:ring-purple-500/50 text-sm text-slate-800 dark:text-slate-200"
+              />
+            </div>
+
+            {/* Subject field */}
+            <div className="flex flex-col gap-1.5 relative">
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Môn học (Tùy chọn)</label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <BookOpen className="w-4 h-4 text-slate-400" />
+                </div>
+                <input
+                  type="text"
+                  value={editSubjectSearch}
+                  onChange={(e) => {
+                    setEditSubjectSearch(e.target.value);
+                    setEditSubject("");
+                    setShowEditSubjectDropdown(true);
+                  }}
+                  onFocus={() => setShowEditSubjectDropdown(true)}
+                  placeholder="Chọn hoặc nhập mã môn..."
+                  className="w-full pl-9 pr-8 py-2.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-xl outline-none focus:ring-2 focus:ring-purple-500/50 text-sm text-slate-800 dark:text-slate-200 uppercase"
+                />
+                {editSubjectSearch && (
+                  <button
+                    onClick={() => {
+                      setEditSubjectSearch("");
+                      setEditSubject("");
+                      setShowEditSubjectDropdown(false);
+                    }}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+                {showEditSubjectDropdown && (
+                  <div className="absolute z-50 w-full mt-1 bg-white dark:bg-[#151722] border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl max-h-48 overflow-y-auto">
+                    {subjectsList
+                      .filter(s => s.subject_code.toLowerCase().includes(editSubjectSearch.toLowerCase()) || s.subject_name.toLowerCase().includes(editSubjectSearch.toLowerCase()))
+                      .map(subj => (
+                        <div
+                          key={subj.subject_code}
+                          onClick={() => {
+                            setEditSubjectSearch(subj.subject_code);
+                            setEditSubject(subj.subject_code);
+                            setShowEditSubjectDropdown(false);
+                          }}
+                          className="px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer flex flex-col"
+                        >
+                          <span className="text-xs font-bold text-slate-800 dark:text-slate-200">{subj.subject_code}</span>
+                          <span className="text-[10px] text-slate-500 truncate">{subj.subject_name}</span>
+                        </div>
+                      ))}
+                    {editSubjectSearch.trim() && !subjectsList.some(s => s.subject_code.toLowerCase() === editSubjectSearch.toLowerCase()) && (
+                      <div
+                        onClick={() => {
+                          setEditSubject(editSubjectSearch.trim().toUpperCase());
+                          setEditSubjectSearch(editSubjectSearch.trim().toUpperCase());
+                          setShowEditSubjectDropdown(false);
+                        }}
+                        className="px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer text-xs font-bold text-purple-600 flex items-center gap-2"
+                      >
+                        <Plus className="w-3.5 h-3.5" /> Thêm mã "{editSubjectSearch.trim().toUpperCase()}"
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Tags field */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Thẻ phân loại (Tags)</label>
+              <div className="w-full p-2 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-xl focus-within:ring-2 focus-within:ring-purple-500/50 flex flex-wrap gap-2 items-center min-h-[44px]">
+                {editTags.map(tag => (
+                  <span key={tag} className="px-2 py-1 bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-300 text-[10px] font-bold rounded-md flex items-center gap-1">
+                    <Tag className="w-3 h-3" />
+                    {tag}
+                    <button onClick={() => setEditTags(editTags.filter(t => t !== tag))} className="hover:text-purple-900 dark:hover:text-purple-100 ml-0.5">
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                ))}
+                <input
+                  type="text"
+                  value={editTagInput}
+                  onChange={(e) => setEditTagInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ',') {
+                      e.preventDefault();
+                      const val = editTagInput.trim().toUpperCase();
+                      if (val && !editTags.includes(val) && editTags.length < 5) {
+                        setEditTags([...editTags, val]);
+                        setEditTagInput("");
+                      } else if (editTags.length >= 5) {
+                        toast.error("Tối đa 5 thẻ tag!");
+                      }
+                    }
+                  }}
+                  placeholder={editTags.length < 5 ? "Nhập tag và nhấn Enter..." : ""}
+                  className="flex-1 bg-transparent border-none outline-none text-xs text-slate-800 dark:text-slate-200 min-w-[120px]"
+                  disabled={editTags.length >= 5}
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-4">
+              <button
+                type="button"
+                onClick={() => !isSavingEdit && setEditModalDoc(null)}
+                disabled={isSavingEdit}
+                className="flex-1 px-4 py-2.5 rounded-lg border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-350 hover:bg-slate-50 dark:hover:bg-slate-850 font-bold text-xs cursor-pointer select-none transition-colors"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!editTitle.trim()) { toast.warning("Vui lòng nhập tiêu đề tài liệu!"); return; }
+                  setIsSavingEdit(true);
+                  try {
+                    const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+                    const targetId = editModalDoc.document_id || editModalDoc.id;
+                    const res = await fetch(`http://localhost:5000/api/documents/${targetId}/edit`, {
+                      method: "PUT",
+                      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        title: editTitle.trim(),
+                        subject: editSubject || editSubjectSearch || "OTHER",
+                        tags: editTags,
+                        description: editModalDoc.description || null,
+                      })
+                    });
+                    if (!res.ok) {
+                      const err = await res.json();
+                      throw new Error(err.error || "Cập nhật thất bại");
+                    }
+                    toast.success("Cập nhật tài liệu thành công!");
+                    setEditModalDoc(null);
+                    if (typeof fetchDashboard === "function") {
+                      await fetchDashboard();
+                    } else {
+                      window.location.reload();
+                    }
+                  } catch (err) {
+                    toast.error(`Lỗi: ${err.message}`);
+                  } finally {
+                    setIsSavingEdit(false);
+                  }
+                }}
+                disabled={isSavingEdit}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-purple-600 hover:bg-purple-700 text-white border border-transparent font-bold text-xs cursor-pointer select-none shadow-sm transition-all duration-300 disabled:opacity-70"
+              >
+                {isSavingEdit ? "Đang lưu..." : (
+                  <><Save className="w-4 h-4" /> Lưu thay đổi</>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
