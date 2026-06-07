@@ -28,6 +28,14 @@ export const connectDB = async () => {
         // Ensure views and downloads columns exist in the document table
         await pool.query("ALTER TABLE document ADD COLUMN IF NOT EXISTS views INT DEFAULT 0");
         await pool.query("ALTER TABLE document ADD COLUMN IF NOT EXISTS downloads INT DEFAULT 0");
+        console.log("Database schema columns (views, downloads) verified.");
+
+        // Ensure user profile columns exist
+        await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(20)");
+        await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS dob DATE");
+        await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS gender VARCHAR(10)");
+        await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS major VARCHAR(100)");
+        console.log("Database schema columns for users (phone, dob, gender, major) verified.");
         
         // Create document_bookmarks table for favorites feature
         await pool.query(`

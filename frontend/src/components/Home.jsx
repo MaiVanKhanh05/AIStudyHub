@@ -41,6 +41,8 @@ import {
   Tag,
   Clock,
   X,
+  Mail,
+  Phone
   Pencil,
   Save,
   Heart
@@ -79,6 +81,13 @@ function getFileType(url = "") {
   if (ext === "txt") return "txt";
   return "other";
 }
+
+const formatToDDMMYYYY = (dateString) => {
+  if (!dateString) return "Chưa cập nhật";
+  const d = new Date(dateString);
+  if (isNaN(d.getTime())) return "Chưa cập nhật";
+  return String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0') + '/' + d.getFullYear();
+};
 
 export default function Home() {
   const navigate = useNavigate();
@@ -271,7 +280,163 @@ export default function Home() {
   const [changePasswordSuccess, setChangePasswordSuccess] = useState("");
   const [resetEmailLoading, setResetEmailLoading] = useState(false);
 
+  // States for Avatar Upload
+  const [avatarFile, setAvatarFile] = useState(null);
+  const [avatarPreview, setAvatarPreview] = useState(null);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+
+  // Edit Profile States
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [editProfileData, setEditProfileData] = useState({
+    phone: user?.phone || "",
+    dob: user?.dob ? new Date(user.dob).toISOString().split("T")[0] : "",
+    gender: user?.gender || "",
+    major: user?.major || ""
+  });
+
+  const handleAvatarChange = (e) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setAvatarFile(file);
+      setAvatarPreview(URL.createObjectURL(file));
+    }
+  };
+
+  const handleAvatarUpload = async () => {
+    if (!avatarFile) return;
+    setIsUploadingAvatar(true);
+
+    try {
+      // 1. Upload new avatar to Supabase
+      const uploadResult = await uploadFileToSupabase(avatarFile, "AIStudyHub", user.user_id);
+      if (!uploadResult.success) {
+        throw new Error(uploadResult.error || "Không thể tải ảnh lên Supabase Storage.");
+      }
+
+      const newAvatarUrl = uploadResult.fileUrl;
+
+      // 2. Delete old avatar from Supabase if it exists and is stored in Supabase
+      const getSupabasePath = (url, bucketName = "AIStudyHub") => {
+        if (!url) return null;
+        const searchStr = `/storage/v1/object/public/${bucketName}/`;
+        const index = url.indexOf(searchStr);
+        if (index !== -1) {
+          return decodeURIComponent(url.substring(index + searchStr.length));
+        }
+        return null;
+      };
+
+      const oldPath = getSupabasePath(user?.avatar_url, "AIStudyHub");
+      if (oldPath) {
+        const newPath = getSupabasePath(newAvatarUrl, "AIStudyHub");
+        if (newPath && oldPath !== newPath) {
+          try {
+            await deleteFileFromSupabase(oldPath, "AIStudyHub");
+          } catch (delErr) {
+            console.warn("Failed to delete old avatar file from Supabase:", delErr);
+          }
+        }
+      }
+
+      // 3. Update backend database with the new avatar URL
+      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+      const res = await fetch("http://localhost:5000/api/users/profile", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          phone: user?.phone || "",
+          dob: user?.dob ? new Date(user.dob).toISOString().split("T")[0] : "",
+          gender: user?.gender || "",
+          major: user?.major || "",
+          avatar_url: newAvatarUrl
+        })
+      });
+
+      if (res.ok) {
+        const updatedUser = await res.json();
+
+        if (localStorage.getItem("user")) {
+          localStorage.setItem("user", JSON.stringify(updatedUser));
+        } else if (sessionStorage.getItem("user")) {
+          sessionStorage.setItem("user", JSON.stringify(updatedUser));
+        }
+
+        toast.success("Cập nhật ảnh đại diện thành công!");
+        setAvatarFile(null);
+        setAvatarPreview(null);
+        window.location.reload();
+      } else {
+        toast.error("Lỗi khi tải ảnh lên. Vui lòng thử lại.");
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error("Lỗi kết nối máy chủ");
+    } finally {
+      setIsUploadingAvatar(false);
+    }
+  };
+
+  const handleEditProfileToggle = () => {
+    if (!isEditingProfile) {
+      setEditProfileData({
+        phone: user?.phone || "",
+        dob: user?.dob ? new Date(user.dob).toISOString().split("T")[0] : "",
+        gender: user?.gender || "",
+        major: user?.major || ""
+      });
+    }
+    setIsEditingProfile(!isEditingProfile);
+  };
+
+  const handleSaveProfile = async () => {
+    setIsSavingProfile(true);
+    try {
+      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+      const res = await fetch("http://localhost:5000/api/users/profile", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(editProfileData),
+      });
+
+      if (res.ok) {
+        const updatedUser = await res.json();
+
+        if (localStorage.getItem("user")) {
+          localStorage.setItem("user", JSON.stringify(updatedUser));
+        } else if (sessionStorage.getItem("user")) {
+          sessionStorage.setItem("user", JSON.stringify(updatedUser));
+        }
+
+        setIsEditingProfile(false);
+        toast.success("Cập nhật thông tin thành công!");
+        window.location.reload();
+      } else {
+        let errMsg = "Lỗi khi lưu hồ sơ";
+        try {
+          const errData = await res.json();
+          errMsg = errData.error || errMsg;
+        } catch (e) {
+          console.error("Non-JSON error response", e);
+        }
+        toast.error(errMsg);
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Lỗi kết nối máy chủ: " + err.message);
+    } finally {
+      setIsSavingProfile(false);
+    }
+  };
+
   // Get current formatted date
+
   useEffect(() => {
     const options = { weekday: "long", month: "short", day: "numeric", year: "numeric" };
     setCurrentDate(new Date().toLocaleDateString("vi-VN", options));
@@ -799,13 +964,19 @@ export default function Home() {
               className="w-full flex items-center justify-between p-2.5 rounded-xl border border-slate-200/40 dark:border-white/5 bg-white/40 dark:bg-[#0f111a]/45 backdrop-blur-md hover:bg-white/65 dark:hover:bg-[#0f111a]/60 shadow-[inset_0_1px_1px_rgba(255,255,255,0.2)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition-all duration-300 text-left focus:outline-none cursor-pointer"
             >
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="relative w-8.5 h-8.5 rounded-lg bg-purple-100 dark:bg-purple-950/50 flex items-center justify-center font-extrabold text-purple-700 dark:text-purple-300 shrink-0">
-                  {fullName.charAt(0)}
-                  <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-emerald-500 border border-white dark:border-[#151722] animate-pulse" />
+                <div className="relative w-8.5 h-8.5 rounded-lg bg-purple-100 dark:bg-purple-950/50 flex items-center justify-center font-extrabold text-purple-700 dark:text-purple-300 shrink-0 overflow-hidden">
+                  {user?.avatar_url ? (
+                    <img src={user.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+                  ) : (
+                    fullName.charAt(0)
+                  )}
+                  <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-emerald-500 border border-white dark:border-[#151722] animate-pulse z-10" />
                 </div>
                 <div className="flex flex-col truncate">
                   <span className="text-xs font-bold text-slate-900 dark:text-slate-100 leading-tight truncate">{fullName}</span>
-                  <span className="text-[9px] text-slate-400 dark:text-slate-500 font-bold leading-none mt-1">Học viên</span>
+                  <span className="text-[9px] text-slate-400 dark:text-slate-500 font-bold leading-none mt-1">
+                    {user?.role === "ADMIN" ? "Quản trị viên" : user?.role === "LECTURER" ? "Giảng viên" : "Học viên"}
+                  </span>
                 </div>
               </div>
               <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
@@ -1375,62 +1546,62 @@ export default function Home() {
 
                 {/* Search & Filters */}
                 <div className="flex flex-col sm:flex-row items-center gap-4">
-                  <SearchBar 
+                  <SearchBar
                     search={searchQuery}
                     setSearch={setSearchQuery}
                     className="w-full sm:w-[250px]"
                   />
-                  
+
                   <div className="flex items-center gap-2 relative">
                     <span className="text-xs font-bold text-slate-500">Lọc theo:</span>
-                  <div
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setShowSortMenu(!showSortMenu);
-                    }}
-                    className="flex items-center gap-2 bg-slate-100 dark:bg-[#151722] hover:bg-slate-200 dark:hover:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-1.5 text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer transition-colors"
-                  >
-                    <span>
-                      {sortConfig.key === "upload_date" && sortConfig.direction === "desc" && "Ngày tải lên (Mới nhất)"}
-                      {sortConfig.key === "upload_date" && sortConfig.direction === "asc" && "Ngày tải lên (Cũ nhất)"}
-                      {sortConfig.key === "file_size" && sortConfig.direction === "desc" && "Kích cỡ (Lớn nhất)"}
-                      {sortConfig.key === "file_size" && sortConfig.direction === "asc" && "Kích cỡ (Nhỏ nhất)"}
-                    </span>
-                    <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
-                  </div>
-
-                  {showSortMenu && (
                     <div
-                      onClick={(e) => e.stopPropagation()}
-                      className="absolute right-0 top-10 w-48 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.08)] z-30 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150 p-1 text-left"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowSortMenu(!showSortMenu);
+                      }}
+                      className="flex items-center gap-2 bg-slate-100 dark:bg-[#151722] hover:bg-slate-200 dark:hover:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-1.5 text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer transition-colors"
                     >
-                      {[
-                        { label: "Ngày tải lên (Mới nhất)", key: "upload_date", direction: "desc" },
-                        { label: "Ngày tải lên (Cũ nhất)", key: "upload_date", direction: "asc" },
-                        { label: "Kích cỡ (Lớn nhất)", key: "file_size", direction: "desc" },
-                        { label: "Kích cỡ (Nhỏ nhất)", key: "file_size", direction: "asc" }
-                      ].map((option, idx) => (
-                        <button
-                          key={idx}
-                          onClick={() => {
-                            setSortConfig({ key: option.key, direction: option.direction });
-                            setShowSortMenu(false);
-                          }}
-                          className={`w-full flex items-center text-left px-3 py-2.5 text-xs font-medium rounded-md transition-colors ${sortConfig.key === option.key && sortConfig.direction === option.direction
-                            ? "bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 font-bold"
-                            : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60"
-                            }`}
-                        >
-                          {option.label}
-                        </button>
-                      ))}
+                      <span>
+                        {sortConfig.key === "upload_date" && sortConfig.direction === "desc" && "Ngày tải lên (Mới nhất)"}
+                        {sortConfig.key === "upload_date" && sortConfig.direction === "asc" && "Ngày tải lên (Cũ nhất)"}
+                        {sortConfig.key === "file_size" && sortConfig.direction === "desc" && "Kích cỡ (Lớn nhất)"}
+                        {sortConfig.key === "file_size" && sortConfig.direction === "asc" && "Kích cỡ (Nhỏ nhất)"}
+                      </span>
+                      <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
                     </div>
-                  )}
+
+                    {showSortMenu && (
+                      <div
+                        onClick={(e) => e.stopPropagation()}
+                        className="absolute right-0 top-10 w-48 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.08)] z-30 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150 p-1 text-left"
+                      >
+                        {[
+                          { label: "Ngày tải lên (Mới nhất)", key: "upload_date", direction: "desc" },
+                          { label: "Ngày tải lên (Cũ nhất)", key: "upload_date", direction: "asc" },
+                          { label: "Kích cỡ (Lớn nhất)", key: "file_size", direction: "desc" },
+                          { label: "Kích cỡ (Nhỏ nhất)", key: "file_size", direction: "asc" }
+                        ].map((option, idx) => (
+                          <button
+                            key={idx}
+                            onClick={() => {
+                              setSortConfig({ key: option.key, direction: option.direction });
+                              setShowSortMenu(false);
+                            }}
+                            className={`w-full flex items-center text-left px-3 py-2.5 text-xs font-medium rounded-md transition-colors ${sortConfig.key === option.key && sortConfig.direction === option.direction
+                              ? "bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 font-bold"
+                              : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60"
+                              }`}
+                          >
+                            {option.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Table List of documents */}
+              {/* Table List of documents */}
               <div className="w-full border border-slate-200/30 dark:border-white/5 rounded-xl overflow-hidden bg-white/30 dark:bg-[#0f111a]/45 backdrop-blur-xl shadow-[inset_0_1px_1px_rgba(255,255,255,0.25)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] shadow-sm">
                 <div className="w-full overflow-x-auto">
                   <table className="w-full text-left border-collapse text-xs select-none">
@@ -1681,8 +1852,14 @@ export default function Home() {
                       </>
                     ) : (
                       <>
-                        <UserIcon className="w-3.5 h-3.5 text-purple-500" />
-                        <span className="text-[9px] font-extrabold uppercase tracking-widest">Học viên</span>
+                        {user?.avatar_url ? (
+                          <img src={user.avatar_url} alt="Avatar" className="w-3.5 h-3.5 rounded-full object-cover" />
+                        ) : (
+                          <UserIcon className="w-3.5 h-3.5 text-purple-500" />
+                        )}
+                        <span className="text-[9px] font-extrabold uppercase tracking-widest">
+                          {user?.role === "ADMIN" ? "Quản trị viên" : user?.role === "LECTURER" ? "Giảng viên" : "Học viên"}
+                        </span>
                       </>
                     )}
                   </div>
@@ -1802,7 +1979,7 @@ export default function Home() {
                       <p className="text-sm text-slate-500 dark:text-slate-400">Bạn đã đóng góp {mySharedCommunityDocs.length} tài liệu cho cộng đồng</p>
                     </div>
                   </div>
-                  <button 
+                  <button
                     onClick={() => setCommunityFilterMode("MY_SHARED")}
                     className="flex items-center gap-2 text-sm font-bold text-purple-600 hover:text-purple-700 bg-purple-50 hover:bg-purple-100 dark:text-purple-400 dark:bg-purple-900/20 dark:hover:bg-purple-900/40 px-4 py-2.5 rounded-xl transition-colors"
                   >
@@ -1810,15 +1987,15 @@ export default function Home() {
                     <ArrowUpRight size={16} />
                   </button>
                 </div>
-                
+
                 <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
                   {mySharedCommunityDocs.slice(0, 3).map((doc) => (
-                      <DocumentCard
-                        key={doc.document_id || doc.id}
-                        doc={doc}
-                        isPersonal={false}
-                        isMyShared={true}
-                      />
+                    <DocumentCard
+                      key={doc.document_id || doc.id}
+                      doc={doc}
+                      isPersonal={false}
+                      isMyShared={true}
+                    />
                   ))}
                 </div>
               </div>
@@ -1830,7 +2007,7 @@ export default function Home() {
                 <h2 className="text-2xl font-bold text-purple-700 dark:text-purple-400 flex items-center gap-2">
                   <BookOpen size={24} /> Toàn bộ bài bạn đã chia sẻ ({mySharedCommunityDocs.length})
                 </h2>
-                <button 
+                <button
                   onClick={() => setCommunityFilterMode("ALL")}
                   className="text-sm font-bold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300 underline decoration-slate-300 dark:decoration-slate-700 underline-offset-4"
                 >
@@ -2041,7 +2218,7 @@ export default function Home() {
 
         {/* ── SCREEN 6: PROFILE & SETTINGS ── */}
         {activeTab === "Personal Profile" && (
-          <div className="flex flex-col gap-6 max-w-5xl w-full mx-auto animate-spring-up">
+          <div className="flex flex-col gap-6 max-w-5xl w-full mx-auto animate-spring-up text-left">
             <header className="flex flex-col gap-1 border-b border-slate-100 dark:border-slate-800/60 pb-5 select-none text-left">
               <span className="text-xs font-bold text-purple-600 dark:text-purple-400 uppercase tracking-widest">Định danh tài khoản</span>
               <h1 className="text-2xl md:text-3xl font-black text-black dark:text-white tracking-tight mt-1">
@@ -2052,147 +2229,272 @@ export default function Home() {
               </span>
             </header>
 
-            {/* Profile ID Card Layout */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {/* Left student identity */}
-              <div className="md:col-span-1">
-                <Card className="liquid-glass rounded-xl p-6 flex flex-col items-center gap-4 text-center shadow-sm">
-                  <div className="w-16 h-16 rounded-xl bg-purple-600 flex items-center justify-center font-bold text-white text-2xl shadow-sm">
-                    {fullName.charAt(0)}
-                  </div>
-
-                  <div className="flex flex-col gap-1">
-                    <span className="text-sm font-black text-black dark:text-slate-100">{fullName}</span>
-                    <span className="text-[10px] text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/30 px-2 py-0.5 rounded font-bold uppercase self-center">Hệ sinh viên</span>
-                  </div>
-
-                  <div className="w-full h-px bg-slate-200 dark:bg-slate-800 my-1" />
-
-                  <div className="w-full flex flex-col gap-2 text-xs text-left">
-                    <div className="flex justify-between items-center">
-                      <span className="text-slate-400 font-bold">Mã số định danh:</span>
-                      <span className="font-bold text-slate-800 dark:text-slate-100">{user?.user_id || "STUDENT_ID"}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-slate-400 font-bold">Thư điện tử:</span>
-                      <span className="font-bold text-slate-800 dark:text-slate-100 truncate max-w-[120px]" title={user?.email}>{user?.email}</span>
-                    </div>
-                  </div>
-                </Card>
+            {/* 1. Header Banner Card */}
+            <Card className="liquid-glass rounded-3xl overflow-hidden shadow-sm border-0 bg-white/50 dark:bg-[#0f111a]/50">
+              {/* Wave Banner */}
+              <div className="w-full h-32 md:h-40 bg-gradient-to-r from-purple-100/60 via-purple-50/60 to-white dark:from-purple-900/40 dark:via-purple-800/30 dark:to-[#0f111a] relative overflow-hidden">
+                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-purple-200/50 via-transparent to-transparent dark:from-purple-800/50" />
               </div>
 
-              {/* Right Security parameters */}
-              <div className="md:col-span-2 flex flex-col gap-6">
+              <div className="px-6 md:px-10 pb-8 relative">
+                <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+                  {/* Left Side: Avatar & Name */}
+                  <div className="flex items-end gap-5">
+                    {/* Avatar Container with overlapping camera badge */}
+                    <div className="relative z-10 shrink-0 w-28 h-28 md:w-32 md:h-32 -mt-16">
+                      <div className="w-full h-full rounded-full bg-purple-650 flex flex-col items-center justify-center font-bold text-white text-4xl shadow-md overflow-hidden transition-all duration-300 border-[6px] border-white dark:border-[#0f111a] group relative">
+                        {avatarPreview || user?.avatar_url ? (
+                          <img src={avatarPreview || user?.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+                        ) : (
+                          <span className="group-hover:opacity-0 transition-opacity duration-300">{fullName.charAt(0)}</span>
+                        )}
 
-                {/* 1. Auth config card */}
-                <Card className="liquid-glass rounded-xl p-6 flex flex-col gap-5 shadow-sm">
-                  <h3 className="text-xs font-extrabold tracking-wider uppercase text-slate-900 dark:text-white flex items-center gap-2">
-                    <Lock className="w-4 h-4 text-purple-500" /> Cấu hình đăng nhập định danh
-                  </h3>
+                        <label className="absolute inset-0 bg-black/50 text-white flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 cursor-pointer backdrop-blur-sm z-10">
+                          <span className="text-xs font-bold uppercase tracking-wider">Đổi ảnh</span>
+                          <input type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
+                        </label>
+                      </div>
 
-                  <div className="flex flex-col gap-4">
-                    <div className="grid gap-2">
-                      <label className="text-[10px] font-bold text-slate-450 dark:text-slate-550 uppercase tracking-widest">Email đăng nhập</label>
-                      <Input
-                        type="email"
-                        value={user?.email}
-                        disabled
-                        className="bg-slate-50/30 dark:bg-[#13141f]/30 border-slate-200/40 dark:border-slate-850 rounded-lg px-4 py-5 text-xs text-slate-400 cursor-not-allowed"
-                      />
+                      {/* Camera Badge overlapping Avatar (Bottom Right) */}
+                      <div className="absolute bottom-1 right-1 w-8 h-8 bg-white dark:bg-slate-800 rounded-full flex items-center justify-center shadow-md border border-slate-100 dark:border-slate-700 z-20 pointer-events-none">
+                        <UploadCloud className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                      </div>
                     </div>
 
-                    <div className="grid gap-2">
-                      <label className="text-[10px] font-bold text-slate-450 dark:text-slate-555 uppercase tracking-widest">Hệ quyền hạn</label>
-                      <Input
-                        type="text"
-                        value={user?.role || "STUDENT"}
-                        disabled
-                        className="bg-slate-50/30 dark:bg-[#13141f]/30 border-slate-200/40 dark:border-slate-850 rounded-lg px-4 py-5 text-xs text-slate-400 cursor-not-allowed font-bold"
-                      />
+                    {/* Name & Quick Info */}
+                    <div className="flex flex-col pb-2">
+                      <div className="flex items-center gap-3 mb-1">
+                        <span className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white leading-none tracking-tight">{fullName}</span>
+                        <span className="text-[10px] text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-900/40 px-2.5 py-1 rounded font-black uppercase tracking-widest">{user?.role === "ADMIN" ? "Quản trị viên" : "Hệ sinh viên"}</span>
+                      </div>
+
+                      <div className="flex items-center gap-3 mt-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                        <span className="flex items-center gap-1.5"><UserIcon className="w-3.5 h-3.5" /> {user?.user_id || "STUDENT_ID"}</span>
+                        <div className="w-[1.5px] h-3.5 bg-slate-200 dark:bg-slate-700 rounded-full" />
+                        <span className="flex items-center gap-1.5 truncate max-w-[150px] md:max-w-none"><Mail className="w-3.5 h-3.5" /> {user?.email}</span>
+                      </div>
                     </div>
                   </div>
-                </Card>
 
-                {/* 2. Change Password Form Card */}
-                <Card className="liquid-glass rounded-xl p-6 flex flex-col gap-5 shadow-sm">
-                  <h3 className="text-xs font-extrabold tracking-wider uppercase text-slate-900 dark:text-white flex items-center gap-2">
-                    <Lock className="w-4 h-4 text-purple-500" /> Đổi mật khẩu học tập mới
-                  </h3>
-
-                  <form onSubmit={handleChangePassword} className="flex flex-col gap-4">
-                    {changePasswordError && (
-                      <div className="flex items-start gap-2.5 text-xs text-red-650 bg-red-50/50 dark:bg-red-950/20 border border-red-200/50 dark:border-red-900/30 rounded-xl p-3.5 backdrop-blur-md">
-                        <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-red-550" />
-                        <span className="font-bold">{changePasswordError}</span>
-                      </div>
-                    )}
-
-                    {changePasswordSuccess && (
-                      <div className="flex items-start gap-2.5 text-xs text-emerald-600 dark:text-emerald-400 bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200/30 dark:border-emerald-900/30 rounded-xl p-3.5 backdrop-blur-md">
-                        <CheckCircle className="w-4 h-4 shrink-0 mt-0.5 text-emerald-500" />
-                        <span className="font-bold">{changePasswordSuccess}</span>
-                      </div>
-                    )}
-
-                    <div className="grid gap-2">
-                      <div className="flex justify-between items-center">
-                        <label className="text-[10px] font-bold text-slate-450 dark:text-slate-555 uppercase tracking-widest">Mật khẩu hiện tại</label>
-                        <button
-                          type="button"
-                          onClick={handleSendResetEmail}
-                          disabled={resetEmailLoading}
-                          className="text-[10px] font-bold text-purple-650 hover:text-purple-800 dark:text-purple-400 dark:hover:text-purple-300 hover:underline cursor-pointer focus:outline-none transition-all"
-                        >
-                          {resetEmailLoading ? "Đang gửi email..." : "Quên mật khẩu hiện tại?"}
-                        </button>
-                      </div>
-                      <Input
-                        type="password"
-                        placeholder="Nhập mật khẩu hiện tại"
-                        value={currentPassword}
-                        onChange={(e) => setCurrentPassword(e.target.value)}
-                        disabled={changePasswordLoading || resetEmailLoading}
-                        className="bg-white/40 dark:bg-[#0c0d13]/60 border-slate-200/50 dark:border-slate-800 rounded-lg px-4 py-5 text-xs focus-visible:ring-1 focus-visible:ring-purple-500"
-                      />
-                    </div>
-
-                    <div className="grid gap-2">
-                      <label className="text-[10px] font-bold text-slate-450 dark:text-slate-550 uppercase tracking-widest">Mật khẩu mới</label>
-                      <Input
-                        type="password"
-                        placeholder="Nhập mật khẩu mới (tối thiểu 6 ký tự)"
-                        value={newPassword}
-                        onChange={(e) => setNewPassword(e.target.value)}
-                        disabled={changePasswordLoading}
-                        className="bg-white/40 dark:bg-[#0c0d13]/60 border-slate-200/50 dark:border-slate-800 rounded-lg px-4 py-5 text-xs focus-visible:ring-1 focus-visible:ring-purple-500"
-                      />
-                    </div>
-
-                    <div className="grid gap-2">
-                      <label className="text-[10px] font-bold text-slate-450 dark:text-slate-550 uppercase tracking-widest">Xác nhận mật khẩu mới</label>
-                      <Input
-                        type="password"
-                        placeholder="Nhập lại mật khẩu mới để xác nhận"
-                        value={confirmNewPassword}
-                        onChange={(e) => setConfirmNewPassword(e.target.value)}
-                        disabled={changePasswordLoading}
-                        className="bg-white/40 dark:bg-[#0c0d13]/60 border-slate-200/50 dark:border-slate-800 rounded-lg px-4 py-5 text-xs focus-visible:ring-1 focus-visible:ring-purple-500"
-                      />
-                    </div>
-
+                  {/* Save Avatar Button */}
+                  {avatarFile && (
                     <Button
-                      type="submit"
-                      disabled={changePasswordLoading}
-                      className="bg-purple-600 dark:bg-purple-500 hover:bg-purple-700 dark:hover:bg-purple-600 text-white font-extrabold text-xs px-5 py-4.5 rounded-lg flex items-center justify-center gap-2 cursor-pointer shadow-sm self-start mt-2 transition-all active:scale-[0.98]"
+                      size="sm"
+                      onClick={handleAvatarUpload}
+                      disabled={isUploadingAvatar}
+                      className="bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl shadow-sm px-6 mb-2"
                     >
-                      {changePasswordLoading ? "Đang xử lý..." : "Cập nhật mật khẩu"}
+                      {isUploadingAvatar ? "Đang tải..." : "Lưu ảnh mới"}
                     </Button>
-                  </form>
-                </Card>
+                  )}
+                </div>
               </div>
-            </div>
+            </Card>
+
+            {/* 2. Personal & Academic Info Card */}
+            <Card className="liquid-glass rounded-3xl p-6 md:p-8 flex flex-col gap-6 shadow-sm relative overflow-hidden border-0">
+              <div className="flex justify-between items-center z-10 relative border-b border-slate-100 dark:border-slate-800/60 pb-4">
+                <h3 className="text-sm font-extrabold tracking-wider uppercase text-slate-900 dark:text-white flex items-center gap-2.5">
+                  <UserIcon className="w-4 h-4 text-purple-500" /> Thông tin cá nhân & Học tập
+                </h3>
+                {!isEditingProfile ? (
+                  <button onClick={handleEditProfileToggle} className="text-xs font-bold text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 transition-colors bg-purple-50 dark:bg-purple-900/30 px-3.5 py-1.5 rounded-lg">
+                    Chỉnh sửa
+                  </button>
+                ) : (
+                  <div className="flex gap-2">
+                    <button onClick={handleEditProfileToggle} className="text-xs font-bold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700">
+                      Hủy
+                    </button>
+                    <button onClick={handleSaveProfile} disabled={isSavingProfile} className="text-xs font-bold text-white bg-purple-600 hover:bg-purple-700 transition-colors px-4 py-1.5 rounded-lg shadow-sm">
+                      {isSavingProfile ? "Đang lưu..." : "Lưu thay đổi"}
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8 relative z-10">
+                {/* Phone */}
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-full bg-slate-50 dark:bg-slate-800/50 flex items-center justify-center shrink-0 border border-slate-100 dark:border-slate-700/50">
+                    <Phone className="w-4 h-4 text-slate-400" />
+                  </div>
+                  <div className="flex flex-col w-full gap-0.5">
+                    <span className="text-[10px] font-bold text-slate-455 uppercase tracking-widest">Số điện thoại</span>
+                    {isEditingProfile ? (
+                      <Input value={editProfileData.phone} onChange={(e) => setEditProfileData({ ...editProfileData, phone: e.target.value })} className="h-8 text-sm font-semibold bg-white dark:bg-slate-900/50 border-slate-200/60 dark:border-slate-800 mt-1 focus-visible:ring-1 focus-visible:ring-purple-500" placeholder="Nhập số điện thoại" />
+                    ) : (
+                      <span className={`text-sm font-bold ${user?.phone ? 'text-slate-900 dark:text-white' : 'text-slate-450 italic'}`}>{user?.phone || "Chưa cập nhật"}</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* DOB */}
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-full bg-slate-50 dark:bg-slate-800/50 flex items-center justify-center shrink-0 border border-slate-100 dark:border-slate-700/50">
+                    <Calendar className="w-4 h-4 text-slate-400" />
+                  </div>
+                  <div className="flex flex-col w-full gap-0.5">
+                    <span className="text-[10px] font-bold text-slate-455 uppercase tracking-widest">Ngày sinh</span>
+                    {isEditingProfile ? (
+                      <Input type="date" value={editProfileData.dob} onChange={(e) => setEditProfileData({ ...editProfileData, dob: e.target.value })} className="h-8 text-sm font-semibold bg-white dark:bg-slate-900/50 border-slate-200/60 dark:border-slate-800 mt-1 focus-visible:ring-1 focus-visible:ring-purple-500" />
+                    ) : (
+                      <span className={`text-sm font-bold ${user?.dob ? 'text-slate-900 dark:text-white' : 'text-slate-455 italic'}`}>{formatToDDMMYYYY(user?.dob)}</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Gender */}
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-full bg-slate-50 dark:bg-slate-800/50 flex items-center justify-center shrink-0 border border-slate-100 dark:border-slate-700/50">
+                    <Users className="w-4 h-4 text-slate-400" />
+                  </div>
+                  <div className="flex flex-col w-full gap-0.5">
+                    <span className="text-[10px] font-bold text-slate-455 uppercase tracking-widest">Giới tính</span>
+                    {isEditingProfile ? (
+                      <select value={editProfileData.gender} onChange={(e) => setEditProfileData({ ...editProfileData, gender: e.target.value })} className="h-8 text-sm font-semibold bg-white dark:bg-slate-900/50 rounded-md border border-slate-200/60 dark:border-slate-800 px-3 outline-none mt-1 focus-visible:ring-1 focus-visible:ring-purple-500">
+                        <option value="">Chọn giới tính</option>
+                        <option value="Nam">Nam</option>
+                        <option value="Nữ">Nữ</option>
+                        <option value="Khác">Khác</option>
+                      </select>
+                    ) : (
+                      <span className={`text-sm font-bold ${user?.gender ? 'text-slate-900 dark:text-white' : 'text-slate-455 italic'}`}>{user?.gender || "Chưa cập nhật"}</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Major */}
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-full bg-slate-50 dark:bg-slate-800/50 flex items-center justify-center shrink-0 border border-slate-100 dark:border-slate-700/50">
+                    <BookOpen className="w-4 h-4 text-slate-400" />
+                  </div>
+                  <div className="flex flex-col w-full gap-0.5">
+                    <span className="text-[10px] font-bold text-slate-455 uppercase tracking-widest">Ngành học</span>
+                    {isEditingProfile ? (
+                      <Input value={editProfileData.major} onChange={(e) => setEditProfileData({ ...editProfileData, major: e.target.value })} className="h-8 text-sm font-semibold bg-white dark:bg-slate-900/50 border-slate-200/60 dark:border-slate-800 mt-1 focus-visible:ring-1 focus-visible:ring-purple-500" placeholder="Khoa học máy tính" />
+                    ) : (
+                      <span className={`text-sm font-bold ${user?.major ? 'text-slate-900 dark:text-white' : 'text-slate-455 italic'}`}>{user?.major || "Chưa cập nhật"}</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </Card>
+
+            {/* 3. Storage Card */}
+            <Card className="liquid-glass rounded-3xl p-6 md:p-8 flex flex-col gap-6 shadow-sm border-0">
+              <h3 className="text-sm font-extrabold tracking-wider uppercase text-slate-900 dark:text-white flex items-center gap-2.5 border-b border-slate-100 dark:border-slate-800/60 pb-4">
+                <Cloud className="w-4 h-4 text-blue-500" /> Dung lượng lưu trữ
+              </h3>
+
+              <div className="flex flex-col md:flex-row items-start md:items-end justify-between gap-6 md:gap-10">
+                <div className="flex flex-col gap-2 flex-1 w-full">
+                  <div className="flex items-end gap-2 mb-2">
+                    <span className="text-4xl md:text-5xl font-black text-slate-900 dark:text-white leading-none tracking-tight">{usageInGB}<span className="text-xl md:text-2xl text-slate-500 ml-1 font-bold">GB</span></span>
+                    <span className="text-sm font-bold text-slate-400 mb-1">/ {limitInGB} GB đã sử dụng</span>
+                  </div>
+
+                  <div className="w-full bg-slate-100 dark:bg-slate-800/80 rounded-full h-4 overflow-hidden shadow-inner border border-slate-200 dark:border-slate-700/50">
+                    <div
+                      className="bg-blue-500 h-4 rounded-full transition-all duration-1000"
+                      style={{ width: `${percentage}%` }}
+                    />
+                  </div>
+                  <span className="text-[11px] font-black uppercase tracking-wider text-blue-600 dark:text-blue-400 mt-1.5">{percentage.toFixed(1)}% Không gian đám mây</span>
+                </div>
+
+                <Button
+                  onClick={() => setActiveTab("Document Management")}
+                  className="bg-slate-900 hover:bg-black dark:bg-white dark:hover:bg-slate-200 dark:text-black text-white font-extrabold text-xs rounded-xl px-7 py-6 whitespace-nowrap shadow-sm shrink-0 transition-transform active:scale-95"
+                >
+                  Quản lý tài liệu
+                </Button>
+              </div>
+            </Card>
+
+            {/* 4. Password Form Card */}
+            <Card className="liquid-glass rounded-3xl p-6 md:p-8 flex flex-col gap-6 shadow-sm border-0">
+              <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800/60 pb-4">
+                <h3 className="text-sm font-extrabold tracking-wider uppercase text-slate-900 dark:text-white flex items-center gap-2.5">
+                  <Lock className="w-4 h-4 text-purple-500" /> Đổi mật khẩu học tập
+                </h3>
+                <button
+                  type="button"
+                  onClick={handleSendResetEmail}
+                  disabled={resetEmailLoading}
+                  className="text-xs font-bold text-purple-600 hover:text-purple-800 dark:text-purple-400 dark:hover:text-purple-300 transition-colors"
+                >
+                  {resetEmailLoading ? "Đang gửi email..." : "Quên mật khẩu?"}
+                </button>
+              </div>
+
+              <form onSubmit={handleChangePassword} className="flex flex-col gap-6">
+                {changePasswordError && (
+                  <div className="flex items-start gap-2.5 text-xs text-red-650 bg-red-50/50 dark:bg-red-950/20 border border-red-200/50 dark:border-red-900/30 rounded-xl p-3.5 backdrop-blur-md">
+                    <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-red-550" />
+                    <span className="font-bold">{changePasswordError}</span>
+                  </div>
+                )}
+
+                {changePasswordSuccess && (
+                  <div className="flex items-start gap-2.5 text-xs text-emerald-600 dark:text-emerald-400 bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200/30 dark:border-emerald-900/30 rounded-xl p-3.5 backdrop-blur-md">
+                    <CheckCircle className="w-4 h-4 shrink-0 mt-0.5 text-emerald-500" />
+                    <span className="font-bold">{changePasswordSuccess}</span>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="grid gap-2">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">Mật khẩu hiện tại</label>
+                    <Input
+                      type="password"
+                      placeholder="••••••••"
+                      value={currentPassword}
+                      onChange={(e) => setCurrentPassword(e.target.value)}
+                      disabled={changePasswordLoading || resetEmailLoading}
+                      className="bg-white/60 dark:bg-[#0c0d13]/60 border-slate-200/60 dark:border-slate-800 rounded-xl px-4 py-5 text-sm font-semibold focus-visible:ring-1 focus-visible:ring-purple-500"
+                    />
+                  </div>
+
+                  <div className="grid gap-2">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">Mật khẩu mới</label>
+                    <Input
+                      type="password"
+                      placeholder="Tối thiểu 6 ký tự"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      disabled={changePasswordLoading}
+                      className="bg-white/60 dark:bg-[#0c0d13]/60 border-slate-200/60 dark:border-slate-800 rounded-xl px-4 py-5 text-sm font-semibold focus-visible:ring-1 focus-visible:ring-purple-500"
+                    />
+                  </div>
+
+                  <div className="grid gap-2">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">Xác nhận mật khẩu</label>
+                    <Input
+                      type="password"
+                      placeholder="Nhập lại để xác nhận"
+                      value={confirmNewPassword}
+                      onChange={(e) => setConfirmNewPassword(e.target.value)}
+                      disabled={changePasswordLoading}
+                      className="bg-white/60 dark:bg-[#0c0d13]/60 border-slate-200/60 dark:border-slate-800 rounded-xl px-4 py-5 text-sm font-semibold focus-visible:ring-1 focus-visible:ring-purple-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-start mt-2">
+                  <Button
+                    type="submit"
+                    disabled={changePasswordLoading}
+                    className="bg-purple-600 hover:bg-purple-700 text-white font-extrabold text-xs tracking-wider px-8 py-5 rounded-xl shadow-sm transition-transform active:scale-95"
+                  >
+                    {changePasswordLoading ? "Đang xử lý..." : "Cập nhật mật khẩu"}
+                  </Button>
+                </div>
+              </form>
+            </Card>
           </div>
         )}
+
 
       </main>
 
