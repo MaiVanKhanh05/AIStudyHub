@@ -169,3 +169,21 @@ export const deleteDocument = async (req, res) => {
         res.status(500).json({ error: "Internal Server Error" });
     }
 };
+
+// GET /api/admin/popular-documents — Top 10 tài liệu phổ biến nhất
+export const getPopularDocuments = async (req, res) => {
+    try {
+        const { rows } = await pool.query(
+            `SELECT d.document_id, d.title, d.views, d.downloads, (d.views + d.downloads) AS popularity, d.upload_date, u.email AS uploader, d.subject_code
+             FROM document d
+             JOIN users u ON d.user_id = u.user_id
+             ORDER BY popularity DESC, d.views DESC, d.downloads DESC
+             LIMIT 10`
+        );
+        res.json(rows);
+    } catch (error) {
+        console.error("Error fetching popular documents:", error);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+};
+

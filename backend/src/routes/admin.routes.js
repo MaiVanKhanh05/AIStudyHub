@@ -18,5 +18,6 @@ router.post("/users/:id/unlock", adminController.unlockUser);
 // Documents — BR-AM-07
 router.get("/documents", adminController.getAllDocuments);
 router.delete("/documents/:id", adminController.deleteDocument);
+router.get("/popular-documents", adminController.getPopularDocuments);
 
 export default router;
