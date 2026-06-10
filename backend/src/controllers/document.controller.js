@@ -19,7 +19,8 @@ export const getDashboard = async (req, res) => {
 // GET /api/documents/community
 export const getCommunityDocs = async (req, res) => {
     try {
-        const docs = await documentService.getCommunityDocs();
+        const userId = req.userId || req.query.userId || null;
+        const docs = await documentService.getCommunityDocs(userId);
         return res.json(docs);
     } catch (error) {
         console.error("Error loading community documents:", error);
@@ -116,8 +117,6 @@ export const increaseDownload = async (req, res) => {
     }
 };
 
-
-
 // PUT /api/documents/:id/share
 export const shareDoc = async (req, res) => {
     try {
@@ -162,3 +161,82 @@ export const getDocById = async (req, res) => {
         return res.status(500).json({ error: "Failed to fetch document" });
     }
 };
+
+export const editDoc = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const userId = req.userId || req.body?.userId || req.query?.userId;
+        const { title, subject, tags, description } = req.body;
+        
+        if (!title) {
+            return res.status(400).json({ error: "Title is required" });
+        }
+        
+        const updatedDoc = await documentService.editDocument(id, userId, { title, subject, tags, description });
+        return res.json(updatedDoc);
+    } catch (error) {
+        console.error("Error editing document:", error);
+        if (error.message === "Document not found or unauthorized") {
+            return res.status(403).json({ error: error.message });
+        }
+        return res.status(500).json({ error: "Failed to edit document" });
+    }
+};
+
+// POST /api/documents/:id/bookmark
+export const toggleBookmark = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const userId = req.userId;
+        if (!id || !userId) {
+            return res.status(400).json({ error: "Missing document or user information" });
+        }
+        const result = await documentService.toggleBookmark(userId, id);
+        return res.json({ success: true, bookmarked: result.bookmarked });
+    } catch (error) {
+        console.error("Error toggling bookmark:", error);
+        return res.status(500).json({ error: "Failed to toggle bookmark" });
+    }
+};
+
+// GET /api/documents/bookmarks
+export const getBookmarks = async (req, res) => {
+    try {
+        const userId = req.userId;
+        if (!userId) {
+            return res.status(400).json({ error: "Missing user information" });
+        }
+        const docs = await documentService.getBookmarkedDocuments(userId);
+        return res.json(docs);
+    } catch (error) {
+        console.error("Error fetching bookmarked documents:", error);
+        return res.status(500).json({ error: "Failed to load bookmarks" });
+    }
+};
+
+// GET /api/documents
+export const getAllDocuments = async (req, res) => {
+    try {
+        const docs = await documentService.getAllDocuments();
+        return res.json(docs);
+    } catch (error) {
+        console.error("Error loading all documents:", error);
+        return res.status(500).json({ error: "Failed to load documents" });
+    }
+};
+
+// GET /api/documents/:id (Basic fallback)
+export const getDocumentById = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const doc = await documentService.getDocumentById(id);
+        if (!doc) {
+            return res.status(404).json({ error: "Document not found" });
+        }
+        return res.json(doc);
+    } catch (error) {
+        console.error("Error fetching document by ID:", error);
+        return res.status(500).json({ error: "Failed to fetch document" });
+    }
+};
+

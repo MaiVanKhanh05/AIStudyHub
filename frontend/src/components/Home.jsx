@@ -33,6 +33,7 @@ import {
   AlertTriangle,
   Info,
   ChevronRight,
+  ChevronLeft,
   Calendar,
   BookOpen,
   HelpCircle,
@@ -42,7 +43,10 @@ import {
   Clock,
   X,
   Mail,
-  Phone
+  Phone,
+  Pencil,
+  Save,
+  Heart
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -55,6 +59,7 @@ import DocumentCard from "./DocumentCard";
 import { getSimulatedContent } from "../utils/documentUtils";
 import SearchBar from "./SearchBar";
 import Pagination from "./Pagination";
+import ShareDocumentModal from "./ShareDocumentModal";
 
 function getFileIcon(fileType = "", className = "w-5 h-5") {
   const type = fileType.toLowerCase();
@@ -85,10 +90,65 @@ const formatToDDMMYYYY = (dateString) => {
   if (isNaN(d.getTime())) return "Chưa cập nhật";
   return String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0') + '/' + d.getFullYear();
 };
+const monthNamesVi = [
+  "Tháng 1", "Tháng 2", "Tháng 3", "Tháng 4",
+  "Tháng 5", "Tháng 6", "Tháng 7", "Tháng 8",
+  "Tháng 9", "Tháng 10", "Tháng 11", "Tháng 12"
+];
+const weekdaysVi = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
 
 export default function Home() {
   const navigate = useNavigate();
   const isUploadingRef = useRef(false);
+  const calendarPopoverRef = useRef(null);
+  const documentsSectionRef = useRef(null);
+  const mainContentRef = useRef(null);
+
+  const [currentCalDate, setCurrentCalDate] = useState(new Date());
+  const [rangeStart, setRangeStart] = useState(null);
+  const [rangeEnd, setRangeEnd] = useState(null);
+  const [isCalDragging, setIsCalDragging] = useState(false);
+  const [showCalendarPopover, setShowCalendarPopover] = useState(false);
+
+  const [personalRangeStart, setPersonalRangeStart] = useState(null);
+  const [personalRangeEnd, setPersonalRangeEnd] = useState(null);
+  const [isPersonalCalDragging, setIsPersonalCalDragging] = useState(false);
+  const [uploadCalDate, setUploadCalDate] = useState(new Date());
+
+  useEffect(() => {
+    if (!showCalendarPopover) return;
+    const handleOutsideClick = (e) => {
+      if (calendarPopoverRef.current && !calendarPopoverRef.current.contains(e.target)) {
+        setShowCalendarPopover(false);
+      }
+    };
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+    };
+  }, [showCalendarPopover]);
+
+  useEffect(() => {
+    if (!isCalDragging) return;
+    const handleGlobalMouseUp = () => {
+      setIsCalDragging(false);
+    };
+    window.addEventListener("mouseup", handleGlobalMouseUp);
+    return () => {
+      window.removeEventListener("mouseup", handleGlobalMouseUp);
+    };
+  }, [isCalDragging]);
+
+  useEffect(() => {
+    if (!isPersonalCalDragging) return;
+    const handleGlobalMouseUp = () => {
+      setIsPersonalCalDragging(false);
+    };
+    window.addEventListener("mouseup", handleGlobalMouseUp);
+    return () => {
+      window.removeEventListener("mouseup", handleGlobalMouseUp);
+    };
+  }, [isPersonalCalDragging]);
 
   // Load authenticated user session
   const userStr = localStorage.getItem("user") || sessionStorage.getItem("user");
@@ -107,6 +167,9 @@ export default function Home() {
 
   // States for dynamic documents and storage usage
   const [documents, setDocuments] = useState([]);
+  const [bookmarkedDocs, setBookmarkedDocs] = useState([]);
+  const [bookmarkPage, setBookmarkPage] = useState(1);
+  const [docManagePage, setDocManagePage] = useState(1);
   const [storageUsage, setStorageUsage] = useState(0);
   const [loading, setLoading] = useState(true);
   const [currentDate, setCurrentDate] = useState("");
@@ -118,6 +181,9 @@ export default function Home() {
   const [communityLoading, setCommunityLoading] = useState(false);
   const [communityFilterMode, setCommunityFilterMode] = useState("ALL");
 
+  useEffect(() => {
+    setCommunityPage(1);
+  }, [rangeStart, rangeEnd]);
 
   const fetchCommunityDocs = async () => {
     setCommunityLoading(true);
@@ -144,6 +210,26 @@ export default function Home() {
     }
   }, [activeTab]);
 
+  const fetchBookmarkedDocs = async () => {
+    try {
+      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+      const res = await fetch("http://localhost:5000/api/documents/bookmarks", {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setBookmarkedDocs(data);
+      }
+    } catch (err) {
+      console.error("Error fetching bookmarked documents:", err);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "Bookmarks") {
+      fetchBookmarkedDocs();
+    }
+  }, [activeTab]);
   // Community search history
   const {
     history: communitySearchHistory,
@@ -170,7 +256,7 @@ export default function Home() {
   const handleToggleCommunityPin = (id) => {
     setCommunityDocs((prevDocs) =>
       prevDocs.map((doc) =>
-        doc.id === id ? { ...doc, isPinned: !doc.isPinned } : doc
+        (doc.document_id || doc.id) === id ? { ...doc, isPinned: !doc.isPinned } : doc
       )
     );
   };
@@ -179,19 +265,52 @@ export default function Home() {
   const sourceCommunityDocs = communityFilterMode === "ALL" ? communityDocs : mySharedCommunityDocs;
 
   const filteredCommunityDocs = sourceCommunityDocs.filter((doc) => {
-    if (!communitySearch) return true;
-    const keyword = communitySearch.toLowerCase().trim();
-    return (
-      (doc.title && doc.title.toLowerCase().includes(keyword)) ||
-      (doc.subject_name && doc.subject_name.toLowerCase().includes(keyword)) ||
-      (doc.subject_code && doc.subject_code.toLowerCase().includes(keyword)) ||
-      (doc.author && doc.author.toLowerCase().includes(keyword))
-    );
+    let matchesSearch = true;
+    if (communitySearch) {
+      const keyword = communitySearch.toLowerCase().trim();
+      matchesSearch = (
+        (doc.title && doc.title.toLowerCase().includes(keyword)) ||
+        (doc.subject_name && doc.subject_name.toLowerCase().includes(keyword)) ||
+        (doc.subject_code && doc.subject_code.toLowerCase().includes(keyword)) ||
+        (doc.author && doc.author.toLowerCase().includes(keyword))
+      );
+    }
+
+    let matchesDate = true;
+    if (rangeStart && rangeEnd) {
+      const docDate = new Date(doc.upload_date);
+      docDate.setHours(0, 0, 0, 0);
+
+      const d1 = new Date(rangeStart);
+      const d2 = new Date(rangeEnd);
+      const start = d1 < d2 ? d1 : d2;
+      const end = d1 < d2 ? d2 : d1;
+      
+      start.setHours(0, 0, 0, 0);
+      end.setHours(23, 59, 59, 999);
+
+      matchesDate = docDate.getTime() >= start.getTime() && docDate.getTime() <= end.getTime();
+    } else if (rangeStart) {
+      const docDate = new Date(doc.upload_date);
+      const start = new Date(rangeStart);
+      matchesDate = (
+        docDate.getFullYear() === start.getFullYear() &&
+        docDate.getMonth() === start.getMonth() &&
+        docDate.getDate() === start.getDate()
+      );
+    }
+
+    return matchesSearch && matchesDate;
   });
 
+  const sortedCommunityDocs = [
+    ...filteredCommunityDocs.filter(d => d.isPinned),
+    ...filteredCommunityDocs.filter(d => !d.isPinned)
+  ];
+
   const COMMUNITY_PAGE_SIZE = 9;
-  const communityTotalPages = Math.max(1, Math.ceil(filteredCommunityDocs.length / COMMUNITY_PAGE_SIZE));
-  const currentCommunityDocs = filteredCommunityDocs.slice(
+  const communityTotalPages = Math.max(1, Math.ceil(sortedCommunityDocs.length / COMMUNITY_PAGE_SIZE));
+  const currentCommunityDocs = sortedCommunityDocs.slice(
     (communityPage - 1) * COMMUNITY_PAGE_SIZE,
     communityPage * COMMUNITY_PAGE_SIZE
   );
@@ -213,6 +332,7 @@ export default function Home() {
   const [shareModalDoc, setShareModalDoc] = useState(null);
   const [shareDescription, setShareDescription] = useState("");
   const [isSharing, setIsSharing] = useState(false);
+  const [docManageMode, setDocManageMode] = useState("UPLOADED"); // "UPLOADED" | "BOOKMARKED"
 
   useEffect(() => {
     if (!showSortMenu) return;
@@ -242,6 +362,17 @@ export default function Home() {
   const [showTagSuggestions, setShowTagSuggestions] = useState(false);
   const [deleteConfirmDocId, setDeleteConfirmDocId] = useState(null);
   const [duplicateConfirmData, setDuplicateConfirmData] = useState(null);
+
+  // States for Edit Document feature
+  const [editModalDoc, setEditModalDoc] = useState(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editSubject, setEditSubject] = useState("");
+  const [editTags, setEditTags] = useState([]);
+  const [editTagInput, setEditTagInput] = useState("");
+  const [editTagSuggestions, setEditTagSuggestions] = useState([]);
+  const [editSubjectSearch, setEditSubjectSearch] = useState("");
+  const [showEditSubjectDropdown, setShowEditSubjectDropdown] = useState(false);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   // AI Assistant Chatbot States
   const [aiMessages, setAiMessages] = useState([
@@ -432,13 +563,22 @@ export default function Home() {
     try {
       setLoading(true);
       const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-      const response = await axios.get(`http://localhost:5000/api/documents/dashboard?userId=${user.user_id}`, {
-        headers: {
-          "Authorization": `Bearer ${token}`
-        }
-      });
-      setDocuments(response.data.documents || []);
-      setStorageUsage(response.data.storageUsage || 0);
+      
+      const [dashRes, bookmarkRes] = await Promise.all([
+        axios.get(`http://localhost:5000/api/documents/dashboard?userId=${user.user_id}`, {
+          headers: { "Authorization": `Bearer ${token}` }
+        }),
+        axios.get(`http://localhost:5000/api/documents/bookmarks`, {
+          headers: { "Authorization": `Bearer ${token}` }
+        }).catch(err => {
+          console.error("Error fetching bookmarks:", err);
+          return { data: [] }; // Fallback
+        })
+      ]);
+
+      setDocuments(dashRes.data.documents || []);
+      setStorageUsage(dashRes.data.storageUsage || 0);
+      setBookmarkedDocs(bookmarkRes.data || []);
     } catch (err) {
       console.error("Error fetching dashboard data:", err);
       toast.error("Không thể tải dữ liệu kho học liệu cá nhân.");
@@ -461,8 +601,12 @@ export default function Home() {
       navigate("/login");
       return;
     }
-    fetchDashboard();
-  }, [user?.user_id, navigate]);
+    
+    // Fetch when mounting or when active tab changes to these
+    if (activeTab === "Home" || activeTab === "Document Management" || activeTab === "Bookmarks") {
+      fetchDashboard();
+    }
+  }, [navigate, user?.user_id, activeTab]);
 
   // Fetch all subjects from database on mount for searching and selecting
   useEffect(() => {
@@ -714,8 +858,10 @@ export default function Home() {
     }
   };
 
+
+
   // Send AI Chat Message action
-  const handleSendChatMessage = (textToSend) => {
+  const handleSendChatMessage = async (textToSend) => {
     const text = textToSend || chatInput;
     if (!text.trim()) return;
 
@@ -730,19 +876,17 @@ export default function Home() {
 
     setIsAiTyping(true);
 
-    // Simulate AI response based on keywords
-    setTimeout(() => {
-      let aiText = "Tôi đã tiếp nhận câu hỏi nghiên cứu của bạn. Hệ thống AI đang truy vấn tài liệu môn học liên quan để cung cấp câu trả lời học thuật chuẩn xác nhất.";
-
-      const query = text.toLowerCase();
-      if (query.includes("dijkstra")) {
-        aiText = "Thuật toán Dijkstra (nhà toán học Edsger W. Dijkstra phát minh năm 1956) là thuật toán kinh điển tìm đường đi ngắn nhất từ một đỉnh nguồn đến tất cả các đỉnh khác trong đồ thị có trọng số không âm. Ổn định ở độ phức tạp O(V^2) hoặc O(E + V log V) khi dùng Fibonacci Heap. Quy trình hoạt động: 1) Khởi tạo khoảng cách d(s)=0, các đỉnh khác vô cùng. 2) Tìm đỉnh u có d(u) nhỏ nhất chưa duyệt. 3) Tối ưu hóa (Relaxation) khoảng cách cho các đỉnh kề v: d(v) = min(d(v), d(u) + w(u,v)). 4) Lặp lại cho tới khi hoàn tất.";
-      } else if (query.includes("wed202c") || query.includes("html") || query.includes("css")) {
-        aiText = "Trong môn Thiết kế Web học thuật (WED202c), việc tổ chức cấu trúc dữ liệu giao diện cần tuân thủ cấu trúc HTML5 ngữ nghĩa (Semantic HTML) như <header>, <article>, <aside> và <footer> để tối ưu hóa SEO. CSS3 nên sử dụng Grid và Flexbox để căn chỉnh bố cục khoa học, kết hợp với các biến CSS variables (CSS Custom Properties) để kiểm soát màu sắc đồng bộ, nâng cao tính chuyên nghiệp của giao diện.";
-      } else if (query.includes("đại số") || query.includes("tuyến tính") || query.includes("vector")) {
-        aiText = "Đại số tuyến tính nghiên cứu về không gian vectơ và các phép biến đổi tuyến tính giữa chúng. Trong khoa học AI và học sâu (Deep Learning), các phép tính ma trận (Matrix operations) như Nhân ma trận, Phân tách ma trận (SVD) và tìm Trị riêng / Vectơ riêng (Eigenvalues / Eigenvectors) là xương sống cho việc tối ưu hóa mạng nơ-ron truyền thẳng.";
-      }
-
+    try {
+      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+      const response = await axios.post("http://localhost:5000/api/chat", {
+        message: text
+      }, {
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      });
+      const aiText = response.data.response || "Xin lỗi, tôi không thể trả lời câu hỏi này do lỗi từ máy chủ AI.";
+      
       setAiMessages((prev) => [
         ...prev,
         {
@@ -751,8 +895,24 @@ export default function Home() {
           text: aiText
         }
       ]);
+    } catch (error) {
+      console.error("Lỗi khi gửi tin nhắn cho AI:", error);
+      let errorMsg = "Xin lỗi, hệ thống AI đang gặp sự cố. Vui lòng thử lại sau.";
+      if (error.response && error.response.data && error.response.data.error) {
+        errorMsg = error.response.data.error;
+      }
+      
+      setAiMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now() + 1,
+          sender: "ai",
+          text: errorMsg
+        }
+      ]);
+    } finally {
       setIsAiTyping(false);
-    }, 1000);
+    }
   };
 
   const handleSendResetEmail = async () => {
@@ -838,6 +998,7 @@ export default function Home() {
   const navItems = [
     { name: "Home", icon: HomeIcon, label: "Tổng quan học tập" },
     { name: "Document Management", icon: FolderOpen, label: "Kho học liệu cá nhân" },
+    { name: "Bookmarks", icon: Heart, label: "Tài liệu Yêu thích" },
     { name: "AI Assistant", icon: Bot, label: "Trợ lý Nghiên cứu AI" },
     { name: "Community", icon: Users, label: "Cộng đồng" },
     { name: "Notifications", icon: Bell, label: "Thông báo học thuật" },
@@ -889,7 +1050,28 @@ export default function Home() {
       (doc.subject_code || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
       (doc.subject_name || "").toLowerCase().includes(searchQuery.toLowerCase());
     const matchesSubject = selectedSubjectFilter === "All" || doc.subject_code === selectedSubjectFilter;
-    return matchesSearch && matchesSubject;
+    
+    let matchesDate = true;
+    if (personalRangeStart) {
+      const docDate = new Date(doc.upload_date);
+      docDate.setHours(0, 0, 0, 0);
+      const startTime = new Date(personalRangeStart);
+      startTime.setHours(0, 0, 0, 0);
+      
+      if (personalRangeEnd) {
+        const endTime = new Date(personalRangeEnd);
+        endTime.setHours(23, 59, 59, 999);
+        const minTime = Math.min(startTime.getTime(), endTime.getTime());
+        const maxTime = Math.max(startTime.getTime(), endTime.getTime());
+        matchesDate = docDate.getTime() >= minTime && docDate.getTime() <= maxTime;
+      } else {
+        matchesDate = docDate.getFullYear() === startTime.getFullYear() &&
+                      docDate.getMonth() === startTime.getMonth() &&
+                      docDate.getDate() === startTime.getDate();
+      }
+    }
+    
+    return matchesSearch && matchesSubject && matchesDate;
   }).sort((a, b) => {
     if (sortConfig.key === "upload_date") {
       const dateA = new Date(a.upload_date).getTime();
@@ -1002,25 +1184,27 @@ export default function Home() {
 
         {/* Sidebar Footer with Clean Storage Overview */}
         <div className="flex flex-col gap-4">
-          <div className="p-3.5 bg-white/30 dark:bg-[#0f111a]/35 border border-slate-200/40 dark:border-white/5 rounded-xl shadow-[inset_0_1px_1px_rgba(255,255,255,0.2)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
-            <div className="flex flex-col gap-2.5">
-              <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400">
-                <span className="font-bold flex items-center gap-1.5"><Cloud className="w-3.5 h-3.5" /> Không gian học thuật</span>
-                <span className="text-[10px] font-bold">{percentage.toFixed(0)}%</span>
-              </div>
+          {user?.role !== "ADMIN" && (
+            <div className="p-3.5 bg-white/30 dark:bg-[#0f111a]/35 border border-slate-200/40 dark:border-white/5 rounded-xl shadow-[inset_0_1px_1px_rgba(255,255,255,0.2)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+              <div className="flex flex-col gap-2.5">
+                <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400">
+                  <span className="font-bold flex items-center gap-1.5"><Cloud className="w-3.5 h-3.5" /> Không gian học thuật</span>
+                  <span className="text-[10px] font-bold">{percentage.toFixed(0)}%</span>
+                </div>
 
-              <div className="w-full h-1.5 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-purple-600 dark:bg-purple-500 rounded-full transition-all duration-500"
-                  style={{ width: `${percentage}%` }}
-                />
-              </div>
+                <div className="w-full h-1.5 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-purple-600 dark:bg-purple-500 rounded-full transition-all duration-500"
+                    style={{ width: `${percentage}%` }}
+                  />
+                </div>
 
-              <div className="text-[10px] text-slate-400 dark:text-slate-500 font-bold text-right">
-                {usageInGB} GB / {limitInGB} GB
+                <div className="text-[10px] text-slate-400 dark:text-slate-500 font-bold text-right">
+                  {usageInGB} GB / {limitInGB} GB
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           <button
             onClick={() => setActiveTab("Personal Profile")}
@@ -1033,7 +1217,7 @@ export default function Home() {
       </aside>
 
       {/* ── MAIN CONTENT AREA ── */}
-      <main className="flex-1 h-full overflow-y-auto flex flex-col p-6 md:p-8 gap-6 bg-transparent z-10">
+      <main ref={mainContentRef} className="flex-1 h-full overflow-y-auto flex flex-col p-6 md:p-8 gap-6 bg-transparent z-10">
 
         {/* ── SCREEN 1: HOME (DASHBOARD) ── */}
         {activeTab === "Home" && (
@@ -1180,335 +1364,580 @@ export default function Home() {
               </span>
             </header>
 
-            {/* Academic Styled Dropzone for Real File Upload */}
-            <Card className="liquid-glass rounded-xl p-5 shadow-sm">
-              <form onSubmit={handleRealUpload} className="flex flex-col gap-5">
+            {/* 6:4 Responsive Grid Layout for Upload and History Calendar */}
+            <div className="grid grid-cols-1 lg:grid-cols-10 gap-6 items-stretch w-full">
+              {/* Left: Upload Form (7 parts) */}
+              <div className="lg:col-span-7 h-full">
+                <Card className="liquid-glass rounded-xl p-5 shadow-sm h-full flex flex-col">
+                  <form onSubmit={handleRealUpload} className="flex flex-col gap-5 h-full">
+                    {/* File Upload Row */}
+                    <div className="flex flex-col gap-2.5">
+                      <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Tệp tài liệu học tập *</label>
 
-                {/* File Upload Row */}
-                <div className="flex flex-col gap-2.5">
-                  <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Tệp tài liệu học tập *</label>
-
-                  {!selectedFile ? (
-                    <div
-                      onClick={() => document.getElementById("file-picker-input").click()}
-                      className="border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-xl p-5 text-center cursor-pointer hover:border-purple-500 hover:bg-purple-500/5 transition-all duration-300 group"
-                    >
-                      <input
-                        id="file-picker-input"
-                        type="file"
-                        className="hidden"
-                        accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt"
-                        onChange={handleFileChange}
-                      />
-                      <div className="flex flex-col items-center gap-1.5">
-                        <UploadCloud className="w-8 h-8 text-slate-400 group-hover:text-purple-500 transition-colors" />
-                        <span className="text-xs font-bold text-slate-700 dark:text-slate-200">Kéo thả tệp hoặc nhấp để chọn tệp tài liệu</span>
-                        <span className="text-[10px] text-slate-400">PDF, PowerPoint, Word, Excel, TXT (Tối đa 10MB)</span>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-between p-3.5 bg-slate-100/65 dark:bg-[#0c0d13]/65 border border-slate-200/50 dark:border-slate-800/80 rounded-xl">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-9 h-9 rounded-lg bg-purple-100 dark:bg-purple-950/40 flex items-center justify-center font-bold text-purple-700 dark:text-purple-300 shrink-0">
-                          <FileText className="w-5 h-5" />
+                      {!selectedFile ? (
+                        <div
+                          onClick={() => document.getElementById("file-picker-input").click()}
+                          className="border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-xl p-5 text-center cursor-pointer hover:border-purple-500 hover:bg-purple-500/5 transition-all duration-300 group"
+                        >
+                          <input
+                            id="file-picker-input"
+                            type="file"
+                            className="hidden"
+                            accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt"
+                            onChange={handleFileChange}
+                          />
+                          <div className="flex flex-col items-center gap-1.5">
+                            <UploadCloud className="w-8 h-8 text-slate-400 group-hover:text-purple-500 transition-colors" />
+                            <span className="text-xs font-bold text-slate-700 dark:text-slate-200">Kéo thả tệp hoặc nhấp để chọn tệp tài liệu</span>
+                            <span className="text-[10px] text-slate-400">PDF, PowerPoint, Word, Excel, TXT (Tối đa 10MB)</span>
+                          </div>
                         </div>
-                        <div className="flex flex-col min-w-0">
-                          <span className="text-xs font-bold text-slate-850 dark:text-slate-100 truncate">{selectedFile.name}</span>
-                          <span className="text-[10px] text-slate-400 font-bold">{formatFileSize(selectedFile.size)}</span>
+                      ) : (
+                        <div className="flex items-center justify-between p-3.5 bg-slate-100/65 dark:bg-[#0c0d13]/65 border border-slate-200/50 dark:border-slate-800/80 rounded-xl">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="w-9 h-9 rounded-lg bg-purple-100 dark:bg-purple-950/40 flex items-center justify-center font-bold text-purple-700 dark:text-purple-300 shrink-0">
+                              <FileText className="w-5 h-5" />
+                            </div>
+                            <div className="flex flex-col min-w-0">
+                              <span className="text-xs font-bold text-slate-855 dark:text-slate-100 truncate">{selectedFile.name}</span>
+                              <span className="text-[10px] text-slate-400 font-bold">{formatFileSize(selectedFile.size)}</span>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => { setSelectedFile(null); setUploadTitle(""); }}
+                            className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-850 rounded-lg text-slate-450 hover:text-red-500 transition-colors"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
                         </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => { setSelectedFile(null); setUploadTitle(""); }}
-                        className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-850 rounded-lg text-slate-450 hover:text-red-500 transition-colors"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {/* Title input */}
-                  <div className="flex flex-col gap-1.5 md:col-span-2">
-                    <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Tiêu đề học liệu *</label>
-                    <Input
-                      type="text"
-                      placeholder="Ví dụ: Đề cương tự ôn thi cuối học kỳ"
-                      value={uploadTitle}
-                      onChange={(e) => setUploadTitle(e.target.value)}
-                      disabled={isUploading}
-                      className="bg-white dark:bg-[#0c0d13] border-slate-200 dark:border-slate-800 rounded-lg px-4 py-5 text-xs placeholder:text-slate-450 focus-visible:ring-1 focus-visible:ring-purple-500 font-semibold"
-                    />
-                  </div>
-
-                  {/* Searchable Subject selector */}
-                  <div
-                    className="flex flex-col gap-1.5 relative"
-                    onMouseLeave={() => setShowSubjectDropdown(false)}
-                  >
-                    <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Chọn học phần</label>
-                    <div
-                      onClick={() => setShowSubjectDropdown(!showSubjectDropdown)}
-                      className="bg-white dark:bg-[#0c0d13] border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2.5 text-xs text-slate-700 dark:text-slate-200 outline-none focus-within:ring-1 focus-within:ring-purple-500 font-bold cursor-pointer h-10 flex items-center justify-between select-none"
-                    >
-                      <span className="truncate pr-2">
-                        {uploadSubject
-                          ? `${uploadSubject} - ${subjectsList.find(s => s.subject_code === uploadSubject)?.subject_name || "Môn học"}`
-                          : "Không chọn học phần (Để trống)"}
-                      </span>
-                      <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      )}
                     </div>
 
-                    {showSubjectDropdown && (
-                      <div className="absolute top-[100%] left-0 right-0 mt-0.0 max-h-60 overflow-y-auto bg-white dark:bg-[#0f111a] border border-slate-200 dark:border-slate-800 rounded-xl shadow-lg z-50 p-2 flex flex-col gap-2">
-                        {/* Subject search input */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {/* Title input */}
+                      <div className="flex flex-col gap-1.5 md:col-span-2">
+                        <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Tiêu đề học liệu *</label>
                         <Input
                           type="text"
-                          placeholder="Tìm học phần..."
-                          value={subjectSearchInput}
-                          onChange={(e) => setSubjectSearchInput(e.target.value)}
-                          onClick={(e) => e.stopPropagation()} // prevent closing panel
-                          className="bg-slate-50 dark:bg-[#0c0d13] border-slate-200 dark:border-slate-800 rounded-lg px-2.5 py-1 text-[11px] placeholder:text-slate-450 h-8"
+                          placeholder="Ví dụ: Đề cương tự ôn thi cuối học kỳ"
+                          value={uploadTitle}
+                          onChange={(e) => setUploadTitle(e.target.value)}
+                          disabled={isUploading}
+                          className="bg-white dark:bg-[#0c0d13] border-slate-200 dark:border-slate-800 rounded-lg px-4 py-5 text-xs placeholder:text-slate-455 focus-visible:ring-1 focus-visible:ring-purple-500 font-semibold"
                         />
-                        <div className="flex flex-col max-h-36 overflow-y-auto custom-scrollbar gap-0.5">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setUploadSubject("");
-                              setSubjectSearchInput("");
-                              setShowSubjectDropdown(false);
-                            }}
-                            className={`w-full text-left px-2.5 py-1.5 text-[11px] font-bold rounded-lg transition-colors flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2 mb-1 ${!uploadSubject
-                              ? "bg-purple-600/10 text-purple-650 dark:text-purple-400"
-                              : "text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
-                              }`}
-                          >
-                            <span>-- Không chọn học phần (Để trống) --</span>
-                          </button>
-                          {subjectsList.filter(sub =>
-                            sub.subject_code.toLowerCase().includes(subjectSearchInput.toLowerCase()) ||
-                            sub.subject_name.toLowerCase().includes(subjectSearchInput.toLowerCase())
-                          ).length === 0 ? (
-                            <div className="flex flex-col gap-1 p-1">
-                              <span className="text-[10px] text-slate-400 font-bold italic text-center py-1">Không tìm thấy học phần</span>
-                              {subjectSearchInput.trim() && (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setUploadSubject(subjectSearchInput.trim().toUpperCase());
-                                    setSubjectSearchInput("");
-                                    setShowSubjectDropdown(false);
-                                  }}
-                                  className="w-full text-left px-2.5 py-2 text-[11px] font-bold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/30 rounded-lg transition-colors flex items-center justify-between border border-purple-500/20"
-                                >
-                                  <span>+ Thêm mã môn mới: "{subjectSearchInput.trim().toUpperCase()}"</span>
-                                </button>
+                      </div>
+
+                      {/* Searchable Subject selector */}
+                      <div
+                        className="flex flex-col gap-1.5 relative"
+                        onMouseLeave={() => setShowSubjectDropdown(false)}
+                      >
+                        <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Chọn học phần</label>
+                        <div
+                          onClick={() => setShowSubjectDropdown(!showSubjectDropdown)}
+                          className="bg-white dark:bg-[#0c0d13] border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2.5 text-xs text-slate-700 dark:text-slate-200 outline-none focus-within:ring-1 focus-within:ring-purple-500 font-bold cursor-pointer h-10 flex items-center justify-between select-none"
+                        >
+                          <span className="truncate pr-2">
+                            {uploadSubject
+                              ? `${uploadSubject} - ${subjectsList.find(s => s.subject_code === uploadSubject)?.subject_name || "Môn học"}`
+                              : "Không chọn học phần (Để trống)"}
+                          </span>
+                          <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                        </div>
+
+                        {showSubjectDropdown && (
+                          <div className="absolute top-[100%] left-0 right-0 mt-0.0 max-h-60 overflow-y-auto bg-white dark:bg-[#0f111a] border border-slate-200 dark:border-slate-800 rounded-xl shadow-lg z-50 p-2 flex flex-col gap-2">
+                            {/* Subject search input */}
+                            <Input
+                              type="text"
+                              placeholder="Tìm học phần..."
+                              value={subjectSearchInput}
+                              onChange={(e) => setSubjectSearchInput(e.target.value)}
+                              onClick={(e) => e.stopPropagation()} // prevent closing panel
+                              className="bg-slate-50 dark:bg-[#0c0d13] border-slate-200 dark:border-slate-800 rounded-lg px-2.5 py-1 text-[11px] placeholder:text-slate-455 h-8"
+                            />
+                            <div className="flex flex-col max-h-36 overflow-y-auto custom-scrollbar gap-0.5">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setUploadSubject("");
+                                  setSubjectSearchInput("");
+                                  setShowSubjectDropdown(false);
+                                }}
+                                className={`w-full text-left px-2.5 py-1.5 text-[11px] font-bold rounded-lg transition-colors flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2 mb-1 ${!uploadSubject
+                                  ? "bg-purple-600/10 text-purple-650 dark:text-purple-400"
+                                  : "text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+                                  }`}
+                              >
+                                <span>-- Không chọn học phần (Để trống) --</span>
+                              </button>
+                              {subjectsList.filter(sub =>
+                                sub.subject_code.toLowerCase().includes(subjectSearchInput.toLowerCase()) ||
+                                sub.subject_name.toLowerCase().includes(subjectSearchInput.toLowerCase())
+                              ).length === 0 ? (
+                                <div className="flex flex-col gap-1 p-1">
+                                  <span className="text-[10px] text-slate-400 font-bold italic text-center py-1">Không tìm thấy học phần</span>
+                                  {subjectSearchInput.trim() && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setUploadSubject(subjectSearchInput.trim().toUpperCase());
+                                        setSubjectSearchInput("");
+                                        setShowSubjectDropdown(false);
+                                      }}
+                                      className="w-full text-left px-2.5 py-2 text-[11px] font-bold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/30 rounded-lg transition-colors flex items-center justify-between border border-purple-500/20"
+                                    >
+                                      <span>+ Thêm mã môn mới: "{subjectSearchInput.trim().toUpperCase()}"</span>
+                                    </button>
+                                  )}
+                                </div>
+                              ) : (
+                                <>
+                                  {subjectSearchInput.trim() && !subjectsList.some(sub => sub.subject_code.toLowerCase() === subjectSearchInput.trim().toLowerCase()) && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setUploadSubject(subjectSearchInput.trim().toUpperCase());
+                                        setSubjectSearchInput("");
+                                        setShowSubjectDropdown(false);
+                                      }}
+                                      className="w-full text-left px-2.5 py-2 mb-1 text-[11px] font-bold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/30 rounded-lg transition-colors flex items-center justify-between border border-purple-500/20"
+                                    >
+                                      <span>+ Thêm mã môn mới: "{subjectSearchInput.trim().toUpperCase()}"</span>
+                                    </button>
+                                  )}
+                                  {subjectsList
+                                    .filter(sub =>
+                                      sub.subject_code.toLowerCase().includes(subjectSearchInput.toLowerCase()) ||
+                                      sub.subject_name.toLowerCase().includes(subjectSearchInput.toLowerCase())
+                                    )
+                                    .map(sub => (
+                                      <button
+                                        key={sub.subject_code}
+                                        type="button"
+                                        onClick={() => {
+                                          setUploadSubject(sub.subject_code);
+                                          setSubjectSearchInput("");
+                                          setShowSubjectDropdown(false);
+                                        }}
+                                        className={`w-full text-left px-2.5 py-2 text-[11px] font-bold rounded-lg transition-colors flex items-center justify-between ${uploadSubject === sub.subject_code
+                                          ? "bg-purple-600/10 text-purple-600 dark:text-purple-400"
+                                          : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                                          }`}
+                                      >
+                                        <span className="truncate">{sub.subject_code} ({sub.subject_name})</span>
+                                      </button>
+                                    ))}
+                                </>
                               )}
                             </div>
-                          ) : (
-                            <>
-                              {subjectSearchInput.trim() && !subjectsList.some(sub => sub.subject_code.toLowerCase() === subjectSearchInput.trim().toLowerCase()) && (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setUploadSubject(subjectSearchInput.trim().toUpperCase());
-                                    setSubjectSearchInput("");
-                                    setShowSubjectDropdown(false);
-                                  }}
-                                  className="w-full text-left px-2.5 py-2 mb-1 text-[11px] font-bold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/30 rounded-lg transition-colors flex items-center justify-between border border-purple-500/20"
-                                >
-                                  <span>+ Thêm mã môn mới: "{subjectSearchInput.trim().toUpperCase()}"</span>
-                                </button>
-                              )}
-                              {subjectsList
-                                .filter(sub =>
-                                  sub.subject_code.toLowerCase().includes(subjectSearchInput.toLowerCase()) ||
-                                  sub.subject_name.toLowerCase().includes(subjectSearchInput.toLowerCase())
-                                )
-                                .map(sub => (
-                                  <button
-                                    key={sub.subject_code}
-                                    type="button"
-                                    onClick={() => {
-                                      setUploadSubject(sub.subject_code);
-                                      setSubjectSearchInput("");
-                                      setShowSubjectDropdown(false);
-                                    }}
-                                    className={`w-full text-left px-2.5 py-2 text-[11px] font-bold rounded-lg transition-colors flex items-center justify-between ${uploadSubject === sub.subject_code
-                                      ? "bg-purple-600/10 text-purple-600 dark:text-purple-400"
-                                      : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
-                                      }`}
-                                  >
-                                    <span className="truncate">{sub.subject_code} ({sub.subject_name})</span>
-                                  </button>
-                                ))}
-                            </>
-                          )}
-                        </div>
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                </div>
+                    </div>
 
-                {/* Tag Editor Component */}
-                <div className="flex flex-col gap-2.5 border-t border-slate-100 dark:border-slate-800/50 pt-4 relative">
-                  <div className="flex items-center justify-between">
-                    <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-1">
-                      <Tag className="w-3.5 h-3.5 text-purple-500" />
-                      Gắn thẻ học liệu (Tags)
-                    </label>
-                    <span className="text-[9px] text-slate-400 font-bold">Thêm nhiều tag để dễ tìm kiếm</span>
-                  </div>
+                    {/* Tag Editor Component */}
+                    <div className="flex flex-col gap-2.5 border-t border-slate-100 dark:border-slate-800/50 pt-4 relative">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-1">
+                          <Tag className="w-3.5 h-3.5 text-purple-500" />
+                          Gắn thẻ học liệu (Tags)
+                        </label>
+                        <span className="text-[9px] text-slate-400 font-bold">Thêm nhiều tag để dễ tìm kiếm</span>
+                      </div>
 
-                  {/* Active Tags list */}
-                  <div className="flex flex-wrap gap-1.5">
-                    {documentTags.length === 0 ? (
-                      <span className="text-[11px] text-slate-400 font-bold italic py-1">Chưa chọn tag nào cho tài liệu</span>
-                    ) : (
-                      documentTags.map((tag) => (
-                        <span
-                          key={tag}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-bold text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/45 border border-purple-500/20 dark:border-purple-400/20 rounded-full animate-in fade-in duration-100"
-                        >
-                          {tag}
-                          <button
+                      {/* Active Tags list */}
+                      <div className="flex flex-wrap gap-1.5">
+                        {documentTags.length === 0 ? (
+                          <span className="text-[11px] text-slate-400 font-bold italic py-1">Chưa chọn tag nào cho tài liệu</span>
+                        ) : (
+                          documentTags.map((tag) => (
+                            <span
+                              key={tag}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-bold text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/45 border border-purple-500/20 dark:border-purple-400/20 rounded-full animate-in fade-in duration-100"
+                            >
+                              {tag}
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveTag(tag)}
+                                className="text-purple-500 hover:text-purple-700 dark:hover:text-purple-300 transition-colors focus:outline-none"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </span>
+                          ))
+                        )}
+                      </div>
+
+                      {/* Search & Selection Dropdown */}
+                      <div className="flex flex-col gap-1.5 relative mt-1">
+                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Tìm kiếm & chọn tag học tập</span>
+                        <div className="flex gap-2">
+                          <Input
+                            type="text"
+                            placeholder="Nhấn để xem gợi ý hoặc tìm kiếm tag..."
+                            value={tagSearchInput}
+                            onChange={(e) => handleTagSearch(e.target.value)}
+                            onFocus={() => setShowTagSuggestions(true)}
+                            onBlur={() => setTimeout(() => setShowTagSuggestions(false), 250)} // delay to allow clicks
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                if (tagSearchInput.trim()) {
+                                  handleAddTag(tagSearchInput);
+                                }
+                              }
+                            }}
+                            className="bg-white dark:bg-[#0c0d13] border-slate-200 dark:border-slate-800 rounded-lg px-3 py-1.5 text-xs placeholder:text-slate-450 h-9"
+                          />
+                          <Button
                             type="button"
-                            onClick={() => handleRemoveTag(tag)}
-                            className="text-purple-500 hover:text-purple-700 dark:hover:text-purple-300 transition-colors focus:outline-none"
+                            onClick={() => {
+                              if (tagSearchInput.trim()) {
+                                  handleAddTag(tagSearchInput);
+                                }
+                            }}
+                            className="bg-purple-600 dark:bg-purple-500 hover:bg-purple-700 dark:hover:bg-purple-600 text-white text-xs font-bold px-3 h-9 shrink-0 cursor-pointer rounded-lg shadow-sm"
                           >
-                            <X className="w-3 h-3" />
-                          </button>
-                        </span>
-                      ))
-                    )}
-                  </div>
+                            Thêm
+                          </Button>
+                        </div>
 
-                  {/* Search & Selection Dropdown */}
-                  <div className="flex flex-col gap-1.5 relative mt-1">
-                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Tìm kiếm & chọn tag học tập</span>
-                    <div className="flex gap-2">
-                      <Input
-                        type="text"
-                        placeholder="Nhấn để xem gợi ý hoặc tìm kiếm tag..."
-                        value={tagSearchInput}
-                        onChange={(e) => handleTagSearch(e.target.value)}
-                        onFocus={() => setShowTagSuggestions(true)}
-                        onBlur={() => setTimeout(() => setShowTagSuggestions(false), 250)} // delay to allow clicks
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            if (tagSearchInput.trim()) {
-                              handleAddTag(tagSearchInput);
-                            }
-                          }
-                        }}
-                        className="bg-white dark:bg-[#0c0d13] border-slate-200 dark:border-slate-800 rounded-lg px-3 py-1.5 text-xs placeholder:text-slate-450 h-9"
-                      />
+                        {/* Floating Dropdown Suggestions */}
+                        {showTagSuggestions && (
+                          <div className="absolute bottom-[100%] left-0 right-0 mb-1.5 max-h-48 overflow-y-auto bg-white dark:bg-[#0f111a] border border-slate-200 dark:border-slate-850 rounded-xl shadow-lg z-50 p-2 flex flex-col gap-1">
+                            {tagSearchInput.trim() ? (
+                              /* Search Suggestions from DB */
+                              searchSuggestions.filter(t => !documentTags.includes(t)).length === 0 ? (
+                                <span className="text-[10px] text-slate-400 font-bold italic text-center py-2">
+                                  Không tìm thấy tag trùng khớp. Nhấn "Thêm" để tạo mới.
+                                </span>
+                              ) : (
+                                searchSuggestions.filter(t => !documentTags.includes(t)).map(tag => (
+                                  <button
+                                    key={tag}
+                                    type="button"
+                                    onMouseDown={() => handleAddTag(tag)}
+                                    className="w-full text-left px-3 py-2 text-[11px] font-bold text-slate-700 dark:text-slate-350 hover:bg-purple-600/10 hover:text-purple-600 dark:hover:text-purple-400 rounded-lg transition-colors"
+                                  >
+                                    {tag}
+                                  </button>
+                                ))
+                              )
+                            ) : (
+                              /* Suggested tags for the selected subject code */
+                              suggestedTags.filter(t => !documentTags.includes(t)).length === 0 ? (
+                                <span className="text-[10px] text-slate-400 font-bold italic text-center py-2">
+                                  Không còn tag gợi ý. Bạn có thể tự gõ tag mới.
+                                </span>
+                              ) : (
+                                <>
+                                  <span className="text-[9px] font-bold text-slate-455 dark:text-slate-500 px-2 py-1 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800 pb-1 mb-1">Gợi ý cho môn {uploadSubject}</span>
+                                  {suggestedTags.filter(t => !documentTags.includes(t)).map(tag => (
+                                    <button
+                                      key={tag}
+                                      type="button"
+                                      onMouseDown={() => handleAddTag(tag)}
+                                      className="w-full text-left px-2.5 py-1.5 text-[11px] font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg transition-colors flex items-center justify-between"
+                                    >
+                                      <span>{tag}</span>
+                                      <span className="text-[9px] font-bold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/40 px-1.5 py-0.5 rounded border border-purple-500/10">+ Chọn</span>
+                                    </button>
+                                  ))
+                                  }
+                                </>
+                              )
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Upload action and progress */}
+                    <div className="flex items-center justify-between border-t border-slate-100 dark:border-slate-800/50 pt-4 flex-wrap gap-4 mt-auto">
+                      <div className="flex items-center gap-1.5 text-xs text-slate-400 font-bold">
+                        <Info className="w-4 h-4 text-purple-500 shrink-0" />
+                        <span>Hỗ trợ định dạng PDF, PowerPoint, Word. Dung lượng khuyến nghị &lt; 10MB</span>
+                      </div>
+
                       <Button
-                        type="button"
-                        onClick={() => {
-                          if (tagSearchInput.trim()) {
-                            handleAddTag(tagSearchInput);
-                          }
-                        }}
-                        className="bg-purple-600 dark:bg-purple-500 hover:bg-purple-700 dark:hover:bg-purple-600 text-white text-xs font-bold px-3 h-9 shrink-0 cursor-pointer rounded-lg shadow-sm"
+                        type="submit"
+                        disabled={isUploading}
+                        className="bg-purple-600 dark:bg-purple-500 hover:bg-purple-700 dark:hover:bg-purple-600 text-white font-extrabold text-xs px-5 py-4.5 rounded-lg flex items-center justify-center gap-2 cursor-pointer shadow-sm"
                       >
-                        Thêm
+                        <UploadCloud className="w-4 h-4" />
+                        {isUploading ? "Đang xử lý lưu trữ..." : "Lưu vào máy chủ"}
                       </Button>
                     </div>
 
-                    {/* Floating Dropdown Suggestions */}
-                    {showTagSuggestions && (
-                      <div className="absolute bottom-[100%] left-0 right-0 mb-1.5 max-h-48 overflow-y-auto bg-white dark:bg-[#0f111a] border border-slate-200 dark:border-slate-850 rounded-xl shadow-lg z-50 p-2 flex flex-col gap-1">
-                        {tagSearchInput.trim() ? (
-                          /* Search Suggestions from DB */
-                          searchSuggestions.filter(t => !documentTags.includes(t)).length === 0 ? (
-                            <span className="text-[10px] text-slate-400 font-bold italic text-center py-2">
-                              Không tìm thấy tag trùng khớp. Nhấn "Thêm" để tạo mới.
-                            </span>
-                          ) : (
-                            searchSuggestions.filter(t => !documentTags.includes(t)).map(tag => (
-                              <button
-                                key={tag}
-                                type="button"
-                                onMouseDown={() => handleAddTag(tag)}
-                                className="w-full text-left px-3 py-2 text-[11px] font-bold text-slate-700 dark:text-slate-350 hover:bg-purple-600/10 hover:text-purple-600 dark:hover:text-purple-400 rounded-lg transition-colors"
-                              >
-                                {tag}
-                              </button>
-                            ))
-                          )
-                        ) : (
-                          /* Suggested tags for the selected subject code */
-                          suggestedTags.filter(t => !documentTags.includes(t)).length === 0 ? (
-                            <span className="text-[10px] text-slate-400 font-bold italic text-center py-2">
-                              Không còn tag gợi ý. Bạn có thể tự gõ tag mới.
-                            </span>
-                          ) : (
-                            <>
-                              <span className="text-[9px] font-bold text-slate-450 dark:text-slate-500 px-2 py-1 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800 pb-1 mb-1">Gợi ý cho môn {uploadSubject}</span>
-                              {suggestedTags.filter(t => !documentTags.includes(t)).map(tag => (
-                                <button
-                                  key={tag}
-                                  type="button"
-                                  onMouseDown={() => handleAddTag(tag)}
-                                  className="w-full text-left px-2.5 py-1.5 text-[11px] font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg transition-colors flex items-center justify-between"
-                                >
-                                  <span>{tag}</span>
-                                  <span className="text-[9px] font-bold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/40 px-1.5 py-0.5 rounded border border-purple-500/10">+ Chọn</span>
-                                </button>
-                              ))
-                              }
-                            </>
-                          )
-                        )}
+                    {/* Loading state bar */}
+                    {isUploading && (
+                      <div className="w-full flex flex-col gap-2 mt-2">
+                        <div className="flex justify-between text-[10px] font-extrabold text-purple-600 dark:text-purple-400">
+                          <span>Đang mã hóa & ghi nhận vào cơ sở dữ liệu học thuật...</span>
+                          <span>{uploadProgress}%</span>
+                        </div>
+                        <div className="w-full h-1.5 bg-slate-200 dark:bg-slate-850 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-purple-600 dark:bg-purple-500 transition-all duration-100"
+                            style={{ width: `${uploadProgress}%` }}
+                          />
+                        </div>
                       </div>
                     )}
-                  </div>
-                </div>
+                  </form>
+                </Card>
+              </div>
 
-                {/* Upload action and progress */}
-                <div className="flex items-center justify-between border-t border-slate-100 dark:border-slate-800/50 pt-4 flex-wrap gap-4">
-                  <div className="flex items-center gap-1.5 text-xs text-slate-400 font-bold">
-                    <Info className="w-4 h-4 text-purple-500 shrink-0" />
-                    <span>Hỗ trợ định dạng PDF, PowerPoint, Word. Dung lượng khuyến nghị &lt; 10MB</span>
-                  </div>
+              {/* Right: Upload History Calendar (3 parts) */}
+              <div className="lg:col-span-3 w-full h-full">
+                {(() => {
+                  const uploadCalYear = uploadCalDate.getFullYear();
+                  const uploadCalMonth = uploadCalDate.getMonth();
+                  const uploadDaysInMonth = new Date(uploadCalYear, uploadCalMonth + 1, 0).getDate();
+                  const uploadFirstDayOfWeek = new Date(uploadCalYear, uploadCalMonth, 1).getDay();
+                  const uploadPaddingDays = uploadFirstDayOfWeek === 0 ? 6 : uploadFirstDayOfWeek - 1;
 
-                  <Button
-                    type="submit"
-                    disabled={isUploading}
-                    className="bg-purple-600 dark:bg-purple-500 hover:bg-purple-700 dark:hover:bg-purple-600 text-white font-extrabold text-xs px-5 py-4.5 rounded-lg flex items-center justify-center gap-2 cursor-pointer shadow-sm"
-                  >
-                    <UploadCloud className="w-4 h-4" />
-                    {isUploading ? "Đang xử lý lưu trữ..." : "Lưu vào máy chủ"}
-                  </Button>
-                </div>
+                  const uploadCells = [];
+                  for (let i = 0; i < uploadPaddingDays; i++) {
+                    uploadCells.push(null);
+                  }
+                  for (let day = 1; day <= uploadDaysInMonth; day++) {
+                    uploadCells.push(new Date(uploadCalYear, uploadCalMonth, day));
+                  }
 
-                {/* Loading state bar */}
-                {isUploading && (
-                  <div className="w-full flex flex-col gap-2 mt-2">
-                    <div className="flex justify-between text-[10px] font-extrabold text-purple-600 dark:text-purple-400">
-                      <span>Đang mã hóa & ghi nhận vào cơ sở dữ liệu học thuật...</span>
-                      <span>{uploadProgress}%</span>
-                    </div>
-                    <div className="w-full h-1.5 bg-slate-200 dark:bg-slate-850 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-purple-600 dark:bg-purple-500 transition-all duration-100"
-                        style={{ width: `${uploadProgress}%` }}
-                      />
-                    </div>
-                  </div>
-                )}
-              </form>
-            </Card>
+                  const personalUploadStats = {};
+                  documents.forEach((doc) => {
+                    if (doc.upload_date) {
+                      const d = new Date(doc.upload_date);
+                      const dateKey = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+                      personalUploadStats[dateKey] = (personalUploadStats[dateKey] || 0) + 1;
+                    }
+                  });
+
+                  const getUploadDotColor = (count) => {
+                    if (count <= 0) return null;
+                    if (count < 5) return "bg-emerald-500 dark:bg-emerald-400"; // Light green
+                    if (count < 10) return "bg-blue-500 dark:bg-blue-400"; // Clean blue
+                    if (count < 20) return "bg-purple-500 dark:bg-purple-400"; // Rich purple
+                    return "bg-rose-500 dark:bg-rose-400"; // Crimson rose
+                  };
+
+                  const handlePrevUploadMonth = () => {
+                    setUploadCalDate(new Date(uploadCalYear, uploadCalMonth - 1, 1));
+                  };
+                  const handleNextUploadMonth = () => {
+                    setUploadCalDate(new Date(uploadCalYear, uploadCalMonth + 1, 1));
+                  };
+
+                  const handlePersonalMouseDown = (cellDate, e) => {
+                    e.preventDefault();
+                    setPersonalRangeStart(cellDate);
+                    setPersonalRangeEnd(null);
+                    setIsPersonalCalDragging(true);
+                  };
+
+                  const handlePersonalMouseEnter = (cellDate) => {
+                    if (isPersonalCalDragging) {
+                      setPersonalRangeEnd(cellDate);
+                    }
+                  };
+
+                  const handlePersonalMouseUp = (cellDate) => {
+                    if (isPersonalCalDragging) {
+                      setIsPersonalCalDragging(false);
+                      if (personalRangeStart) {
+                        let finalStart = personalRangeStart;
+                        let finalEnd = cellDate;
+                        if (personalRangeStart.getTime() > cellDate.getTime()) {
+                          finalStart = cellDate;
+                          finalEnd = personalRangeStart;
+                        }
+                        setPersonalRangeStart(finalStart);
+                        setPersonalRangeEnd(finalEnd);
+
+                        // Count uploads in range to trigger auto-scroll
+                        let uploadsInRange = 0;
+                        const startT = finalStart.getTime();
+                        const endT = finalEnd.getTime();
+                        documents.forEach((doc) => {
+                          if (doc.upload_date) {
+                            const d = new Date(doc.upload_date);
+                            d.setHours(0, 0, 0, 0);
+                            const dTime = d.getTime();
+                            if (dTime >= startT && dTime <= endT) {
+                              uploadsInRange++;
+                            }
+                          }
+                        });
+
+                        if (uploadsInRange > 0) {
+                          setTimeout(() => {
+                            if (documentsSectionRef.current && mainContentRef.current) {
+                              const mainTop = mainContentRef.current.getBoundingClientRect().top;
+                              const docTop = documentsSectionRef.current.getBoundingClientRect().top;
+                              const targetScrollTop = mainContentRef.current.scrollTop + (docTop - mainTop) - 24;
+                              mainContentRef.current.scrollTo({
+                                top: targetScrollTop,
+                                behavior: 'smooth'
+                              });
+                            }
+                          }, 100);
+                        }
+                      }
+                    }
+                  };
+
+                  return (
+                    <Card className="liquid-glass rounded-xl p-5 shadow-sm space-y-4 select-none h-full flex flex-col justify-between">
+                      <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+                        <h3 className="text-xs font-black text-slate-850 dark:text-slate-200 uppercase tracking-wider flex items-center gap-2">
+                          <Calendar className="w-4 h-4 text-purple-500" />
+                          Lịch sử tải lên cá nhân
+                        </h3>
+                        {personalRangeStart && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPersonalRangeStart(null);
+                              setPersonalRangeEnd(null);
+                            }}
+                            className="text-[9px] font-black text-purple-650 hover:text-purple-800 dark:text-purple-400 hover:underline cursor-pointer"
+                          >
+                            Xóa lọc
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="bg-slate-50/50 dark:bg-[#0c0d14]/50 border border-slate-100/80 dark:border-slate-800/40 rounded-xl p-3.5 flex-1 flex flex-col justify-between">
+                        {/* Calendar Navigation */}
+                        <div className="flex items-center justify-between mb-3.5">
+                          <button
+                            type="button"
+                            onClick={handlePrevUploadMonth}
+                            className="p-1 rounded-md hover:bg-slate-200 dark:hover:bg-slate-850 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors cursor-pointer"
+                          >
+                            <ChevronLeft className="w-3.5 h-3.5" />
+                          </button>
+                          <span className="text-[10px] font-black text-slate-700 dark:text-slate-350 uppercase tracking-widest">
+                            {monthNamesVi[uploadCalMonth]}, {uploadCalYear}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={handleNextUploadMonth}
+                            className="p-1 rounded-md hover:bg-slate-200 dark:hover:bg-slate-850 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors cursor-pointer"
+                          >
+                            <ChevronRight className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+
+                        {/* Day Names */}
+                        <div className="grid grid-cols-7 gap-1 text-center mb-1.5">
+                          {weekdaysVi.map(day => (
+                            <span key={day} className="text-[9px] font-extrabold text-slate-400 dark:text-slate-650">
+                              {day}
+                            </span>
+                          ))}
+                        </div>
+
+                        {/* Days Grid */}
+                        <div className="grid grid-cols-7 gap-1">
+                          {uploadCells.map((cellDate, idx) => {
+                            if (!cellDate) {
+                              return <div key={`empty-${idx}`} className="h-7 w-7" />;
+                            }
+
+                            const cellDay = cellDate.getDate();
+                            const dateKey = `${cellDate.getFullYear()}-${cellDate.getMonth()}-${cellDate.getDate()}`;
+                            const uploadCount = personalUploadStats[dateKey] || 0;
+
+                            const selected = personalRangeStart && (
+                              (() => {
+                                const dTime = new Date(cellDate.getFullYear(), cellDate.getMonth(), cellDate.getDate()).getTime();
+                                const startTime = new Date(personalRangeStart.getFullYear(), personalRangeStart.getMonth(), personalRangeStart.getDate()).getTime();
+                                if (!personalRangeEnd) return dTime === startTime;
+                                const endTime = new Date(personalRangeEnd.getFullYear(), personalRangeEnd.getMonth(), personalRangeEnd.getDate()).getTime();
+                                const minTime = Math.min(startTime, endTime);
+                                const maxTime = Math.max(startTime, endTime);
+                                return dTime >= minTime && dTime <= maxTime;
+                              })()
+                            );
+
+                            const boundary = personalRangeStart && (
+                              (() => {
+                                const dTime = new Date(cellDate.getFullYear(), cellDate.getMonth(), cellDate.getDate()).getTime();
+                                const startTime = new Date(personalRangeStart.getFullYear(), personalRangeStart.getMonth(), personalRangeStart.getDate()).getTime();
+                                if (!personalRangeEnd) return dTime === startTime;
+                                const endTime = new Date(personalRangeEnd.getFullYear(), personalRangeEnd.getMonth(), personalRangeEnd.getDate()).getTime();
+                                return dTime === startTime || dTime === endTime;
+                              })()
+                            );
+
+                            let cellStyle = "text-slate-600 dark:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-slate-800/40";
+                            if (boundary) {
+                              cellStyle = "bg-purple-600 text-white font-extrabold shadow-sm shadow-purple-500/20 hover:bg-purple-700";
+                            } else if (selected) {
+                              cellStyle = "bg-purple-100 dark:bg-purple-900/35 text-purple-700 dark:text-purple-300 font-bold hover:bg-purple-200 dark:hover:bg-purple-900/50";
+                            } else if (uploadCount > 0) {
+                              cellStyle = "bg-slate-100 dark:bg-slate-850 hover:bg-slate-200/80 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-100 font-extrabold";
+                            }
+
+                            return (
+                              <button
+                                key={dateKey}
+                                type="button"
+                                onMouseDown={(e) => handlePersonalMouseDown(cellDate, e)}
+                                onMouseEnter={() => handlePersonalMouseEnter(cellDate)}
+                                onMouseUp={() => handlePersonalMouseUp(cellDate)}
+                                className={`h-7 w-7 text-[10px] rounded-lg transition-all flex flex-col items-center justify-center relative font-bold cursor-pointer ${cellStyle}`}
+                              >
+                                <span>{cellDay}</span>
+                                {uploadCount > 0 && (
+                                  <span className={`w-1.5 h-1.5 rounded-full absolute bottom-0.5 left-1/2 -translate-x-1/2 ${getUploadDotColor(uploadCount)}`} />
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Legend */}
+                      <div className="text-[9px] text-slate-450 dark:text-slate-500 flex flex-col gap-2 font-bold uppercase tracking-wider pl-0.5 border-t border-slate-100 dark:border-slate-800/60 pt-3">
+                        <div className="text-[10px] font-black text-slate-700 dark:text-slate-350">Chú thích tài liệu tải lên:</div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="flex items-center gap-1.5">
+                            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0" />
+                            <span>&lt; 5 tài liệu</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="w-2.5 h-2.5 rounded-full bg-blue-500 shrink-0" />
+                            <span>&lt; 10 tài liệu</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="w-2.5 h-2.5 rounded-full bg-purple-500 shrink-0" />
+                            <span>&lt; 20 tài liệu</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="w-2.5 h-2.5 rounded-full bg-rose-500 shrink-0" />
+                            <span>&gt;= 20 tài liệu</span>
+                          </div>
+                        </div>
+                      </div>
+                    </Card>
+                  );
+                })()}
+              </div>
+            </div>
+
 
             {/* Documents filtering & Grid */}
-            <section className="flex flex-col gap-4 mt-2">
+            <section ref={documentsSectionRef} className="flex flex-col gap-4 mt-2">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                
                 <h2 className="text-sm font-black text-black dark:text-white uppercase tracking-wider flex items-center gap-2">
                   <span className="w-1 h-3.5 bg-purple-600 dark:bg-purple-500 rounded" />
-                  Danh mục tài liệu học phần ({filteredDocuments.length})
+                  Tài liệu đã tải lên ({personalRangeStart || searchQuery || selectedSubjectFilter !== "All" ? `${filteredDocuments.length}/${documents.length}` : documents.length})
                 </h2>
 
                 {/* Search & Filters */}
@@ -1568,6 +1997,34 @@ export default function Home() {
                 </div>
               </div>
 
+              {personalRangeStart && (
+                <div className="flex items-center justify-between p-3.5 bg-purple-500/10 dark:bg-purple-500/15 border border-purple-500/20 rounded-xl text-xs text-purple-900 dark:text-purple-250 select-none animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div className="flex items-center gap-2 font-bold">
+                    <Calendar className="w-4 h-4 text-purple-550" />
+                    <span>
+                      Đang lọc tài liệu tải lên{" "}
+                      {!personalRangeEnd || personalRangeStart.getTime() === personalRangeEnd.getTime() ? (
+                        <>ngày <span className="underline decoration-purple-400 font-extrabold">{formatToDDMMYYYY(personalRangeStart)}</span></>
+                      ) : (
+                        <>từ ngày <span className="underline decoration-purple-400 font-extrabold">{formatToDDMMYYYY(personalRangeStart)}</span> đến ngày <span className="underline decoration-purple-400 font-extrabold">{formatToDDMMYYYY(personalRangeEnd)}</span></>
+                      )}{" "}
+                      ({filteredDocuments.length} tài liệu)
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPersonalRangeStart(null);
+                      setPersonalRangeEnd(null);
+                    }}
+                    className="p-1.5 rounded-lg hover:bg-purple-600/10 dark:hover:bg-purple-450/15 text-purple-750 dark:text-purple-305 active:scale-95 transition-all cursor-pointer"
+                    title="Xóa bộ lọc"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+
               {/* Table List of documents */}
               <div className="w-full border border-slate-200/30 dark:border-white/5 rounded-xl overflow-hidden bg-white/30 dark:bg-[#0f111a]/45 backdrop-blur-xl shadow-[inset_0_1px_1px_rgba(255,255,255,0.25)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] shadow-sm">
                 <div className="w-full overflow-x-auto">
@@ -1601,7 +2058,7 @@ export default function Home() {
                           </td>
                         </tr>
                       ) : (
-                        filteredDocuments.map((doc) => (
+                        filteredDocuments.slice((docManagePage - 1) * 9, docManagePage * 9).map((doc) => (
                           <tr key={doc.document_id} onClick={() => handlePreviewClick(doc)} className="hover:bg-white/40 dark:hover:bg-white/5 transition-colors cursor-pointer group border-b border-slate-200/30 dark:border-white/5">
                             <td className="px-5 py-3.5 flex items-center gap-2 text-slate-800 dark:text-slate-200 font-bold max-w-xs truncate">
                               {getFileIcon(doc.file_type || getFileType(doc.file_url), "w-4 h-4 shrink-0")}
@@ -1675,6 +2132,7 @@ export default function Home() {
                                     <Download className="w-4 h-4 text-slate-400" />
                                     Tải xuống
                                   </button>
+                                  
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
@@ -1686,6 +2144,26 @@ export default function Home() {
                                   >
                                     <Share2 className="w-4 h-4 text-slate-400" />
                                     Chia sẻ
+                                  </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setOpenMenuId(null);
+                                      setEditModalDoc(doc);
+                                      setEditTitle(doc.title || doc.document_name || "");
+                                      setEditSubject(doc.subject_code || "");
+                                      setEditSubjectSearch(doc.subject_code || "");
+                                      const docTagNames = Array.isArray(doc.tags)
+                                        ? doc.tags.map(t => typeof t === "string" ? t : t.tag_name)
+                                        : [];
+                                      setEditTags(docTagNames);
+                                      setEditTagInput("");
+                                      setEditTagSuggestions([]);
+                                    }}
+                                    className="w-full flex items-center gap-2 text-left px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60 rounded-md transition-colors"
+                                  >
+                                    <Pencil className="w-4 h-4 text-slate-400" />
+                                    Chỉnh sửa
                                   </button>
                                   <div className="h-px bg-slate-100 dark:bg-slate-800/60 my-1" />
                                   <button
@@ -1708,6 +2186,131 @@ export default function Home() {
                     </tbody>
                   </table>
                 </div>
+              </div>
+              {Math.ceil(filteredDocuments.length / 9) > 1 && (
+                <div className="mt-4 flex justify-center">
+                  <Pagination
+                    page={docManagePage}
+                    totalPages={Math.ceil(filteredDocuments.length / 9)}
+                    setPage={setDocManagePage}
+                  />
+                </div>
+              )}
+            </section>
+          </div>
+        )}
+
+        {/* ── NEW SCREEN: BOOKMARKS VIEW ── */}
+        {activeTab === "Bookmarks" && (
+          <div className="flex flex-col gap-6 max-w-5xl w-full mx-auto animate-spring-up">
+            <header className="flex flex-col gap-1 border-b border-slate-100 dark:border-slate-800/60 pb-5 select-none text-left">
+              <span className="text-xs font-bold text-red-500 uppercase tracking-widest">Bộ sưu tập của bạn</span>
+              <h1 className="text-2xl md:text-3xl font-black text-black dark:text-white tracking-tight mt-1 flex items-center gap-2">
+                Tài liệu Yêu thích
+                <Heart className="w-6 h-6 fill-red-500 text-red-500" />
+              </h1>
+              <span className="text-xs text-slate-500 font-medium mt-1">
+                Các tài liệu hay từ cộng đồng mà bạn đã đánh dấu.
+              </span>
+            </header>
+
+            <section className="flex flex-col gap-4 mt-2">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <h2 className="text-sm font-black text-black dark:text-white uppercase tracking-wider flex items-center gap-2">
+                  <span className="w-1 h-3.5 bg-red-500 rounded" />
+                  Danh mục yêu thích ({bookmarkedDocs.length})
+                </h2>
+              </div>
+
+              <div className="w-full flex flex-col space-y-6">
+                {bookmarkedDocs.length === 0 ? (
+                  <div className="text-center py-20 bg-white/30 dark:bg-[#0f111a]/30 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 p-8">
+                    <div className="text-5xl mb-4 text-slate-300 dark:text-slate-600">
+                      <Heart className="w-16 h-16 mx-auto opacity-50" />
+                    </div>
+                    <p className="text-sm font-bold text-slate-850 dark:text-slate-200 m-0">
+                      Bạn chưa yêu thích tài liệu nào
+                    </p>
+                    <p className="text-xs text-slate-450 mt-2 m-0">
+                      Hãy quay lại cộng đồng và thả tim những tài liệu hữu ích nhé.
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 xl:grid-cols-3 w-full">
+                      {bookmarkedDocs.slice((bookmarkPage - 1) * 9, bookmarkPage * 9).map((doc) => (
+                        <DocumentCard
+                          key={doc.document_id || doc.id}
+                          doc={{ ...doc, isBookmarked: true }}
+                          isPersonal={false}
+                          isMyShared={false}
+                        />
+                      ))}
+                    </div>
+                    
+                    {Math.ceil(bookmarkedDocs.length / 9) > 1 && (
+                      <div className="mt-6 flex justify-center">
+                        <Pagination
+                          page={bookmarkPage}
+                          totalPages={Math.ceil(bookmarkedDocs.length / 9)}
+                          setPage={setBookmarkPage}
+                        />
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            </section>
+          </div>
+        )}
+
+        {/* ── NEW SCREEN: BOOKMARKS VIEW ── */}
+        {activeTab === "Bookmarks" && (
+          <div className="flex flex-col gap-6 max-w-5xl w-full mx-auto animate-spring-up">
+            <header className="flex flex-col gap-1 border-b border-slate-100 dark:border-slate-800/60 pb-5 select-none text-left">
+              <span className="text-xs font-bold text-red-500 uppercase tracking-widest">Bộ sưu tập của bạn</span>
+              <h1 className="text-2xl md:text-3xl font-black text-black dark:text-white tracking-tight mt-1 flex items-center gap-2">
+                Tài liệu Yêu thích
+                <Heart className="w-6 h-6 fill-red-500 text-red-500" />
+              </h1>
+              <span className="text-xs text-slate-500 font-medium mt-1">
+                Các tài liệu hay từ cộng đồng mà bạn đã đánh dấu.
+              </span>
+            </header>
+
+            <section className="flex flex-col gap-4 mt-2">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <h2 className="text-sm font-black text-black dark:text-white uppercase tracking-wider flex items-center gap-2">
+                  <span className="w-1 h-3.5 bg-red-500 rounded" />
+                  Danh mục yêu thích ({bookmarkedDocs.length})
+                </h2>
+              </div>
+
+              <div className="w-full flex flex-col space-y-6">
+                {bookmarkedDocs.length === 0 ? (
+                  <div className="text-center py-20 bg-white/30 dark:bg-[#0f111a]/30 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 p-8">
+                    <div className="text-5xl mb-4 text-slate-300 dark:text-slate-600">
+                      <Heart className="w-16 h-16 mx-auto opacity-50" />
+                    </div>
+                    <p className="text-sm font-bold text-slate-850 dark:text-slate-200 m-0">
+                      Bạn chưa yêu thích tài liệu nào
+                    </p>
+                    <p className="text-xs text-slate-450 mt-2 m-0">
+                      Hãy quay lại cộng đồng và thả tim những tài liệu hữu ích nhé.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 xl:grid-cols-3 w-full">
+                    {bookmarkedDocs.map((doc) => (
+                      <DocumentCard
+                        key={doc.document_id || doc.id}
+                        doc={{ ...doc, isBookmarked: true }}
+                        isPersonal={false}
+                        isMyShared={false}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
             </section>
           </div>
@@ -1848,289 +2451,393 @@ export default function Home() {
         )}
 
         {/* ── SCREEN 4: COMMUNITY ── */}
-        {activeTab === "Community" && (
-          <div className="flex flex-col gap-6 max-w-5xl w-full mx-auto animate-spring-up text-left">
-            <header className="flex flex-col gap-1 border-b border-slate-100 dark:border-slate-800/60 pb-5 select-none text-left">
-              <span className="text-xs font-bold text-purple-600 dark:text-purple-400 uppercase tracking-widest">Cộng đồng học tập</span>
-              <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight mt-1">
-                Tài liệu chia sẻ cộng đồng
-              </h1>
-              <span className="text-xs text-slate-500 font-medium mt-1">
-                Tìm kiếm và tham khảo toàn bộ tài liệu chia sẻ từ các học viên khác trên toàn hệ thống.
-              </span>
-            </header>
+        {activeTab === "Community" && (() => {
+          const calYear = currentCalDate.getFullYear();
+          const calMonth = currentCalDate.getMonth();
+          const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+          const firstDayOfWeek = new Date(calYear, calMonth, 1).getDay();
+          const paddingDays = firstDayOfWeek === 0 ? 6 : firstDayOfWeek - 1;
 
-            {/* Bài đã share của tôi */}
-            {user && communityFilterMode === "ALL" && mySharedCommunityDocs.length > 0 && !communityLoading && (
-              <div className="mb-2 bg-white dark:bg-slate-900 rounded-[24px] p-6 shadow-sm border border-slate-100 dark:border-slate-800">
-                <div className="flex items-center justify-between mb-6">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center text-purple-600 dark:text-purple-400">
-                      <FolderOpen size={20} />
+          const cells = [];
+          for (let i = 0; i < paddingDays; i++) {
+            cells.push(null);
+          }
+          for (let day = 1; day <= daysInMonth; day++) {
+            cells.push(new Date(calYear, calMonth, day));
+          }
+
+          const datesWithDocs = new Set();
+          communityDocs.forEach(doc => {
+            if (doc.upload_date) {
+              const d = new Date(doc.upload_date);
+              datesWithDocs.add(`${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`);
+            }
+          });
+
+
+
+          const handlePrevMonth = () => {
+            setCurrentCalDate(new Date(calYear, calMonth - 1, 1));
+          };
+          const handleNextMonth = () => {
+            setCurrentCalDate(new Date(calYear, calMonth + 1, 1));
+          };
+
+          return (
+            <div className="flex flex-col gap-6 max-w-5xl w-full mx-auto animate-spring-up text-left">
+              <header className="flex flex-col gap-1 border-b border-slate-100 dark:border-slate-800/60 pb-5 select-none text-left">
+                <span className="text-xs font-bold text-purple-600 dark:text-purple-400 uppercase tracking-widest">Cộng đồng học tập</span>
+                <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight mt-1">
+                  Tài liệu chia sẻ cộng đồng
+                </h1>
+                <span className="text-xs text-slate-500 font-medium mt-1">
+                  Tìm kiếm và tham khảo toàn bộ tài liệu chia sẻ từ các học viên khác trên toàn hệ thống.
+                </span>
+              </header>
+
+              {/* Bài đã share của tôi */}
+              {user && communityFilterMode === "ALL" && mySharedCommunityDocs.length > 0 && !communityLoading && (
+                <div className="mb-2 bg-white dark:bg-slate-900 rounded-[24px] p-6 shadow-sm border border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center text-purple-600 dark:text-purple-400">
+                        <FolderOpen size={20} />
+                      </div>
+                      <div>
+                        <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">Tài liệu bạn đã chia sẻ</h2>
+                        <p className="text-sm text-slate-500 dark:text-slate-400">Bạn đã đóng góp {mySharedCommunityDocs.length} tài liệu cho cộng đồng</p>
+                      </div>
                     </div>
-                    <div>
-                      <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">Tài liệu bạn đã chia sẻ</h2>
-                      <p className="text-sm text-slate-500 dark:text-slate-400">Bạn đã đóng góp {mySharedCommunityDocs.length} tài liệu cho cộng đồng</p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => setCommunityFilterMode("MY_SHARED")}
-                    className="flex items-center gap-2 text-sm font-bold text-purple-600 hover:text-purple-700 bg-purple-50 hover:bg-purple-100 dark:text-purple-400 dark:bg-purple-900/20 dark:hover:bg-purple-900/40 px-4 py-2.5 rounded-xl transition-colors"
-                  >
-                    Xem tất cả
-                    <ArrowUpRight size={16} />
-                  </button>
-                </div>
-
-                <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-                  {mySharedCommunityDocs.slice(0, 3).map((doc) => (
-                    <DocumentCard
-                      key={doc.document_id || doc.id}
-                      doc={doc}
-                      isPersonal={false}
-                      isMyShared={true}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Nút quay lại khi đang xem bài của tôi */}
-            {communityFilterMode === "MY_SHARED" && (
-              <div className="mb-2 flex items-center justify-between">
-                <h2 className="text-2xl font-bold text-purple-700 dark:text-purple-400 flex items-center gap-2">
-                  <BookOpen size={24} /> Toàn bộ bài bạn đã chia sẻ ({mySharedCommunityDocs.length})
-                </h2>
-                <button
-                  onClick={() => setCommunityFilterMode("ALL")}
-                  className="text-sm font-bold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300 underline decoration-slate-300 dark:decoration-slate-700 underline-offset-4"
-                >
-                  Quay lại thư viện chung
-                </button>
-              </div>
-            )}
-
-            {/* Search */}
-            <div className="w-full flex justify-center mt-2">
-              <SearchBar
-                search={communitySearch}
-                setSearch={setCommunitySearch}
-                className="max-w-2xl mx-auto"
-                onEnter={handleCommunitySearch}
-              />
-            </div>
-
-            {/* ── SEARCH HISTORY SECTION ── */}
-            {communitySearchHistory.length > 0 && (
-              <div className="w-full max-w-2xl mx-auto animate-in fade-in slide-in-from-top-1 duration-200">
-                {/* Header row */}
-                <div className="flex items-center justify-between mb-2.5 px-0.5">
-                  <div className="flex items-center gap-1.5">
-                    <Clock className="w-3 h-3 text-slate-400 dark:text-slate-500" />
-                    <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
-                      Lịch sử tìm kiếm
-                    </span>
-                    <span className="text-[9px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 px-1.5 py-0.5 rounded-full">
-                      {communitySearchHistory.length}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {/* View All / Collapse toggle */}
-                    {communitySearchHistory.length > 10 && (
-                      <button
-                        onClick={() => setShowAllHistory((v) => !v)}
-                        className="text-[10px] font-bold text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300 hover:underline underline-offset-2 transition-colors cursor-pointer"
-                      >
-                        {showAllHistory
-                          ? "Thu gọn"
-                          : `Xem tất cả (${communitySearchHistory.length})`}
-                      </button>
-                    )}
-                    {/* Clear all */}
                     <button
-                      onClick={() => { clearCommunitySearchHistory(); setShowAllHistory(false); }}
-                      className="flex items-center gap-1 text-[10px] font-bold text-slate-400 hover:text-red-500 dark:hover:text-red-400 transition-colors px-2 py-1 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/20 cursor-pointer"
+                      onClick={() => setCommunityFilterMode("MY_SHARED")}
+                      className="flex items-center gap-2 text-sm font-bold text-purple-600 hover:text-purple-700 bg-purple-50 hover:bg-purple-100 dark:text-purple-400 dark:bg-purple-900/20 dark:hover:bg-purple-900/40 px-4 py-2.5 rounded-xl transition-colors"
                     >
-                      <Trash2 className="w-3 h-3" />
-                      Xóa tất cả
+                      Xem tất cả
+                      <ArrowUpRight size={16} />
                     </button>
                   </div>
-                </div>
 
-                {/* Chips list */}
-                <div className="flex flex-wrap gap-2">
-                  {(showAllHistory
-                    ? communitySearchHistory
-                    : communitySearchHistory.slice(0, 10)
-                  ).map((keyword, idx) => (
-                    <div
-                      key={`${keyword}-${idx}`}
-                      className="group/chip flex items-center gap-1.5 pl-3 pr-1.5 py-1.5 rounded-full border border-slate-200/70 dark:border-white/8 bg-white/70 dark:bg-[#0f111a]/60 backdrop-blur-sm hover:border-purple-400/50 dark:hover:border-purple-500/40 hover:bg-purple-50/60 dark:hover:bg-purple-900/15 transition-all duration-200 cursor-pointer shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
-                    >
-                      {/* Keyword button */}
-                      <button
-                        onClick={() => { handleCommunitySearch(keyword); }}
-                        className="text-[11px] font-semibold text-slate-600 dark:text-slate-300 group-hover/chip:text-purple-700 dark:group-hover/chip:text-purple-300 transition-colors whitespace-nowrap cursor-pointer"
-                      >
-                        {keyword}
-                      </button>
-                      {/* Remove single item */}
-                      <button
-                        onClick={(e) => { e.stopPropagation(); removeCommunitySearchHistory(keyword); }}
-                        className="w-4 h-4 flex items-center justify-center rounded-full text-slate-350 dark:text-slate-600 hover:bg-red-100 dark:hover:bg-red-950/30 hover:text-red-500 dark:hover:text-red-400 transition-all opacity-60 group-hover/chip:opacity-100 cursor-pointer"
-                        title="Xóa mục này"
-                      >
-                        <X className="w-2.5 h-2.5" />
-                      </button>
-                    </div>
-                  ))}
+                  <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+                    {mySharedCommunityDocs.slice(0, 3).map((doc) => (
+                      <DocumentCard
+                        key={doc.document_id || doc.id}
+                        doc={doc}
+                        isPersonal={false}
+                        isMyShared={true}
+                      />
+                    ))}
+                  </div>
                 </div>
+              )}
 
-                {/* "View All" expand button — shown below chips when collapsed & total > 10 */}
-                {!showAllHistory && communitySearchHistory.length > 10 && (
+              {/* Nút quay lại khi đang xem bài của tôi */}
+              {communityFilterMode === "MY_SHARED" && (
+                <div className="mb-2 flex items-center justify-between">
+                  <h2 className="text-2xl font-bold text-purple-700 dark:text-purple-400 flex items-center gap-2">
+                    <BookOpen size={24} /> Toàn bộ bài bạn đã chia sẻ ({mySharedCommunityDocs.length})
+                  </h2>
                   <button
-                    onClick={() => setShowAllHistory(true)}
-                    className="mt-2.5 w-full flex items-center justify-center gap-1.5 py-2 rounded-xl border border-dashed border-slate-200 dark:border-white/8 text-[10px] font-bold text-slate-400 dark:text-slate-500 hover:text-purple-600 dark:hover:text-purple-400 hover:border-purple-400/40 hover:bg-purple-50/40 dark:hover:bg-purple-900/10 transition-all duration-200 cursor-pointer"
+                    onClick={() => setCommunityFilterMode("ALL")}
+                    className="text-sm font-bold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300 underline decoration-slate-300 dark:decoration-slate-700 underline-offset-4"
                   >
-                    <ChevronRight className="w-3 h-3 rotate-90" />
-                    Xem tất cả {communitySearchHistory.length} lịch sử tìm kiếm
+                    Quay lại thư viện chung
                   </button>
+                </div>
+              )}
+
+              {/* Search and Date Filter Section */}
+              <div className="w-full max-w-2xl mx-auto flex items-center gap-3 mt-2 relative">
+                <div className="flex-1">
+                  <SearchBar
+                    search={communitySearch}
+                    setSearch={setCommunitySearch}
+                    userId={user?.user_id || null}
+                    onSearch={(keyword) => {
+                      setCommunitySearch(keyword);
+                      setCommunityPage(1);
+                    }}
+                    placeholder="Tìm kiếm tài liệu cộng đồng, môn học, tác giả..."
+                    className="w-full"
+                  />
+                </div>
+
+                {/* Date Filter Toggle Button and Popover */}
+                <div className="relative flex items-center gap-2" ref={calendarPopoverRef}>
+                  <button
+                    onClick={() => setShowCalendarPopover(!showCalendarPopover)}
+                    className={`
+                      flex items-center gap-2 px-4 py-3 rounded-xl border text-xs font-bold transition-all duration-300 shadow-sm h-[46px] select-none cursor-pointer
+                      ${showCalendarPopover || rangeStart
+                        ? "bg-purple-600 border-purple-650 text-white shadow-purple-500/10"
+                        : "bg-white/40 dark:bg-[#0f111a]/45 backdrop-blur-xl border-slate-200/30 dark:border-white/5 text-slate-700 dark:text-slate-300 hover:bg-white/60 dark:hover:bg-[#0f111a]/60 hover:text-purple-600 dark:hover:text-purple-400"
+                      }
+                    `}
+                  >
+                    <Calendar className="w-4 h-4 shrink-0" />
+                    <span className="hidden sm:inline">
+                      {rangeStart ? (
+                        rangeEnd && rangeStart.toDateString() !== rangeEnd.toDateString() ? (
+                          `${rangeStart.toLocaleDateString("vi-VN", { day: "numeric", month: "numeric" })} - ${rangeEnd.toLocaleDateString("vi-VN", { day: "numeric", month: "numeric" })}`
+                        ) : (
+                          rangeStart.toLocaleDateString("vi-VN", { day: "numeric", month: "numeric" })
+                        )
+                      ) : (
+                        "Lọc ngày"
+                      )}
+                    </span>
+                  </button>
+
+                  {rangeStart && (
+                    <button
+                      onClick={() => {
+                        setRangeStart(null);
+                        setRangeEnd(null);
+                      }}
+                      title="Xóa bộ lọc ngày"
+                      className="h-[46px] w-[46px] flex items-center justify-center rounded-xl bg-red-50 hover:bg-red-100 text-red-500 dark:bg-red-950/20 dark:hover:bg-red-950/40 border border-red-200/20 dark:border-red-900/30 transition-all select-none cursor-pointer"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+
+                  {/* Calendar Popover */}
+                  {showCalendarPopover && (
+                    <div className="absolute right-0 top-[52px] w-[320px] p-4 bg-white dark:bg-[#0f111a] border border-slate-200/85 dark:border-white/10 rounded-2xl shadow-xl z-[9999] animate-in fade-in slide-in-from-top-2 duration-200 text-left">
+                      {/* Month Navigation */}
+                      <div className="flex items-center justify-between mb-4">
+                        <button
+                          onClick={handlePrevMonth}
+                          className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors cursor-pointer"
+                        >
+                          <ChevronLeft className="w-4 h-4" />
+                        </button>
+                        <span className="text-xs font-bold text-slate-800 dark:text-slate-100">
+                          {monthNamesVi[calMonth]}, {calYear}
+                        </span>
+                        <button
+                          onClick={handleNextMonth}
+                          className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors cursor-pointer"
+                        >
+                          <ChevronRight className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      {/* Day Names */}
+                      <div className="grid grid-cols-7 gap-1 text-center mb-1 text-[10px] font-bold text-slate-400 dark:text-slate-500">
+                        {weekdaysVi.map(day => (
+                          <span key={day}>{day}</span>
+                        ))}
+                      </div>
+
+                      {/* Calendar Days */}
+                      <div className="grid grid-cols-7 gap-1">
+                        {cells.map((cellDate, idx) => {
+                          if (!cellDate) {
+                            return <div key={`empty-${idx}`} className="h-8" />;
+                          }
+
+                          const cellDay = cellDate.getDate();
+
+                          // Drag Selection Highlights
+                          const selected = rangeStart && (
+                            (() => {
+                              const dTime = new Date(cellDate.getFullYear(), cellDate.getMonth(), cellDate.getDate()).getTime();
+                              const startTime = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), rangeStart.getDate()).getTime();
+                              if (!rangeEnd) return dTime === startTime;
+                              const endTime = new Date(rangeEnd.getFullYear(), rangeEnd.getMonth(), rangeEnd.getDate()).getTime();
+                              const minTime = Math.min(startTime, endTime);
+                              const maxTime = Math.max(startTime, endTime);
+                              return dTime >= minTime && dTime <= maxTime;
+                            })()
+                          );
+
+                          const boundary = rangeStart && (
+                            (() => {
+                              const dTime = new Date(cellDate.getFullYear(), cellDate.getMonth(), cellDate.getDate()).getTime();
+                              const startTime = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), rangeStart.getDate()).getTime();
+                              if (!rangeEnd) return dTime === startTime;
+                              const endTime = new Date(rangeEnd.getFullYear(), rangeEnd.getMonth(), rangeEnd.getDate()).getTime();
+                              return dTime === startTime || dTime === endTime;
+                            })()
+                          );
+
+                          // Mouse handlers for range selection
+                          const handleMouseDown = (e) => {
+                            e.preventDefault();
+                            setRangeStart(cellDate);
+                            setRangeEnd(null);
+                            setIsCalDragging(true);
+                          };
+
+                          const handleMouseEnter = () => {
+                            if (isCalDragging) {
+                              setRangeEnd(cellDate);
+                            }
+                          };
+
+                          const handleMouseUp = () => {
+                            if (isCalDragging) {
+                              setIsCalDragging(false);
+                              if (rangeStart) {
+                                if (rangeStart.getTime() > cellDate.getTime()) {
+                                  setRangeStart(cellDate);
+                                  setRangeEnd(rangeStart);
+                                } else {
+                                  setRangeEnd(cellDate);
+                                }
+                              }
+                            }
+                          };
+
+                          return (
+                            <button
+                              key={`day-${cellDay}`}
+                              onMouseDown={handleMouseDown}
+                              onMouseEnter={handleMouseEnter}
+                              onMouseUp={handleMouseUp}
+                              className={`
+                                h-8 text-xs font-semibold rounded-lg flex items-center justify-center transition-all select-none cursor-pointer
+                                ${boundary
+                                  ? "bg-purple-600 text-white shadow-md shadow-purple-500/20 hover:bg-purple-700"
+                                  : selected
+                                    ? "bg-purple-100 dark:bg-purple-900/35 text-purple-700 dark:text-purple-300 font-bold hover:bg-purple-200 dark:hover:bg-purple-900/50"
+                                    : "text-slate-700 dark:text-slate-350 hover:bg-slate-100 dark:hover:bg-slate-800"
+                                }
+                              `}
+                            >
+                              {cellDay}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* Footer */}
+                      <div className="mt-4 pt-3 border-t border-slate-150 dark:border-slate-800 flex items-center justify-between">
+                        <span className="text-[9px] text-slate-450 dark:text-slate-500 font-medium italic">
+                          Kéo chuột để chọn nhiều ngày
+                        </span>
+                        <button
+                          onClick={() => {
+                            setRangeStart(null);
+                            setRangeEnd(null);
+                          }}
+                          className="text-[10px] font-bold text-red-500 hover:underline cursor-pointer"
+                        >
+                          Đặt lại
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Stats */}
+              <div className="h-10 flex items-center justify-center select-none">
+                {!communityLoading && (communitySearch || rangeStart) && (
+                  <div className="px-3.5 py-1.5 bg-purple-500/8 dark:bg-purple-500/12 text-purple-750 dark:text-purple-300 rounded-full border border-purple-500/10 text-[10px] font-bold uppercase tracking-wider animate-in fade-in zoom-in-95 duration-200 flex items-center gap-2">
+                    <span>Tìm thấy {filteredCommunityDocs.length} tài liệu học tập</span>
+                    {rangeStart && (
+                      <span className="bg-purple-500/20 px-2 py-0.5 rounded text-[9px] font-extrabold text-purple-700 dark:text-purple-300">
+                        Lọc ngày: {rangeStart.toLocaleDateString("vi-VN")} {rangeEnd && `- ${rangeEnd.toLocaleDateString("vi-VN")}`}
+                      </span>
+                    )}
+                  </div>
                 )}
               </div>
-            )}
 
-            {/* Stats */}
-            <div className="h-10 flex items-center justify-center select-none">
-              {!communityLoading && communitySearch && (
-                <div className="px-3.5 py-1.5 bg-purple-500/8 dark:bg-purple-500/12 text-purple-750 dark:text-purple-300 rounded-full border border-purple-500/10 text-[10px] font-bold uppercase tracking-wider animate-in fade-in zoom-in-95 duration-200">
-                  Tìm thấy {filteredCommunityDocs.length} tài liệu học tập
+              {/* Loading & Grid Section */}
+              {communityLoading ? (
+                <div className="flex flex-col justify-center items-center py-20 space-y-4">
+                  <div className="w-8 h-8 border-4 border-purple-500/20 border-t-purple-600 rounded-full animate-spin" />
+                  <span className="text-xs font-bold text-slate-400 dark:text-slate-500 tracking-wider uppercase animate-pulse">
+                    Đang tải danh mục cộng đồng...
+                  </span>
+                </div>
+              ) : (
+                /* Layout: Document List takes full width */
+                <div className="w-full flex flex-col space-y-6">
+                  {filteredCommunityDocs.length > 0 ? (
+                    <>
+                      {/* Pinned Documents */}
+                      {pinnedCommunityDocs.length > 0 && (
+                        <div className="space-y-3 bg-purple-50/20 dark:bg-purple-950/5 p-4 rounded-2xl border border-purple-100/30 text-left w-full">
+                          <div className="text-[10px] font-extrabold text-purple-600 dark:text-purple-400 uppercase tracking-widest flex items-center gap-1.5 pl-1">
+                            <span>📌 Tài liệu ghim đầu trang</span>
+                            <span className="bg-purple-500 text-white text-[9px] px-1.5 py-0.5 rounded-full font-extrabold">
+                              {pinnedCommunityDocs.length}
+                            </span>
+                          </div>
+                          <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 xl:grid-cols-3 w-full">
+                            {pinnedCommunityDocs.map((doc) => (
+                              <DocumentCard
+                                key={doc.document_id || doc.id}
+                                doc={doc}
+                                isPinned={doc.isPinned}
+                                onTogglePin={() => handleToggleCommunityPin(doc.id)}
+                                isPersonal={false}
+                                isMyShared={communityFilterMode === "MY_SHARED"}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Regular Documents */}
+                      <div className="space-y-3 text-left w-full">
+                        {pinnedCommunityDocs.length > 0 && (
+                          <div className="text-[10px] font-extrabold text-slate-455 uppercase tracking-widest pl-1">
+                            📂 Tài liệu cộng đồng khác
+                          </div>
+                        )}
+
+                        {regularCommunityDocs.length > 0 ? (
+                          <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 xl:grid-cols-3 w-full">
+                            {regularCommunityDocs.map((doc) => (
+                              <DocumentCard
+                                key={doc.document_id || doc.id}
+                                doc={doc}
+                                isPinned={doc.isPinned}
+                                onTogglePin={() => handleToggleCommunityPin(doc.id)}
+                                isPersonal={false}
+                                isMyShared={communityFilterMode === "MY_SHARED"}
+                              />
+                            ))}
+                          </div>
+                        ) : (
+                          pinnedCommunityDocs.length > 0 && (
+                            <div className="text-center py-6 text-slate-400 text-xs font-medium bg-white/40 dark:bg-black/10 rounded-2xl border border-slate-100 dark:border-white/5">
+                              Không còn tài liệu nào khác trên trang này.
+                            </div>
+                          )
+                        )}
+                      </div>
+
+                      {/* Pagination */}
+                      <div className="mt-6 flex justify-center">
+                        <Pagination
+                          page={communityPage}
+                          totalPages={communityTotalPages}
+                          setPage={setCommunityPage}
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    /* Empty State */
+                    <div className="text-center py-20 bg-white/30 dark:bg-[#0f111a]/30 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 p-8 w-full">
+                      <div className="text-5xl mb-4">📂</div>
+                      <p className="text-sm font-bold text-slate-850 dark:text-slate-200 m-0">
+                        Không tìm thấy tài liệu phù hợp
+                      </p>
+                      <p className="text-xs text-slate-450 mt-2 m-0">
+                        Vui lòng thử tìm kiếm bằng một từ khóa khác hoặc xóa bộ lọc ngày.
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
-
-            {/* Loading */}
-            {communityLoading && (
-              <div className="flex flex-col justify-center items-center py-20 space-y-4">
-                <div className="w-8 h-8 border-4 border-purple-500/20 border-t-purple-600 rounded-full animate-spin" />
-                <span className="text-xs font-bold text-slate-400 dark:text-slate-500 tracking-wider uppercase animate-pulse">
-                  Đang tải danh mục cộng đồng...
-                </span>
-              </div>
-            )}
-
-            {/* Document List Grid */}
-            {!communityLoading && (
-              <>
-                {filteredCommunityDocs.length > 0 && (
-                  <div className="w-full flex flex-col space-y-6">
-                    {/* HÀNG 1: HIỂN THỊ CÁC TÀI LIỆU ĐÃ GHIM */}
-                    {pinnedCommunityDocs.length > 0 && (
-                      <div className="space-y-3 bg-purple-50/20 dark:bg-purple-950/5 p-4 rounded-2xl border border-purple-100/30 text-left w-full">
-                        <div className="text-xs font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider flex items-center gap-1.5 pl-1">
-                          <span>📌 Tài liệu ghim đầu trang</span>
-                          <span className="bg-purple-500 text-white text-[10px] px-2 py-0.5 rounded-full font-extrabold">
-                            {pinnedCommunityDocs.length}
-                          </span>
-                        </div>
-                        <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 xl:grid-cols-3 w-full">
-                          {pinnedCommunityDocs.map((doc) => (
-                            <DocumentCard
-                              key={doc.id}
-                              doc={doc}
-                              isPinned={doc.isPinned}
-                              onTogglePin={() => handleToggleCommunityPin(doc.id)}
-                              isPersonal={false}
-                              isMyShared={communityFilterMode === "MY_SHARED"}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* HÀNG 2: HIỂN THỊ CÁC TÀI LIỆU CÒN LẠI */}
-                    <div className="space-y-3 text-left w-full">
-                      {pinnedCommunityDocs.length > 0 && (
-                        <div className="text-xs font-bold text-slate-450 uppercase tracking-wider pl-1">
-                          📂 Tài liệu cộng đồng khác
-                        </div>
-                      )}
-
-                      {regularCommunityDocs.length > 0 ? (
-                        <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 xl:grid-cols-3 w-full">
-                          {regularCommunityDocs.map((doc) => (
-                            <DocumentCard
-                              key={doc.id}
-                              doc={doc}
-                              isPinned={doc.isPinned}
-                              onTogglePin={() => handleToggleCommunityPin(doc.id)}
-                              isPersonal={false}
-                              isMyShared={communityFilterMode === "MY_SHARED"}
-                            />
-                          ))}
-                        </div>
-                      ) : (
-                        pinnedCommunityDocs.length > 0 && (
-                          <div className="text-center py-6 text-slate-400 text-xs font-medium bg-white/40 dark:bg-black/10 rounded-2xl border border-slate-100 dark:border-white/5">
-                            Không còn tài liệu nào khác trên trang này.
-                          </div>
-                        )
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Empty State */}
-                {filteredCommunityDocs.length === 0 && (
-                  <div className="text-center py-20 bg-white/30 dark:bg-[#0f111a]/30 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 p-8">
-                    <div className="text-5xl mb-4">📂</div>
-                    <p className="text-sm font-bold text-slate-850 dark:text-slate-200 m-0">
-                      Không tìm thấy tài liệu phù hợp
-                    </p>
-                    <p className="text-xs text-slate-450 mt-2 m-0">
-                      Vui lòng thử tìm kiếm bằng một từ khóa khác.
-                    </p>
-                  </div>
-                )}
-
-                {/* Pagination */}
-                {filteredCommunityDocs.length > 0 && (
-                  <div className="mt-6 flex justify-center">
-                    <Pagination
-                      page={communityPage}
-                      totalPages={communityTotalPages}
-                      setPage={setCommunityPage}
-                    />
-                  </div>
-                )}
-              </>
-            )}
-
-            {/* Study Groups */}
-            {/* <section className="flex flex-col gap-4 mt-6">
-              <h2 className="text-sm font-black text-black dark:text-white uppercase tracking-wider flex items-center gap-2">
-                <span className="w-1 h-3.5 bg-purple-600 dark:bg-purple-500 rounded" />
-                Nhóm học thảo luận trực tuyến
-              </h2>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                {studyGroups.map((group) => (
-                  <Card key={group.id} className="liquid-glass liquid-glass-hover rounded-xl p-5 flex flex-col md:flex-row items-center justify-between gap-4 shadow-sm">
-                    <div className="flex flex-col gap-1 text-center md:text-left">
-                      <span className="text-xs font-bold text-slate-850 dark:text-slate-100">{group.name}</span>
-                      <span className="text-[10px] text-slate-450 font-bold">Môn học: {group.subject} | Sĩ số: {group.members} học viên</span>
-                    </div>
-                    <Button
-                      onClick={() => alert(`Đang gia nhập ${group.name}...`)}
-                      className="bg-purple-600 hover:bg-purple-700 text-white font-extrabold text-xs px-5 py-2.5 rounded-lg cursor-pointer shadow-sm"
-                    >
-                      Vào phòng
-                    </Button>
-                  </Card>
-                ))}
-              </div>
-            </section> */}
-          </div>
-        )}
+          );
+        })()}
 
         {/* ── SCREEN 5: NOTIFICATIONS TIMELINE ── */}
         {activeTab === "Notifications" && (
@@ -2553,37 +3260,164 @@ export default function Home() {
         </div>
       )}
 
-      {/* Premium Share Modal */}
+      {/* Share Document Modal */}
       {shareModalDoc && (
-        <div className="fixed inset-0 bg-slate-900/60 dark:bg-black/70 backdrop-blur-md flex items-center justify-center z-[9999] animate-in fade-in duration-200" onClick={() => !isSharing && setShareModalDoc(null)}>
+        <ShareDocumentModal
+          documentId={shareModalDoc.document_id || shareModalDoc.id}
+          onClose={() => setShareModalDoc(null)}
+        />
+      )}
+
+      {/* Document Preview Modal */}
+      {previewDoc && (
+        <DocumentPreviewModal
+          doc={previewDoc}
+          currentUserId={user?.user_id}
+          onShare={() => {
+            setShareModalDoc(previewDoc);
+            setPreviewDoc(null);
+          }}
+          onClose={() => setPreviewDoc(null)}
+        />
+      )}
+      {/* ────── EDIT DOCUMENT MODAL ────── */}
+      {editModalDoc && (
+        <div className="fixed inset-0 bg-slate-900/60 dark:bg-black/70 backdrop-blur-md flex items-center justify-center z-[9999] animate-in fade-in duration-200" onClick={() => !isSavingEdit && setEditModalDoc(null)}>
           <div className="w-full max-w-md p-6 bg-white/95 dark:bg-[#0f111a]/95 border border-slate-200/50 dark:border-white/10 rounded-2xl shadow-2xl flex flex-col gap-4 animate-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-950/40 text-purple-650 dark:text-purple-400 flex items-center justify-center border border-purple-500/10">
-                <Share2 className="w-5 h-5" />
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-950/40 text-purple-650 dark:text-purple-400 flex items-center justify-center border border-purple-500/10">
+                  <Pencil className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">Chỉnh sửa tài liệu</h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">Cập nhật thông tin tài liệu</p>
+                </div>
               </div>
-              <div>
-                <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">Chia sẻ lên cộng đồng</h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">Mọi người sẽ có thể xem và tải tài liệu này</p>
+              <button onClick={() => !isSavingEdit && setEditModalDoc(null)} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 transition-colors">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Title field */}
+            <div className="flex flex-col gap-1.5 mt-2">
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Tên tài liệu <span className="text-red-500">*</span></label>
+              <input
+                type="text"
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                placeholder="Nhập tên tài liệu..."
+                className="w-full p-2.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-xl outline-none focus:ring-2 focus:ring-purple-500/50 text-sm text-slate-800 dark:text-slate-200"
+              />
+            </div>
+
+            {/* Subject field */}
+            <div className="flex flex-col gap-1.5 relative">
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Môn học (Tùy chọn)</label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <BookOpen className="w-4 h-4 text-slate-400" />
+                </div>
+                <input
+                  type="text"
+                  value={editSubjectSearch}
+                  onChange={(e) => {
+                    setEditSubjectSearch(e.target.value);
+                    setEditSubject("");
+                    setShowEditSubjectDropdown(true);
+                  }}
+                  onFocus={() => setShowEditSubjectDropdown(true)}
+                  placeholder="Chọn hoặc nhập mã môn..."
+                  className="w-full pl-9 pr-8 py-2.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-xl outline-none focus:ring-2 focus:ring-purple-500/50 text-sm text-slate-800 dark:text-slate-200 uppercase"
+                />
+                {editSubjectSearch && (
+                  <button
+                    onClick={() => {
+                      setEditSubjectSearch("");
+                      setEditSubject("");
+                      setShowEditSubjectDropdown(false);
+                    }}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+                {showEditSubjectDropdown && (
+                  <div className="absolute z-50 w-full mt-1 bg-white dark:bg-[#151722] border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl max-h-48 overflow-y-auto">
+                    {subjectsList
+                      .filter(s => s.subject_code.toLowerCase().includes(editSubjectSearch.toLowerCase()) || s.subject_name.toLowerCase().includes(editSubjectSearch.toLowerCase()))
+                      .map(subj => (
+                        <div
+                          key={subj.subject_code}
+                          onClick={() => {
+                            setEditSubjectSearch(subj.subject_code);
+                            setEditSubject(subj.subject_code);
+                            setShowEditSubjectDropdown(false);
+                          }}
+                          className="px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer flex flex-col"
+                        >
+                          <span className="text-xs font-bold text-slate-800 dark:text-slate-200">{subj.subject_code}</span>
+                          <span className="text-[10px] text-slate-500 truncate">{subj.subject_name}</span>
+                        </div>
+                      ))}
+                    {editSubjectSearch.trim() && !subjectsList.some(s => s.subject_code.toLowerCase() === editSubjectSearch.toLowerCase()) && (
+                      <div
+                        onClick={() => {
+                          setEditSubject(editSubjectSearch.trim().toUpperCase());
+                          setEditSubjectSearch(editSubjectSearch.trim().toUpperCase());
+                          setShowEditSubjectDropdown(false);
+                        }}
+                        className="px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer text-xs font-bold text-purple-600 flex items-center gap-2"
+                      >
+                        <Plus className="w-3.5 h-3.5" /> Thêm mã "{editSubjectSearch.trim().toUpperCase()}"
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 
+            {/* Tags field */}
             <div className="flex flex-col gap-1.5">
-              <p className="text-xs text-slate-600 dark:text-slate-300">
-                Tài liệu: <span className="font-bold text-slate-900 dark:text-white">{shareModalDoc.title}</span>
-              </p>
-              <textarea
-                value={shareDescription}
-                onChange={(e) => setShareDescription(e.target.value)}
-                placeholder="Nhập mô tả tài liệu (tùy chọn nhưng khuyến khích)..."
-                className="w-full mt-2 p-3 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-xl outline-none focus:ring-2 focus:ring-purple-500/50 text-sm min-h-[100px] resize-none text-slate-800 dark:text-slate-200 placeholder:text-slate-400"
-              />
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Thẻ phân loại (Tags)</label>
+              <div className="w-full p-2 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-xl focus-within:ring-2 focus-within:ring-purple-500/50 flex flex-wrap gap-2 items-center min-h-[44px]">
+                {editTags.map(tag => (
+                  <span key={tag} className="px-2 py-1 bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-300 text-[10px] font-bold rounded-md flex items-center gap-1">
+                    <Tag className="w-3 h-3" />
+                    {tag}
+                    <button onClick={() => setEditTags(editTags.filter(t => t !== tag))} className="hover:text-purple-900 dark:hover:text-purple-100 ml-0.5">
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                ))}
+                <input
+                  type="text"
+                  value={editTagInput}
+                  onChange={(e) => setEditTagInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ',') {
+                      e.preventDefault();
+                      const val = editTagInput.trim().toUpperCase();
+                      if (val && !editTags.includes(val) && editTags.length < 5) {
+                        setEditTags([...editTags, val]);
+                        setEditTagInput("");
+                      } else if (editTags.length >= 5) {
+                        toast.error("Tối đa 5 thẻ tag!");
+                      }
+                    }
+                  }}
+                  placeholder={editTags.length < 5 ? "Nhập tag và nhấn Enter..." : ""}
+                  className="flex-1 bg-transparent border-none outline-none text-xs text-slate-800 dark:text-slate-200 min-w-[120px]"
+                  disabled={editTags.length >= 5}
+                />
+              </div>
             </div>
 
             <div className="flex gap-3 mt-4">
               <button
                 type="button"
-                onClick={() => !isSharing && setShareModalDoc(null)}
-                disabled={isSharing}
+                onClick={() => !isSavingEdit && setEditModalDoc(null)}
+                disabled={isSavingEdit}
                 className="flex-1 px-4 py-2.5 rounded-lg border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-350 hover:bg-slate-50 dark:hover:bg-slate-850 font-bold text-xs cursor-pointer select-none transition-colors"
               >
                 Hủy bỏ
@@ -2591,45 +3425,48 @@ export default function Home() {
               <button
                 type="button"
                 onClick={async () => {
-                  setIsSharing(true);
+                  if (!editTitle.trim()) { toast.warning("Vui lòng nhập tiêu đề tài liệu!"); return; }
+                  setIsSavingEdit(true);
                   try {
                     const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-                    const res = await fetch(`http://localhost:5000/api/documents/${shareModalDoc.document_id}/share`, {
+                    const targetId = editModalDoc.document_id || editModalDoc.id;
+                    const res = await fetch(`http://localhost:5000/api/documents/${targetId}/edit`, {
                       method: "PUT",
-                      headers: {
-                        "Authorization": `Bearer ${token}`,
-                        "Content-Type": "application/json"
-                      },
-                      body: JSON.stringify({ description: shareDescription })
+                      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        title: editTitle.trim(),
+                        subject: editSubject || editSubjectSearch || "OTHER",
+                        tags: editTags,
+                        description: editModalDoc.description || null,
+                      })
                     });
-                    if (!res.ok) throw new Error("Failed");
-                    toast.success("Đã chia sẻ tài liệu lên cộng đồng thành công!");
-                    setShareModalDoc(null);
-                    window.location.reload();
+                    if (!res.ok) {
+                      const err = await res.json();
+                      throw new Error(err.error || "Cập nhật thất bại");
+                    }
+                    toast.success("Cập nhật tài liệu thành công!");
+                    setEditModalDoc(null);
+                    if (typeof fetchDashboard === "function") {
+                      await fetchDashboard();
+                    } else {
+                      window.location.reload();
+                    }
                   } catch (err) {
-                    toast.error("Lỗi khi chia sẻ tài liệu");
+                    toast.error(`Lỗi: ${err.message}`);
                   } finally {
-                    setIsSharing(false);
+                    setIsSavingEdit(false);
                   }
                 }}
-                disabled={isSharing}
+                disabled={isSavingEdit}
                 className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-purple-600 hover:bg-purple-700 text-white border border-transparent font-bold text-xs cursor-pointer select-none shadow-sm transition-all duration-300 disabled:opacity-70"
               >
-                {isSharing ? "Đang chia sẻ..." : (
-                  <><Share2 className="w-4 h-4" /> Chia sẻ ngay</>
+                {isSavingEdit ? "Đang lưu..." : (
+                  <><Save className="w-4 h-4" /> Lưu thay đổi</>
                 )}
               </button>
             </div>
           </div>
         </div>
-      )}
-
-      {/* Document Preview Modal */}
-      {previewDoc && (
-        <DocumentPreviewModal
-          doc={previewDoc}
-          onClose={() => setPreviewDoc(null)}
-        />
       )}
     </div>
   );

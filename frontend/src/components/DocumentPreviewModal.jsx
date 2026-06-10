@@ -1,4 +1,4 @@
-import { Copy, Download, ExternalLink, X } from "lucide-react";
+import { Copy, Download, ExternalLink, X, Share2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
@@ -39,7 +39,7 @@ function getPreviewType(doc = {}, fileUrl = "") {
   return "unsupported";
 }
 
-export default function DocumentPreviewModal({ doc, onClose }) {
+export default function DocumentPreviewModal({ doc, onClose, currentUserId, onShare }) {
   const [copied, setCopied] = useState(false);
 
   const fileUrl = doc?.file_url || doc?.url || doc?.document_url || doc?.public_url || "";
@@ -162,6 +162,15 @@ export default function DocumentPreviewModal({ doc, onClose }) {
             <Download className="w-4 h-4" />
             Tải xuống
           </button>
+          {doc && (doc.user_id === currentUserId) && onShare && (
+            <button
+              onClick={onShare}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white transition-colors font-medium text-sm"
+            >
+              <Share2 className="w-4 h-4" />
+              Chia sẻ
+            </button>
+          )}
           <button
             onClick={onClose}
             className="px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors font-medium text-sm"

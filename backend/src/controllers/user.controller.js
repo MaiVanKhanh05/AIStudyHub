@@ -96,3 +96,17 @@ export const updateProfile = async (req, res) => {
         return res.status(500).json({ error: "Lỗi hệ thống khi cập nhật hồ sơ." });
     }
 };
+
+export const searchUsers = async (req, res) => {
+    try {
+        const query = req.query.q || "";
+        if (!query.trim()) {
+            return res.json([]);
+        }
+        const users = await userService.searchUsers(query);
+        return res.json(users);
+    } catch (error) {
+        console.error("Error in searchUsers controller:", error);
+        return res.status(500).json({ error: "Failed to search users" });
+    }
+};

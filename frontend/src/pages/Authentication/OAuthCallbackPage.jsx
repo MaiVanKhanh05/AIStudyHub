@@ -58,6 +58,7 @@ export default function OAuthCallbackPage() {
         token_failed: "Không thể lấy token từ nhà cung cấp.",
         no_email: "Tài khoản của bạn không có email công khai. Vui lòng đặt email public trong cài đặt tài khoản.",
         server_error: "Lỗi server nội bộ. Vui lòng thử lại.",
+        locked: "Tài khoản của bạn đã bị khóa bởi Admin!",
       };
       setError(errorMessages[errorParam] || "Đăng nhập thất bại. Vui lòng thử lại.");
       setStatus("error");

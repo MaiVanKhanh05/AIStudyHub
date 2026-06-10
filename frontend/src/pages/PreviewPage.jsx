@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import DocumentPreviewModal from "../components/DocumentPreviewModal";
+import ShareDocumentModal from "../components/ShareDocumentModal";
 
 export default function PreviewPage() {
   const { id } = useParams();
@@ -8,6 +9,11 @@ export default function PreviewPage() {
   const [doc, setDoc] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [showShareModal, setShowShareModal] = useState(false);
+
+  const userStr = localStorage.getItem("user") || sessionStorage.getItem("user");
+  const user = userStr ? JSON.parse(userStr) : null;
+  const currentUserId = user?.user_id;
 
   useEffect(() => {
     const fetchDoc = async () => {
@@ -86,7 +92,15 @@ export default function PreviewPage() {
       {doc && (
         <DocumentPreviewModal 
           doc={doc} 
+          currentUserId={currentUserId}
+          onShare={() => setShowShareModal(true)}
           onClose={() => navigate("/")} 
+        />
+      )}
+      {showShareModal && doc && (
+        <ShareDocumentModal
+          documentId={doc.document_id}
+          onClose={() => setShowShareModal(false)}
         />
       )}
     </div>

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { Search, Lock, Unlock, Users, ArrowLeft, ArrowRight } from "lucide-react";
+import { Search, Lock, Unlock, Users } from "lucide-react";
+import Pagination from "../../components/Pagination";
 
 // BR-AM-03 / 04 / 05 / 06
 const PAGE_SIZE = 10;
@@ -16,15 +17,15 @@ const formatSize = (bytes) => {
 const ROLE_BADGE = {
   STUDENT: "bg-purple-100 text-purple-700 border-purple-200",
   LECTURER: "bg-blue-100 text-blue-700 border-blue-200",
-  ADMIN:   "bg-amber-100 text-amber-700 border-amber-200",
+  ADMIN: "bg-amber-100 text-amber-700 border-amber-200",
 };
 
 const ROLE_LABEL = { STUDENT: "Sinh viên", LECTURER: "Giảng viên", ADMIN: "Admin" };
 
 export default function AdminUserManagement({ roleFilter = "all" }) {
-  const [users, setUsers]     = useState([]);
-  const [search, setSearch]   = useState("");
-  const [page, setPage]       = useState(1);
+  const [users, setUsers] = useState([]);
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [confirm, setConfirm] = useState(null);
   const [toast, setToast]     = useState(null);
@@ -53,27 +54,41 @@ export default function AdminUserManagement({ roleFilter = "all" }) {
 
   const handleLock = async (user) => {
     try {
-      await fetch(`http://localhost:5000/api/admin/users/${user.id}/lock`, {
+      const response = await fetch(`http://localhost:5000/api/admin/users/${user.id}/lock`, {
         method: "POST", headers: { Authorization: `Bearer ${token}` },
       });
-    } catch (_) {}
-    setUsers(p => p.map(u => u.id === user.id ? { ...u, status: "LOCKED" } : u));
-    showToast("success", `Đã khóa tài khoản ${user.email}`);
+      const data = await response.json();
+      if (!response.ok) {
+        showToast("error", data.error || "Không thể khóa tài khoản");
+        setConfirm(null);
+        return;
+      }
+      setUsers(p => p.map(u => u.id === user.id ? { ...u, status: "LOCKED" } : u));
+      showToast("success", `Đã khóa tài khoản ${user.email}`);
+    } catch (error) {
+      showToast("error", "Lỗi kết nối đến máy chủ");
+    }
     setConfirm(null);
   };
 
   const handleUnlock = async (user) => {
     try {
-      await fetch(`http://localhost:5000/api/admin/users/${user.id}/unlock`, {
+      const response = await fetch(`http://localhost:5000/api/admin/users/${user.id}/unlock`, {
         method: "POST", headers: { Authorization: `Bearer ${token}` },
       });
-    } catch (_) {}
-    setUsers(p => p.map(u => u.id === user.id ? { ...u, status: "ACTIVE" } : u));
-    showToast("success", `Đã mở khóa tài khoản ${user.email}`);
+      const data = await response.json();
+      if (!response.ok) {
+        showToast("error", data.error || "Không thể mở khóa tài khoản");
+        setConfirm(null);
+        return;
+      }
+      setUsers(p => p.map(u => u.id === user.id ? { ...u, status: "ACTIVE" } : u));
+      showToast("success", `Đã mở khóa tài khoản ${user.email}`);
+    } catch (error) {
+      showToast("error", "Lỗi kết nối đến máy chủ");
+    }
     setConfirm(null);
   };
-
-
 
   // Filter
   const filtered = users.filter(u => {
@@ -87,15 +102,15 @@ export default function AdminUserManagement({ roleFilter = "all" }) {
   });
 
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
-  const paginated  = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const pageTitle = roleFilter === "STUDENT" ? "Quản lý Sinh viên"
     : roleFilter === "LECTURER" ? "Quản lý Giảng viên"
-    : "Quản lý Người dùng";
+      : "Quản lý Người dùng";
 
   const tableSubtitle = roleFilter === "STUDENT" ? "Sinh viên"
     : roleFilter === "LECTURER" ? "Giảng viên"
-    : "Tất cả người dùng";
+      : "Tất cả người dùng";
 
   return (
     <div>
@@ -164,7 +179,9 @@ export default function AdminUserManagement({ roleFilter = "all" }) {
                       </span>
                     </td>
                     <td className="px-5 py-3">
-                      {(() => {
+                      {user.role === "ADMIN" ? (
+                        <span className="text-slate-400 text-[12px] font-semibold italic">Không khả dụng</span>
+                      ) : (() => {
                         const usedGB = Number(user.used_storage) / (1024 ** 3);
                         const limitGB = Number(user.max_storage_bytes || 2147483648) / (1024 ** 3);
                         const percent = Math.min((usedGB / limitGB) * 100, 100);
@@ -175,7 +192,7 @@ export default function AdminUserManagement({ roleFilter = "all" }) {
                               <span className="text-slate-400"> / {limitGB.toFixed(0)} GB</span>
                             </div>
                             <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden border border-slate-200/50">
-                              <div 
+                              <div
                                 className={`h-full rounded-full transition-all duration-300
                                   ${percent > 90 ? "bg-red-500" : percent > 70 ? "bg-amber-500" : "bg-purple-500"}`}
                                 style={{ width: `${percent}%` }}
@@ -187,9 +204,9 @@ export default function AdminUserManagement({ roleFilter = "all" }) {
                     </td>
                     <td className="px-5 py-3">
                       <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-[11px] font-bold
-                        ${isLocked ? "bg-red-50 text-red-600 border border-red-200" 
-                        : user.status === "PENDING" ? "bg-amber-50 text-amber-600 border border-amber-200"
-                        : "bg-green-50 text-green-700 border border-green-200"}`}>
+                        ${isLocked ? "bg-red-50 text-red-600 border border-red-200"
+                          : user.status === "PENDING" ? "bg-amber-50 text-amber-600 border border-amber-200"
+                            : "bg-green-50 text-green-700 border border-green-200"}`}>
                         <span className="w-1.5 h-1.5 rounded-full bg-current" />
                         {isLocked ? "Đã khóa" : user.status === "PENDING" ? "Chờ duyệt" : "Hoạt động"}
                       </span>
@@ -235,44 +252,7 @@ export default function AdminUserManagement({ roleFilter = "all" }) {
         {/* Pagination */}
         {totalPages > 1 && (
           <div className="flex items-center justify-center gap-3 px-5 py-4 bg-slate-50 border-t border-gray-200">
-            {/* Left Button */}
-            <button
-              onClick={() => setPage(p => Math.max(p - 1, 1))}
-              disabled={page === 1}
-              className="w-9 h-9 rounded-full flex items-center justify-center bg-[#292d3e] text-slate-200 hover:bg-[#343a52] disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-sm"
-              aria-label="Trang trước"
-            >
-              <ArrowLeft size={14} />
-            </button>
-
-            {/* Middle Pill */}
-            <div className="flex items-center gap-2 px-5 py-1.5 rounded-full bg-[#292d3e] text-slate-200 text-[13px] font-semibold shadow-sm border border-slate-700/30">
-              <span>Trang</span>
-              <input
-                type="number"
-                min={1}
-                max={totalPages}
-                value={page}
-                onChange={(e) => {
-                  const val = parseInt(e.target.value, 10);
-                  if (val >= 1 && val <= totalPages) {
-                    setPage(val);
-                  }
-                }}
-                className="w-11 h-6 rounded bg-[#1f2230] border border-slate-700/60 text-center text-white text-[12px] font-bold outline-none focus:border-purple-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-              />
-              <span className="text-slate-400">/ {totalPages}</span>
-            </div>
-
-            {/* Right Button */}
-            <button
-              onClick={() => setPage(p => Math.min(p + 1, totalPages))}
-              disabled={page === totalPages}
-              className="w-9 h-9 rounded-full flex items-center justify-center bg-[#292d3e] text-slate-200 hover:bg-[#343a52] disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-sm"
-              aria-label="Trang sau"
-            >
-              <ArrowRight size={14} />
-            </button>
+            <Pagination page={page} setPage={setPage} totalPages={totalPages} />
           </div>
         )}
       </div>
@@ -304,7 +284,7 @@ export default function AdminUserManagement({ roleFilter = "all" }) {
               <button
                 id="adm-confirm-action-btn"
                 onClick={() => {
-                  if (confirm.action === "lock")   handleLock(confirm.user);
+                  if (confirm.action === "lock") handleLock(confirm.user);
                   if (confirm.action === "unlock" || confirm.action === "approve") handleUnlock(confirm.user);
                 }}
                 className={`px-4 py-2 rounded-lg text-[13px] font-bold text-white transition-opacity hover:opacity-90
@@ -320,8 +300,8 @@ export default function AdminUserManagement({ roleFilter = "all" }) {
       {toast && (
         <div className={`fixed bottom-6 right-6 flex items-center gap-2.5 px-4 py-3 rounded-xl text-[13px] font-semibold text-white shadow-xl z-50 animate-in slide-in-from-bottom-3
           ${toast.type === "success" ? "bg-slate-800 border-l-4 border-green-400"
-          : toast.type === "error"   ? "bg-slate-800 border-l-4 border-red-400"
-          : "bg-slate-800 border-l-4 border-purple-400"}`}>
+            : toast.type === "error" ? "bg-slate-800 border-l-4 border-red-400"
+              : "bg-slate-800 border-l-4 border-purple-400"}`}>
           <span>{toast.type === "success" ? "✓" : toast.type === "error" ? "✕" : "ℹ"}</span>
           {toast.message}
         </div>
