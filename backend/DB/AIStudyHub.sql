@@ -58,7 +58,7 @@ CREATE TABLE subject (
 CREATE TABLE document (
     document_id SERIAL PRIMARY KEY,
     user_id VARCHAR(50) NOT NULL, -- Đồng bộ kiểu dữ liệu
-    subject_code VARCHAR(20) NOT NULL,
+    subject_code VARCHAR(20),
     title VARCHAR(255) NOT NULL,
     description TEXT,
     file_url VARCHAR(500) NOT NULL,
@@ -67,10 +67,43 @@ CREATE TABLE document (
     upload_status VARCHAR(20) DEFAULT 'SUCCESS',
     visibility VARCHAR(20) DEFAULT 'PRIVATE',
     ai_summary TEXT,
+    views INT DEFAULT 0,
+    downloads INT DEFAULT 0,
     upload_date TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT FK_document_user FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
     CONSTRAINT FK_document_subject FOREIGN KEY (subject_code) REFERENCES subject(subject_code) ON UPDATE CASCADE
 );
+-- 1. Bảng tags (Bây giờ nó ĐỘC LẬP, chỉ chứa danh sách tag duy nhất)
+CREATE TABLE tags (
+    tag_id SERIAL PRIMARY KEY,
+    tag_name VARCHAR(50) UNIQUE NOT NULL -- UNIQUE để không bao giờ có 2 tag trùng tên
+);
+
+-- 2. Bảng subject_tags (Bảng trung gian: Nối môn học với tag)
+CREATE TABLE subject_tags (
+    subject_code VARCHAR(20) NOT NULL,
+    tag_id INT NOT NULL,
+    
+    PRIMARY KEY (subject_code, tag_id),
+    CONSTRAINT FK_subjtag_subject FOREIGN KEY (subject_code) REFERENCES subject(subject_code) ON DELETE CASCADE,
+    CONSTRAINT FK_subjtag_tag FOREIGN KEY (tag_id) REFERENCES tags(tag_id) ON DELETE CASCADE
+);
+
+-- 3. Bảng document_tags (Vẫn giữ nguyên: Nối tài liệu với tag)
+CREATE TABLE document_tags (
+    document_id INT NOT NULL,
+    tag_id INT NOT NULL,
+    
+    PRIMARY KEY (document_id, tag_id),
+    CONSTRAINT FK_doctag_doc FOREIGN KEY (document_id) REFERENCES document(document_id) ON DELETE CASCADE,
+    CONSTRAINT FK_doctag_tag FOREIGN KEY (tag_id) REFERENCES tags(tag_id) ON DELETE CASCADE
+);
+
+
+
+-- A. Tạo bảng tạm để chứa dữ liệu mapping thô
+CREATE TEMP TABLE temp_subject_tags (subject_code VARCHAR(20), tag_name VARCHAR(50));
+
 
 -- 5. TABLE: chat_session 
 CREATE TABLE chat_session (

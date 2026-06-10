@@ -53,23 +53,39 @@ export default function AdminUserManagement({ roleFilter = "all" }) {
 
   const handleLock = async (user) => {
     try {
-      await fetch(`http://localhost:5000/api/admin/users/${user.id}/lock`, {
+      const response = await fetch(`http://localhost:5000/api/admin/users/${user.id}/lock`, {
         method: "POST", headers: { Authorization: `Bearer ${token}` },
       });
-    } catch (_) {}
-    setUsers(p => p.map(u => u.id === user.id ? { ...u, status: "LOCKED" } : u));
-    showToast("success", `Đã khóa tài khoản ${user.email}`);
+      const data = await response.json();
+      if (!response.ok) {
+        showToast("error", data.error || "Không thể khóa tài khoản");
+        setConfirm(null);
+        return;
+      }
+      setUsers(p => p.map(u => u.id === user.id ? { ...u, status: "LOCKED" } : u));
+      showToast("success", `Đã khóa tài khoản ${user.email}`);
+    } catch (error) {
+      showToast("error", "Lỗi kết nối đến máy chủ");
+    }
     setConfirm(null);
   };
 
   const handleUnlock = async (user) => {
     try {
-      await fetch(`http://localhost:5000/api/admin/users/${user.id}/unlock`, {
+      const response = await fetch(`http://localhost:5000/api/admin/users/${user.id}/unlock`, {
         method: "POST", headers: { Authorization: `Bearer ${token}` },
       });
-    } catch (_) {}
-    setUsers(p => p.map(u => u.id === user.id ? { ...u, status: "ACTIVE" } : u));
-    showToast("success", `Đã mở khóa tài khoản ${user.email}`);
+      const data = await response.json();
+      if (!response.ok) {
+        showToast("error", data.error || "Không thể mở khóa tài khoản");
+        setConfirm(null);
+        return;
+      }
+      setUsers(p => p.map(u => u.id === user.id ? { ...u, status: "ACTIVE" } : u));
+      showToast("success", `Đã mở khóa tài khoản ${user.email}`);
+    } catch (error) {
+      showToast("error", "Lỗi kết nối đến máy chủ");
+    }
     setConfirm(null);
   };
 

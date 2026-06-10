@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 import { BrowserRouter, Routes, Route, Link, useLocation, useNavigate } from "react-router-dom";
 import Home from "./components/Home";
 import Login from "./pages/Authentication/LoginPage";
@@ -7,13 +6,17 @@ import ForgotPassword from "./pages/Authentication/ForgotPasswordPage";
 import ResetPassword from "./pages/Authentication/ResetPasswordPage";
 import OAuthCallback from "./pages/Authentication/OAuthCallbackPage";
 import AdminDashboard from "./pages/admin/AdminDashboard";
+import DocumentList from "./pages/DocumentList";
+import UploadPage from "./pages/UploadPage";
+import PreviewPage from "./pages/PreviewPage";
 import { Button } from "@/components/ui/button";
-import { LogOut, Home as HomeIcon, User as UserIcon, BookOpen } from "lucide-react";
+import { LogOut, Home as HomeIcon, User as UserIcon, BookOpen, FolderOpen, Upload } from "lucide-react";
+import { Toaster } from "sonner";
 
 function AppLayout() {
   const location = useLocation();
   const navigate = useNavigate();
-  const hideNav = ["/login", "/register", "/forgot-password", "/reset-password", "/", "/oauth-callback"].includes(location.pathname) || location.pathname.startsWith("/admin");
+  const hideNav = ["/login", "/register", "/forgot-password", "/reset-password", "/", "/oauth-callback"].includes(location.pathname) || location.pathname.startsWith("/admin") || location.pathname.startsWith("/preview");
 
   // Retrieve user session
   const token = localStorage.getItem("token") || sessionStorage.getItem("token");
@@ -32,6 +35,7 @@ function AppLayout() {
 
   return (
     <>
+      <Toaster position="top-right" richColors />
       {!hideNav && (
         <nav className="flex items-center justify-between px-6 py-4 border-b border-border bg-background/80 backdrop-blur-md sticky top-0 z-50 select-none">
           <div className="flex items-center gap-6">
@@ -43,13 +47,21 @@ function AppLayout() {
               <HomeIcon className="w-4 h-4" />
               Home
             </Link>
+            <Link to="/documents" className="flex items-center gap-1.5 text-sm font-semibold hover:text-purple-600 dark:hover:text-purple-400 transition-colors">
+              <FolderOpen className="w-4 h-4 text-purple-600" />
+              Documents
+            </Link>
+            <Link to="/upload" className="flex items-center gap-1.5 text-sm font-semibold hover:text-purple-600 dark:hover:text-purple-400 transition-colors">
+              <Upload className="w-4 h-4" />
+              Upload
+            </Link>
           </div>
           <div className="flex items-center gap-4">
             {token ? (
               <>
                 <span className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
                   <UserIcon className="w-4 h-4 text-purple-500/80" />
-                  Hi, <span className="text-foreground font-semibold">{user?.full_name || user?.email}</span>
+                  Hi, <span className="text-foreground font-semibold">{user?.first_name ? `${user.last_name} ${user.first_name}`.trim() : user?.email}</span>
                 </span>
                 <Button
                   variant="ghost"
@@ -75,12 +87,15 @@ function AppLayout() {
       )}
       <Routes>
         <Route path="/" element={<Home />} />
+        <Route path="/documents" element={<DocumentList />} />
+        <Route path="/upload" element={<UploadPage />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/oauth-callback" element={<OAuthCallback />} />
         <Route path="/admin/*" element={<AdminDashboard />} />
+        <Route path="/preview/:id" element={<PreviewPage />} />
       </Routes>
     </>
   );
@@ -95,12 +110,3 @@ function App() {
 }
 
 export default App;
-=======
-import DocumentList from "./pages/DocumentList";
-
-function App() {
-  return <DocumentList />;
-}
-
-export default App;
->>>>>>> feature-document-list

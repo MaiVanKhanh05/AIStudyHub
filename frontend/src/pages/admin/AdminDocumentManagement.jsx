@@ -55,19 +55,19 @@ export default function AdminDocumentManagement() {
     fetch("http://localhost:5000/api/admin/log", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ action, targetDocId: doc.id, targetTitle: doc.title }),
+      body: JSON.stringify({ action, targetDocId: doc.document_id || doc.id, targetTitle: doc.title }),
     }).catch(() => {});
   };
 
   // BR-AM-07: Approve document
   const handleApprove = async (doc) => {
     try {
-      await fetch(`http://localhost:5000/api/admin/documents/${doc.id}/approve`, {
+      await fetch(`http://localhost:5000/api/admin/documents/${doc.document_id || doc.id}/approve`, {
         method: "POST", headers: { Authorization: `Bearer ${token}` },
       });
       logAction("APPROVE_DOCUMENT", doc);
     } catch (_) {}
-    setDocs(prev => prev.map(d => d.id === doc.id ? { ...d, status: "approved" } : d));
+    setDocs(prev => prev.map(d => (d.document_id || d.id) === (doc.document_id || doc.id) ? { ...d, status: "approved" } : d));
     showToast("success", `Đã duyệt tài liệu: ${doc.title}`);
     setConfirm(null);
   };
@@ -75,12 +75,12 @@ export default function AdminDocumentManagement() {
   // BR-AM-07: Delete document
   const handleDelete = async (doc) => {
     try {
-      await fetch(`http://localhost:5000/api/admin/documents/${doc.id}`, {
+      await fetch(`http://localhost:5000/api/admin/documents/${doc.document_id || doc.id}`, {
         method: "DELETE", headers: { Authorization: `Bearer ${token}` },
       });
       logAction("DELETE_DOCUMENT", doc);
     } catch (_) {}
-    setDocs(prev => prev.filter(d => d.id !== doc.id));
+    setDocs(prev => prev.filter(d => (d.document_id || d.id) !== (doc.document_id || doc.id)));
     showToast("error", `Đã xóa tài liệu: ${doc.title}`);
     setConfirm(null);
   };
@@ -88,14 +88,14 @@ export default function AdminDocumentManagement() {
   // BR-AM-07: Update status
   const handleReject = async (doc) => {
     try {
-      await fetch(`http://localhost:5000/api/admin/documents/${doc.id}/status`, {
+      await fetch(`http://localhost:5000/api/admin/documents/${doc.document_id || doc.id}/status`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ status: "rejected" }),
       });
       logAction("REJECT_DOCUMENT", doc);
     } catch (_) {}
-    setDocs(prev => prev.map(d => d.id === doc.id ? { ...d, status: "rejected" } : d));
+    setDocs(prev => prev.map(d => (d.document_id || d.id) === (doc.document_id || doc.id) ? { ...d, status: "rejected" } : d));
     showToast("info", `Đã từ chối tài liệu: ${doc.title}`);
     setConfirm(null);
   };
@@ -156,8 +156,8 @@ export default function AdminDocumentManagement() {
               {paginated.map(doc => {
                 const st = STATUS_STYLE[doc.status] || STATUS_STYLE.pending;
                 return (
-                  <tr key={doc.id}>
-                    <td style={{ fontFamily: "monospace", fontSize: 12, color: "#9ca3af" }}>{doc.id}</td>
+                  <tr key={doc.document_id || doc.id}>
+                    <td style={{ fontFamily: "monospace", fontSize: 12, color: "#9ca3af" }}>{doc.document_id || doc.id}</td>
                     <td style={{ fontWeight: 600, maxWidth: 220 }}>
                       <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         {doc.title}
@@ -180,7 +180,7 @@ export default function AdminDocumentManagement() {
                       <div className="adm-action-group">
                         {doc.status === "pending" && (
                           <button
-                            id={`adm-approve-doc-${doc.id}`}
+                            id={`adm-approve-doc-${doc.document_id || doc.id}`}
                             className="adm-action-btn approve"
                             onClick={() => setConfirm({ action: "approve", doc })}
                           >
@@ -189,7 +189,7 @@ export default function AdminDocumentManagement() {
                         )}
                         {doc.status === "pending" && (
                           <button
-                            id={`adm-reject-doc-${doc.id}`}
+                            id={`adm-reject-doc-${doc.document_id || doc.id}`}
                             className="adm-action-btn"
                             onClick={() => setConfirm({ action: "reject", doc })}
                           >
@@ -197,7 +197,7 @@ export default function AdminDocumentManagement() {
                           </button>
                         )}
                         <button
-                          id={`adm-delete-doc-${doc.id}`}
+                          id={`adm-delete-doc-${doc.document_id || doc.id}`}
                           className="adm-action-btn delete"
                           onClick={() => setConfirm({ action: "delete", doc })}
                         >

@@ -119,7 +119,13 @@ export const register = async (req, res) => {
 
         const trimmedEmail = email.trim().toLowerCase();
 
-        // 1. Kiểm tra email trùng lặp
+        // 1. Dọn dẹp tài khoản cũ chưa xác thực OTP (để người dùng có thể đăng ký lại)
+        await pool.query("DELETE FROM users WHERE email = $1 AND status = 'PENDING_OTP'", [trimmedEmail]);
+        if (role === "STUDENT") {
+            await pool.query("DELETE FROM users WHERE user_id = $1 AND status = 'PENDING_OTP'", [mssv.trim().toUpperCase()]);
+        }
+
+        // 2. Kiểm tra email trùng lặp (với các tài khoản đã kích hoạt)
         const { rows: existingUser } = await pool.query(
             "SELECT * FROM users WHERE email = $1",
             [trimmedEmail]
@@ -209,7 +215,7 @@ export const googleLogin = async (req, res) => {
         });
 
         const payload = ticket.getPayload();
-        const { email, name } = payload;
+        const { email, name, picture } = payload;
 
         if (!email) {
             return res.status(400).json({ error: "Không tìm thấy thông tin email từ tài khoản Google" });
@@ -219,6 +225,12 @@ export const googleLogin = async (req, res) => {
         const user = await userService.getUserByEmail(email);
 
         if (user) {
+            // Cập nhật avatar nếu chưa có
+            if (!user.avatar_url && picture) {
+                await pool.query("UPDATE users SET avatar_url = $1 WHERE user_id = $2", [picture, user.user_id]);
+                user.avatar_url = picture;
+            }
+
             // Sign JWT Session Token
             const token = jwt.sign(
                 { userId: user.user_id, email: user.email },
@@ -250,6 +262,7 @@ export const googleLogin = async (req, res) => {
                 email,
                 firstName,
                 lastName,
+                avatar_url: picture || null,
                 message: "Email chưa được đăng ký. Vui lòng bổ sung thông tin để tiếp tục."
             });
         }
@@ -263,7 +276,7 @@ export const googleLogin = async (req, res) => {
 // POST /api/auth/google-register
 export const googleRegister = async (req, res) => {
     try {
-        const { email, firstName, lastName, userId, role } = req.body;
+        const { email, firstName, lastName, userId, role, avatar_url } = req.body;
 
         if (!email || !firstName || !lastName || !userId) {
             return res.status(400).json({ error: "Tất cả các trường là bắt buộc" });
@@ -297,8 +310,8 @@ export const googleRegister = async (req, res) => {
 
         // Insert user in DB
         const result = await pool.query(
-            "INSERT INTO users (user_id, email, password_hash, first_name, last_name, role, status) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *",
-            [trimmedUserId, email, hashedPassword, firstName.trim(), lastName.trim(), finalRole, finalStatus]
+            "INSERT INTO users (user_id, email, password_hash, first_name, last_name, role, status, avatar_url) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *",
+            [trimmedUserId, email, hashedPassword, firstName.trim(), lastName.trim(), finalRole, finalStatus, avatar_url || null]
         );
 
         const newUser = result.rows[0];
@@ -322,7 +335,8 @@ export const googleRegister = async (req, res) => {
                 last_name: newUser.last_name,
                 role: newUser.role,
                 status: newUser.status,
-                max_storage_bytes: newUser.max_storage_bytes
+                max_storage_bytes: newUser.max_storage_bytes,
+                avatar_url: newUser.avatar_url
             }
         });
 
@@ -393,6 +407,7 @@ export const resetPassword = async (req, res) => {
         const trimmedToken = token.trim();
 
         let userId = null;
+        let existingPasswordHash = null;
         let isOtp = trimmedToken.length === 6 && /^\d+$/.test(trimmedToken);
 
         if (isOtp) {
@@ -412,7 +427,7 @@ export const resetPassword = async (req, res) => {
 
             // Get user_id from users
             const { rows: userRows } = await pool.query(
-                "SELECT user_id FROM users WHERE email = $1",
+                "SELECT user_id, password_hash FROM users WHERE email = $1",
                 [trimmedEmail]
             );
 
@@ -421,6 +436,7 @@ export const resetPassword = async (req, res) => {
             }
 
             userId = userRows[0].user_id;
+            existingPasswordHash = userRows[0].password_hash;
 
             // Mark OTP as verified
             await pool.query(
@@ -431,7 +447,7 @@ export const resetPassword = async (req, res) => {
         } else {
             // Old token verification flow
             const { rows: resetRows } = await pool.query(
-                `SELECT pr.*, u.user_id 
+                `SELECT pr.*, u.user_id, u.password_hash 
                  FROM password_reset pr
                  JOIN users u ON pr.user_id = u.user_id
                  WHERE u.email = $1 AND pr.token_hash = $2 AND pr.is_used = FALSE AND pr.expiry_time > NOW()`,
@@ -444,12 +460,21 @@ export const resetPassword = async (req, res) => {
 
             const resetRecord = resetRows[0];
             userId = resetRecord.user_id;
+            existingPasswordHash = resetRecord.password_hash;
 
             // Mark token as used
             await pool.query(
                 "UPDATE password_reset SET is_used = TRUE WHERE reset_id = $1",
                 [resetRecord.reset_id]
             );
+        }
+
+        // Check if the new password is the same as the old password
+        if (existingPasswordHash) {
+            const isMatch = await bcrypt.compare(newPassword, existingPasswordHash);
+            if (isMatch) {
+                return res.status(400).json({ error: "Mật khẩu mới không được trùng với mật khẩu hiện tại." });
+            }
         }
 
         // Hash new password
@@ -474,6 +499,10 @@ export const changePassword = async (req, res) => {
         const { userId, currentPassword, newPassword } = req.body;
         if (!userId || !currentPassword || !newPassword) {
             return res.status(400).json({ error: "Vui lòng điền đầy đủ mật khẩu hiện tại và mật khẩu mới." });
+        }
+        
+        if (currentPassword === newPassword) {
+            return res.status(400).json({ error: "Mật khẩu mới không được trùng với mật khẩu hiện tại." });
         }
 
         // 1. Tìm người dùng trong cơ sở dữ liệu
@@ -570,6 +599,7 @@ export const googleOAuthCallback = async (req, res) => {
         const googleUser = await userInfoRes.json();
 
         const email = googleUser.email;
+        const picture = googleUser.picture;
         if (!email) {
             return res.redirect(`${frontendUrl}/oauth-callback?error=no_email&provider=google`);
         }
@@ -578,8 +608,19 @@ export const googleOAuthCallback = async (req, res) => {
         const { rows } = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
 
         if (rows.length > 0) {
-            // User đã tồn tại → issue JWT và redirect
             const user = rows[0];
+
+            if (user.status === "LOCKED") {
+                return res.redirect(`${frontendUrl}/oauth-callback?error=locked&provider=google`);
+            }
+
+            // Tự động lấy avatar nếu trống
+            if (!user.avatar_url && picture) {
+                await pool.query("UPDATE users SET avatar_url = $1 WHERE user_id = $2", [picture, user.user_id]);
+                user.avatar_url = picture;
+            }
+
+            // User đã tồn tại → issue JWT và redirect
             const token = jwt.sign(
                 { userId: user.user_id, email: user.email },
                 process.env.JWT_SECRET,
@@ -588,7 +629,7 @@ export const googleOAuthCallback = async (req, res) => {
             const userEncoded = encodeURIComponent(JSON.stringify({
                 user_id: user.user_id, email: user.email,
                 first_name: user.first_name, last_name: user.last_name,
-                role: user.role, status: user.status,
+                role: user.role, status: user.status, avatar_url: user.avatar_url
             }));
             return res.redirect(`${frontendUrl}/oauth-callback?token=${token}&user=${userEncoded}&provider=google`);
         } else {
@@ -601,6 +642,7 @@ export const googleOAuthCallback = async (req, res) => {
                 email,
                 firstName,
                 lastName,
+                avatar_url: picture || ''
             });
             return res.redirect(`${frontendUrl}/oauth-callback?${params}`);
         }
@@ -679,8 +721,19 @@ export const githubCallback = async (req, res) => {
         const { rows } = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
 
         if (rows.length > 0) {
-            // User đã tồn tại → issue JWT và redirect
             const user = rows[0];
+
+            if (user.status === "LOCKED") {
+                return res.redirect(`${frontendUrl}/oauth-callback?error=locked&provider=github`);
+            }
+
+            // Tự động lấy avatar Github nếu trống
+            if (!user.avatar_url && githubUser.avatar_url) {
+                await pool.query("UPDATE users SET avatar_url = $1 WHERE user_id = $2", [githubUser.avatar_url, user.user_id]);
+                user.avatar_url = githubUser.avatar_url;
+            }
+
+            // User đã tồn tại → issue JWT và redirect
             const token = jwt.sign(
                 { userId: user.user_id, email: user.email },
                 process.env.JWT_SECRET,
@@ -689,7 +742,7 @@ export const githubCallback = async (req, res) => {
             const userEncoded = encodeURIComponent(JSON.stringify({
                 user_id: user.user_id, email: user.email,
                 first_name: user.first_name, last_name: user.last_name,
-                role: user.role, status: user.status,
+                role: user.role, status: user.status, avatar_url: user.avatar_url
             }));
             return res.redirect(`${frontendUrl}/oauth-callback?token=${token}&user=${userEncoded}&provider=github`);
         } else {
@@ -703,6 +756,7 @@ export const githubCallback = async (req, res) => {
                 email,
                 firstName,
                 lastName,
+                avatar_url: githubUser.avatar_url || ''
             });
             return res.redirect(`${frontendUrl}/oauth-callback?${params}`);
         }
@@ -751,7 +805,7 @@ export const facebookCallback = async (req, res) => {
         }
 
         // 2. Lấy thông tin user từ Facebook Graph API
-        const fbUserRes = await fetch(`https://graph.facebook.com/me?fields=id,name,email,first_name,last_name&access_token=${accessToken}`);
+        const fbUserRes = await fetch(`https://graph.facebook.com/me?fields=id,name,email,first_name,last_name,picture.type(large)&access_token=${accessToken}`);
         const fbUser = await fbUserRes.json();
 
         const email = fbUser.email;
@@ -763,8 +817,19 @@ export const facebookCallback = async (req, res) => {
         const { rows } = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
 
         if (rows.length > 0) {
-            // User đã tồn tại → issue JWT và redirect
             const user = rows[0];
+
+            if (user.status === "LOCKED") {
+                return res.redirect(`${frontendUrl}/oauth-callback?error=locked&provider=facebook`);
+            }
+
+            const pictureUrl = fbUser.picture?.data?.url;
+            if (!user.avatar_url && pictureUrl) {
+                await pool.query("UPDATE users SET avatar_url = $1 WHERE user_id = $2", [pictureUrl, user.user_id]);
+                user.avatar_url = pictureUrl;
+            }
+
+            // User đã tồn tại → issue JWT và redirect
             const token = jwt.sign(
                 { userId: user.user_id, email: user.email },
                 process.env.JWT_SECRET,
@@ -773,7 +838,7 @@ export const facebookCallback = async (req, res) => {
             const userEncoded = encodeURIComponent(JSON.stringify({
                 user_id: user.user_id, email: user.email,
                 first_name: user.first_name, last_name: user.last_name,
-                role: user.role, status: user.status,
+                role: user.role, status: user.status, avatar_url: user.avatar_url
             }));
             return res.redirect(`${frontendUrl}/oauth-callback?token=${token}&user=${userEncoded}&provider=facebook`);
         } else {
@@ -784,6 +849,7 @@ export const facebookCallback = async (req, res) => {
                 email,
                 firstName: fbUser.first_name || '',
                 lastName: fbUser.last_name || '',
+                avatar_url: fbUser.picture?.data?.url || ''
             });
             return res.redirect(`${frontendUrl}/oauth-callback?${params}`);
         }
