@@ -385,27 +385,27 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
 
           {/* VÙNG FOOTER */}
           <div className="pt-2 flex items-center justify-between mt-auto">
-            {/* Nút Tải xuống tiêu chuẩn xanh lam */}
+            {/* Nút Tải xuống tiêu chuẩn tím */}
             <button
               onClick={handleDownload}
               className="
-                text-[10px] font-bold px-2.5 py-1.5
-                rounded-md bg-[#2f67ff] hover:bg-[#1a54f0]
+                text-[11px] font-bold px-3 py-1.5
+                rounded-xl bg-purple-600 hover:bg-purple-700
                 text-white transition-all duration-200
-                flex items-center gap-1 shrink-0 active:scale-95 shadow-sm
+                flex items-center gap-1.5 shrink-0 active:scale-95 shadow-sm
               "
             >
-              ⬇ Tải xuống
+              <Download className="w-3.5 h-3.5 text-white" /> Tải xuống
             </button>
 
             {/* Khối lượt tải và mắt xem */}
-            <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400 dark:text-slate-500 bg-slate-50/60 dark:bg-[#0c0d13] px-2 py-0.5 rounded border border-slate-100/60 dark:border-white/5 shrink-0 select-none">
-              <span className="flex items-center gap-0.5">
-                ⬇ <span className="text-slate-600 dark:text-slate-300 font-extrabold">{downloadCount}</span>
+            <div className="flex items-center gap-2 text-[10.5px] font-bold text-slate-400 dark:text-slate-500 bg-slate-50/60 dark:bg-[#0c0d13] px-2.5 py-1.5 rounded-xl border border-slate-100/60 dark:border-white/5 shrink-0 select-none">
+              <span className="flex items-center gap-1">
+                <Download className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" /> <span className="text-slate-700 dark:text-slate-300 font-extrabold">{downloadCount}</span>
               </span>
               <span className="text-slate-200 dark:text-slate-800">|</span>
-              <span className="flex items-center gap-0.5">
-                👁 <span className="text-slate-600 dark:text-slate-300 font-extrabold">{viewCount}</span>
+              <span className="flex items-center gap-1">
+                <Eye className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" /> <span className="text-slate-700 dark:text-slate-300 font-extrabold">{viewCount}</span>
               </span>
             </div>
           </div>
@@ -597,7 +597,7 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
                       👁 Lượt xem: <span className="text-slate-750 dark:text-slate-300 font-extrabold">{viewCount}</span>
                     </span>
                     <span className="flex items-center gap-1">
-                      ⬇ Lượt tải: <span className="text-slate-750 dark:text-slate-300 font-extrabold">{downloadCount}</span>
+                      <Download className="w-3 h-3 text-slate-450" /> Lượt tải: <span className="text-slate-750 dark:text-slate-300 font-extrabold">{downloadCount}</span>
                     </span>
                   </div>
                 </div>
@@ -621,7 +621,7 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
                     <button
                       onClick={handleDownload}
                       className="
-                        flex-1 py-2.5 rounded-lg bg-[#2f67ff] hover:bg-[#1a54f0]
+                        flex-1 py-2.5 rounded-lg bg-purple-600 hover:bg-purple-750
                         text-white font-extrabold text-xs transition-all duration-200
                         flex items-center justify-center gap-1.5 cursor-pointer shadow-sm active:scale-[0.98]
                       "

@@ -369,6 +369,8 @@ export default function Home() {
   const [editTags, setEditTags] = useState([]);
   const [editTagInput, setEditTagInput] = useState("");
   const [editTagSuggestions, setEditTagSuggestions] = useState([]);
+  const [showEditTagSuggestions, setShowEditTagSuggestions] = useState(false);
+  const [editSuggestedTags, setEditSuggestedTags] = useState([]);
   const [editSubjectSearch, setEditSubjectSearch] = useState("");
   const [showEditSubjectDropdown, setShowEditSubjectDropdown] = useState(false);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
@@ -689,6 +691,61 @@ export default function Home() {
 
   const handleRemoveTag = (tagName) => {
     setDocumentTags(documentTags.filter(t => t !== tagName));
+  };
+
+  // Fetch subject-specific tags whenever the edit subject changes
+  useEffect(() => {
+    if (!user) return;
+    const loadEditSubjectTags = async () => {
+      if (!editSubject) {
+        setEditSuggestedTags([]);
+        return;
+      }
+      try {
+        const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+        const response = await axios.get(`http://localhost:5000/api/tags/subject/${editSubject}`, {
+          headers: {
+            "Authorization": `Bearer ${token}`
+          }
+        });
+        const data = response.data;
+        const tagNames = data.map(t => t.tag_name);
+        setEditSuggestedTags(tagNames);
+      } catch (error) {
+        console.error("Error loading edit subject tags:", error);
+      }
+    };
+    loadEditSubjectTags();
+  }, [editSubject, user]);
+
+  const handleEditTagSearch = async (val) => {
+    setEditTagInput(val);
+    if (!val.trim()) {
+      setEditTagSuggestions([]);
+      return;
+    }
+    try {
+      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+      const response = await axios.get(`http://localhost:5000/api/tags/search?q=${val.trim()}`, {
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      });
+      const data = response.data;
+      setEditTagSuggestions(data.map(t => t.tag_name));
+    } catch (error) {
+      console.error("Error searching edit tags:", error);
+    }
+  };
+
+  const handleAddEditTag = (tagName) => {
+    const cleanTag = tagName.trim().replace(/\s+/g, "_");
+    if (cleanTag && !editTags.includes(cleanTag) && editTags.length < 5) {
+      setEditTags([...editTags, cleanTag]);
+    }
+    setEditTagInput("");
+    setEditTagSuggestions([]);
+    setShowEditTagSuggestions(false);
   };
 
   const handleFileChange = (e) => {
@@ -2132,18 +2189,28 @@ export default function Home() {
                                     Tải xuống
                                   </button>
                                   
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setOpenMenuId(null);
-                                      setShareModalDoc(doc);
-                                      setShareDescription(doc.description || "");
-                                    }}
-                                    className="w-full flex items-center gap-2 text-left px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60 rounded-md transition-colors"
-                                  >
-                                    <Share2 className="w-4 h-4 text-slate-400" />
-                                    Chia sẻ
-                                  </button>
+                                  {doc.visibility === "PUBLIC" ? (
+                                    <button
+                                      disabled
+                                      className="w-full flex items-center gap-2 text-left px-3 py-2 text-xs font-medium text-slate-400 dark:text-slate-600 cursor-not-allowed opacity-60 rounded-md select-none"
+                                    >
+                                      <CheckCircle className="w-4 h-4 text-emerald-500" />
+                                      Đã chia sẻ
+                                    </button>
+                                  ) : (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setOpenMenuId(null);
+                                        setShareModalDoc(doc);
+                                        setShareDescription(doc.description || "");
+                                      }}
+                                      className="w-full flex items-center gap-2 text-left px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60 rounded-md transition-colors"
+                                    >
+                                      <Share2 className="w-4 h-4 text-slate-400" />
+                                      Chia sẻ
+                                    </button>
+                                  )}
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
@@ -3227,12 +3294,6 @@ export default function Home() {
               <p className="text-xs text-slate-600 dark:text-slate-300">
                 Tài liệu: <span className="font-bold text-slate-900 dark:text-white">{shareModalDoc.title}</span>
               </p>
-              <textarea
-                value={shareDescription}
-                onChange={(e) => setShareDescription(e.target.value)}
-                placeholder="Nhập mô tả tài liệu (tùy chọn nhưng khuyến khích)..."
-                className="w-full mt-2 p-3 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-xl outline-none focus:ring-2 focus:ring-purple-500/50 text-sm min-h-[100px] resize-none text-slate-800 dark:text-slate-200 placeholder:text-slate-400"
-              />
             </div>
 
             <div className="flex gap-3 mt-4">
@@ -3261,7 +3322,7 @@ export default function Home() {
                     if (!res.ok) throw new Error("Failed");
                     toast.success("Đã chia sẻ tài liệu lên cộng đồng thành công!");
                     setShareModalDoc(null);
-                    window.location.reload();
+                    fetchDashboard();
                   } catch (err) {
                     toast.error("Lỗi khi chia sẻ tài liệu");
                   } finally {
@@ -3385,7 +3446,7 @@ export default function Home() {
             </div>
 
             {/* Tags field */}
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-1.5 relative">
               <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Thẻ phân loại (Tags)</label>
               <div className="w-full p-2 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-xl focus-within:ring-2 focus-within:ring-purple-500/50 flex flex-wrap gap-2 items-center min-h-[44px]">
                 {editTags.map(tag => (
@@ -3400,24 +3461,67 @@ export default function Home() {
                 <input
                   type="text"
                   value={editTagInput}
-                  onChange={(e) => setEditTagInput(e.target.value)}
+                  onChange={(e) => handleEditTagSearch(e.target.value)}
+                  onFocus={() => setShowEditTagSuggestions(true)}
+                  onBlur={() => setTimeout(() => setShowEditTagSuggestions(false), 250)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ',') {
                       e.preventDefault();
-                      const val = editTagInput.trim().toUpperCase();
-                      if (val && !editTags.includes(val) && editTags.length < 5) {
-                        setEditTags([...editTags, val]);
-                        setEditTagInput("");
-                      } else if (editTags.length >= 5) {
-                        toast.error("Tối đa 5 thẻ tag!");
+                      if (editTagInput.trim()) {
+                        handleAddEditTag(editTagInput);
                       }
                     }
                   }}
-                  placeholder={editTags.length < 5 ? "Nhập tag và nhấn Enter..." : ""}
+                  placeholder={editTags.length < 5 ? "Nhập tag hoặc chọn từ gợi ý..." : ""}
                   className="flex-1 bg-transparent border-none outline-none text-xs text-slate-800 dark:text-slate-200 min-w-[120px]"
                   disabled={editTags.length >= 5}
                 />
               </div>
+
+              {/* Floating dropdown suggestions in Edit modal */}
+              {showEditTagSuggestions && (
+                <div className="absolute top-[100%] left-0 right-0 mt-1.5 max-h-40 overflow-y-auto bg-white dark:bg-[#0f111a] border border-slate-200 dark:border-slate-850 rounded-xl shadow-lg z-[99999] p-2 flex flex-col gap-1">
+                  {editTagInput.trim() ? (
+                    editTagSuggestions.filter(t => !editTags.includes(t)).length === 0 ? (
+                      <span className="text-[10px] text-slate-400 font-bold italic text-center py-2">
+                        Không tìm thấy tag phù hợp. Nhấn Enter để thêm mới.
+                      </span>
+                    ) : (
+                      editTagSuggestions.filter(t => !editTags.includes(t)).map(tag => (
+                        <button
+                          key={tag}
+                          type="button"
+                          onMouseDown={() => handleAddEditTag(tag)}
+                          className="w-full text-left px-3 py-2 text-[11px] font-bold text-slate-700 dark:text-slate-350 hover:bg-purple-600/10 hover:text-purple-600 dark:hover:text-purple-400 rounded-lg transition-colors"
+                        >
+                          {tag}
+                        </button>
+                      ))
+                    )
+                  ) : (
+                    editSuggestedTags.filter(t => !editTags.includes(t)).length === 0 ? (
+                      <span className="text-[10px] text-slate-400 font-bold italic text-center py-2">
+                        Không còn tag gợi ý môn học. Bạn có thể tự gõ tag mới.
+                      </span>
+                    ) : (
+                      <>
+                        <span className="text-[9px] font-bold text-slate-400 px-2 py-1 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800 pb-1 mb-1">Gợi ý cho môn {editSubject}</span>
+                        {editSuggestedTags.filter(t => !editTags.includes(t)).map(tag => (
+                          <button
+                            key={tag}
+                            type="button"
+                            onMouseDown={() => handleAddEditTag(tag)}
+                            className="w-full text-left px-2.5 py-1.5 text-[11px] font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg transition-colors flex items-center justify-between"
+                          >
+                            <span>{tag}</span>
+                            <span className="text-[9px] font-bold text-purple-600 bg-purple-50 dark:bg-purple-950/45 px-1.5 py-0.5 rounded border border-purple-500/10">+ Chọn</span>
+                          </button>
+                        ))}
+                      </>
+                    )
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="flex gap-3 mt-4">
