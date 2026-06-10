@@ -17,7 +17,14 @@ const pool = new Pool({
         }),
     ssl: (process.env.DATABASE_URL || (process.env.POSTGRES_HOST && process.env.POSTGRES_HOST !== "localhost"))
         ? { rejectUnauthorized: false }
-        : false
+        : false,
+    max: 20,
+    idleTimeoutMillis: 10000,
+    connectionTimeoutMillis: 10000,
+});
+
+pool.on('error', (err, client) => {
+    console.error('Unexpected error on idle PostgreSQL client:', err);
 });
 
 export const connectDB = async () => {
@@ -48,13 +55,8 @@ export const connectDB = async () => {
         `);
         console.log("Database schema columns and tables verified.");
     } catch (error) {
-<<<<<<< HEAD
-        console.error("⚠️ Error connecting to the database:", error.message || error);
-        console.warn("⚠️ The server will continue to run, but database queries will fail until connection is restored.");
-=======
         console.error("Error connecting to the database:", error);
         process.exit(1);
->>>>>>> main
     }
 };
 

@@ -1,6 +1,8 @@
 import * as documentRepository from "../repositories/document.repository.js";
 import * as tagRepository from "../repositories/tag.repository.js";
 import * as subjectRepository from "../repositories/subject.repository.js";
+import { processDocumentInBackground } from "./ai/documentProcessor.service.js";
+
 
 // Retrieve dashboard aggregates: user documents and total storage consumption
 export const getDashboardData = async (userId) => {
@@ -127,6 +129,11 @@ export const uploadNewDocument = async (docData) => {
             }
 
             newDoc.tags = resolvedTags;
+            // Trigger AI RAG Pipeline processing in background (Do not await!)
+            processDocumentInBackground(newDoc).catch(err => {
+                console.error("[Background Error] RAG Pipeline failed:", err);
+            });
+
         }
 
         return newDoc;
@@ -229,8 +236,6 @@ export const getBookmarkedDocuments = async (userId) => {
         throw error;
     }
 };
-<<<<<<< HEAD
-
 export const getAllDocuments = async () => {
     try {
         return await documentRepository.getAllDocuments();
@@ -239,5 +244,3 @@ export const getAllDocuments = async () => {
     }
 };
 
-=======
->>>>>>> main
