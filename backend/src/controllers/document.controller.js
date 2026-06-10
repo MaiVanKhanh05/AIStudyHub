@@ -117,10 +117,6 @@ export const increaseDownload = async (req, res) => {
     }
 };
 
-
-
-
-
 // PUT /api/documents/:id/share
 export const shareDoc = async (req, res) => {
     try {
@@ -217,3 +213,30 @@ export const getBookmarks = async (req, res) => {
         return res.status(500).json({ error: "Failed to load bookmarks" });
     }
 };
+
+// GET /api/documents
+export const getAllDocuments = async (req, res) => {
+    try {
+        const docs = await documentService.getAllDocuments();
+        return res.json(docs);
+    } catch (error) {
+        console.error("Error loading all documents:", error);
+        return res.status(500).json({ error: "Failed to load documents" });
+    }
+};
+
+// GET /api/documents/:id (Basic fallback)
+export const getDocumentById = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const doc = await documentService.getDocumentById(id);
+        if (!doc) {
+            return res.status(404).json({ error: "Document not found" });
+        }
+        return res.json(doc);
+    } catch (error) {
+        console.error("Error fetching document by ID:", error);
+        return res.status(500).json({ error: "Failed to fetch document" });
+    }
+};
+

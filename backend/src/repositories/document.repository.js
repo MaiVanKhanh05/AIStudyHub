@@ -301,3 +301,20 @@ export const getBookmarkedDocuments = async (userId) => {
     }
 };
 
+// Retrieve all documents in the system
+export const getAllDocuments = async () => {
+    try {
+        const { rows } = await pool.query(
+            `SELECT d.*, (u.last_name || ' ' || u.first_name) as owner_name, s.subject_name
+             FROM document d
+             JOIN users u ON d.user_id = u.user_id
+             LEFT JOIN subject s ON d.subject_code = s.subject_code
+             ORDER BY d.upload_date DESC`
+        );
+        return rows.map(row => new Document(row));
+    } catch (error) {
+        console.error("Error fetching all documents:", error);
+        throw error;
+    }
+};
+
