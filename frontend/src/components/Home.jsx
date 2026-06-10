@@ -102,6 +102,8 @@ export default function Home() {
   // States for dynamic documents and storage usage
   const [documents, setDocuments] = useState([]);
   const [bookmarkedDocs, setBookmarkedDocs] = useState([]);
+  const [bookmarkPage, setBookmarkPage] = useState(1);
+  const [docManagePage, setDocManagePage] = useState(1);
   const [storageUsage, setStorageUsage] = useState(0);
   const [loading, setLoading] = useState(true);
   const [currentDate, setCurrentDate] = useState("");
@@ -136,6 +138,27 @@ export default function Home() {
   useEffect(() => {
     if (activeTab === "Community") {
       fetchCommunityDocs();
+    }
+  }, [activeTab]);
+
+  const fetchBookmarkedDocs = async () => {
+    try {
+      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+      const res = await fetch("http://localhost:5000/api/documents/bookmarks", {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setBookmarkedDocs(data);
+      }
+    } catch (err) {
+      console.error("Error fetching bookmarked documents:", err);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "Bookmarks") {
+      fetchBookmarkedDocs();
     }
   }, [activeTab]);
 
@@ -184,9 +207,14 @@ export default function Home() {
     );
   });
 
+  const sortedCommunityDocs = [
+    ...filteredCommunityDocs.filter(d => d.isPinned),
+    ...filteredCommunityDocs.filter(d => !d.isPinned)
+  ];
+
   const COMMUNITY_PAGE_SIZE = 9;
-  const communityTotalPages = Math.max(1, Math.ceil(filteredCommunityDocs.length / COMMUNITY_PAGE_SIZE));
-  const currentCommunityDocs = filteredCommunityDocs.slice(
+  const communityTotalPages = Math.max(1, Math.ceil(sortedCommunityDocs.length / COMMUNITY_PAGE_SIZE));
+  const currentCommunityDocs = sortedCommunityDocs.slice(
     (communityPage - 1) * COMMUNITY_PAGE_SIZE,
     communityPage * COMMUNITY_PAGE_SIZE
   );
@@ -863,25 +891,27 @@ export default function Home() {
 
         {/* Sidebar Footer with Clean Storage Overview */}
         <div className="flex flex-col gap-4">
-          <div className="p-3.5 bg-white/30 dark:bg-[#0f111a]/35 border border-slate-200/40 dark:border-white/5 rounded-xl shadow-[inset_0_1px_1px_rgba(255,255,255,0.2)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
-            <div className="flex flex-col gap-2.5">
-              <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400">
-                <span className="font-bold flex items-center gap-1.5"><Cloud className="w-3.5 h-3.5" /> Không gian học thuật</span>
-                <span className="text-[10px] font-bold">{percentage.toFixed(0)}%</span>
-              </div>
+          {user?.role !== "ADMIN" && (
+            <div className="p-3.5 bg-white/30 dark:bg-[#0f111a]/35 border border-slate-200/40 dark:border-white/5 rounded-xl shadow-[inset_0_1px_1px_rgba(255,255,255,0.2)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+              <div className="flex flex-col gap-2.5">
+                <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400">
+                  <span className="font-bold flex items-center gap-1.5"><Cloud className="w-3.5 h-3.5" /> Không gian học thuật</span>
+                  <span className="text-[10px] font-bold">{percentage.toFixed(0)}%</span>
+                </div>
 
-              <div className="w-full h-1.5 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-purple-600 dark:bg-purple-500 rounded-full transition-all duration-500"
-                  style={{ width: `${percentage}%` }}
-                />
-              </div>
+                <div className="w-full h-1.5 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-purple-600 dark:bg-purple-500 rounded-full transition-all duration-500"
+                    style={{ width: `${percentage}%` }}
+                  />
+                </div>
 
-              <div className="text-[10px] text-slate-400 dark:text-slate-500 font-bold text-right">
-                {usageInGB} GB / {limitInGB} GB
+                <div className="text-[10px] text-slate-400 dark:text-slate-500 font-bold text-right">
+                  {usageInGB} GB / {limitInGB} GB
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           <button
             onClick={() => setActiveTab("Personal Profile")}
@@ -1463,7 +1493,7 @@ export default function Home() {
                           </td>
                         </tr>
                       ) : (
-                        filteredDocuments.map((doc) => (
+                        filteredDocuments.slice((docManagePage - 1) * 9, docManagePage * 9).map((doc) => (
                           <tr key={doc.document_id} onClick={() => handlePreviewClick(doc)} className="hover:bg-white/40 dark:hover:bg-white/5 transition-colors cursor-pointer group border-b border-slate-200/30 dark:border-white/5">
                             <td className="px-5 py-3.5 flex items-center gap-2 text-slate-800 dark:text-slate-200 font-bold max-w-xs truncate">
                               {getFileIcon(doc.file_type || getFileType(doc.file_url), "w-4 h-4 shrink-0")}
@@ -1592,6 +1622,16 @@ export default function Home() {
                   </table>
                 </div>
               </div>
+              
+              {Math.ceil(filteredDocuments.length / 9) > 1 && (
+                <div className="mt-4 flex justify-center">
+                  <Pagination
+                    page={docManagePage}
+                    totalPages={Math.ceil(filteredDocuments.length / 9)}
+                    setPage={setDocManagePage}
+                  />
+                </div>
+              )}
             </section>
           </div>
         )}
@@ -1632,16 +1672,28 @@ export default function Home() {
                     </p>
                   </div>
                 ) : (
-                  <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 xl:grid-cols-3 w-full">
-                    {bookmarkedDocs.map((doc) => (
-                      <DocumentCard
-                        key={doc.document_id || doc.id}
-                        doc={{ ...doc, isBookmarked: true }}
-                        isPersonal={false}
-                        isMyShared={false}
-                      />
-                    ))}
-                  </div>
+                  <>
+                    <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 xl:grid-cols-3 w-full">
+                      {bookmarkedDocs.slice((bookmarkPage - 1) * 9, bookmarkPage * 9).map((doc) => (
+                        <DocumentCard
+                          key={doc.document_id || doc.id}
+                          doc={{ ...doc, isBookmarked: true }}
+                          isPersonal={false}
+                          isMyShared={false}
+                        />
+                      ))}
+                    </div>
+                    
+                    {Math.ceil(bookmarkedDocs.length / 9) > 1 && (
+                      <div className="mt-6 flex justify-center">
+                        <Pagination
+                          page={bookmarkPage}
+                          totalPages={Math.ceil(bookmarkedDocs.length / 9)}
+                          setPage={setBookmarkPage}
+                        />
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             </section>
