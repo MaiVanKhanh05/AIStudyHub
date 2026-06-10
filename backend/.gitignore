@@ -1,0 +1,5 @@
+# Không đưa node_modules vào git vì nó nặng và có thể được cài đặt lại bằng cách sử dụng package.json thông qua npm install.
+node_modules/
+
+# Không đưa file .env vào git vì nó chứa thông tin nhạy cảm
+.env
