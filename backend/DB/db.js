@@ -48,8 +48,13 @@ export const connectDB = async () => {
         `);
         console.log("Database schema columns and tables verified.");
     } catch (error) {
+<<<<<<< HEAD
         console.error("⚠️ Error connecting to the database:", error.message || error);
         console.warn("⚠️ The server will continue to run, but database queries will fail until connection is restored.");
+=======
+        console.error("Error connecting to the database:", error);
+        process.exit(1);
+>>>>>>> main
     }
 };
 

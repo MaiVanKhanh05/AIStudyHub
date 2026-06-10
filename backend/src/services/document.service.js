@@ -229,6 +229,7 @@ export const getBookmarkedDocuments = async (userId) => {
         throw error;
     }
 };
+<<<<<<< HEAD
 
 export const getAllDocuments = async () => {
     try {
@@ -238,3 +239,5 @@ export const getAllDocuments = async () => {
     }
 };
 
+=======
+>>>>>>> main
