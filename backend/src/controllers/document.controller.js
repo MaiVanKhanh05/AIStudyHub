@@ -217,6 +217,7 @@ export const getBookmarks = async (req, res) => {
         return res.status(500).json({ error: "Failed to load bookmarks" });
     }
 };
+<<<<<<< HEAD
 
 // GET /api/documents
 export const getAllDocuments = async (req, res) => {
@@ -244,3 +245,5 @@ export const getDocumentById = async (req, res) => {
     }
 };
 
+=======
+>>>>>>> main

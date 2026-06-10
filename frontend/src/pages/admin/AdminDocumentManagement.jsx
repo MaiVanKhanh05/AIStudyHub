@@ -1,5 +1,9 @@
 import { useState, useEffect } from "react";
 import { Search, CheckCircle, Trash2, FileText, RefreshCw } from "lucide-react";
+<<<<<<< HEAD
+=======
+import Pagination from "../../components/Pagination";
+>>>>>>> main
 
 // BR-AM-07: Admin can approve documents, delete violating documents, update document status
 
@@ -214,6 +218,7 @@ export default function AdminDocumentManagement() {
 
         {totalPages > 1 && (
           <div className="adm-pagination">
+<<<<<<< HEAD
             <span className="adm-pagination-info">
               {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} of {filtered.length}
             </span>
@@ -224,6 +229,9 @@ export default function AdminDocumentManagement() {
                 </button>
               ))}
             </div>
+=======
+            <Pagination page={page} setPage={setPage} totalPages={totalPages} />
+>>>>>>> main
           </div>
         )}
       </div>

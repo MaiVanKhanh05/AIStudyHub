@@ -301,6 +301,7 @@ export const getBookmarkedDocuments = async (userId) => {
     }
 };
 
+<<<<<<< HEAD
 // Retrieve all documents in the system
 export const getAllDocuments = async () => {
     try {
@@ -319,3 +320,5 @@ export const getAllDocuments = async () => {
 };
 
 
+=======
+>>>>>>> main

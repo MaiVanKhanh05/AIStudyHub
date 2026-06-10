@@ -1,5 +1,10 @@
 import { useState, useEffect } from "react";
+<<<<<<< HEAD
 import { Search, Lock, Unlock, Users, ArrowLeft, ArrowRight } from "lucide-react";
+=======
+import { Search, Lock, Unlock, Users } from "lucide-react";
+import Pagination from "../../components/Pagination";
+>>>>>>> main
 
 // BR-AM-03 / 04 / 05 / 06
 const PAGE_SIZE = 10;
@@ -16,18 +21,31 @@ const formatSize = (bytes) => {
 const ROLE_BADGE = {
   STUDENT: "bg-purple-100 text-purple-700 border-purple-200",
   LECTURER: "bg-blue-100 text-blue-700 border-blue-200",
+<<<<<<< HEAD
   ADMIN:   "bg-amber-100 text-amber-700 border-amber-200",
+=======
+  ADMIN: "bg-amber-100 text-amber-700 border-amber-200",
+>>>>>>> main
 };
 
 const ROLE_LABEL = { STUDENT: "Sinh viên", LECTURER: "Giảng viên", ADMIN: "Admin" };
 
 export default function AdminUserManagement({ roleFilter = "all" }) {
+<<<<<<< HEAD
   const [users, setUsers]     = useState([]);
   const [search, setSearch]   = useState("");
   const [page, setPage]       = useState(1);
   const [loading, setLoading] = useState(true);
   const [confirm, setConfirm] = useState(null);
   const [toast, setToast]     = useState(null);
+=======
+  const [users, setUsers] = useState([]);
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [confirm, setConfirm] = useState(null);
+  const [toast, setToast] = useState(null);
+>>>>>>> main
 
   const token = localStorage.getItem("token") || sessionStorage.getItem("token");
   const meStr = localStorage.getItem("user") || sessionStorage.getItem("user");
@@ -103,6 +121,7 @@ export default function AdminUserManagement({ roleFilter = "all" }) {
   });
 
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+<<<<<<< HEAD
   const paginated  = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const pageTitle = roleFilter === "STUDENT" ? "Quản lý Sinh viên"
@@ -112,6 +131,17 @@ export default function AdminUserManagement({ roleFilter = "all" }) {
   const tableSubtitle = roleFilter === "STUDENT" ? "Sinh viên"
     : roleFilter === "LECTURER" ? "Giảng viên"
     : "Tất cả người dùng";
+=======
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  const pageTitle = roleFilter === "STUDENT" ? "Quản lý Sinh viên"
+    : roleFilter === "LECTURER" ? "Quản lý Giảng viên"
+      : "Quản lý Người dùng";
+
+  const tableSubtitle = roleFilter === "STUDENT" ? "Sinh viên"
+    : roleFilter === "LECTURER" ? "Giảng viên"
+      : "Tất cả người dùng";
+>>>>>>> main
 
   return (
     <div>
@@ -180,7 +210,13 @@ export default function AdminUserManagement({ roleFilter = "all" }) {
                       </span>
                     </td>
                     <td className="px-5 py-3">
+<<<<<<< HEAD
                       {(() => {
+=======
+                      {user.role === "ADMIN" ? (
+                        <span className="text-slate-400 text-[12px] font-semibold italic">Không khả dụng</span>
+                      ) : (() => {
+>>>>>>> main
                         const usedGB = Number(user.used_storage) / (1024 ** 3);
                         const limitGB = Number(user.max_storage_bytes || 2147483648) / (1024 ** 3);
                         const percent = Math.min((usedGB / limitGB) * 100, 100);
@@ -191,7 +227,11 @@ export default function AdminUserManagement({ roleFilter = "all" }) {
                               <span className="text-slate-400"> / {limitGB.toFixed(0)} GB</span>
                             </div>
                             <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden border border-slate-200/50">
+<<<<<<< HEAD
                               <div 
+=======
+                              <div
+>>>>>>> main
                                 className={`h-full rounded-full transition-all duration-300
                                   ${percent > 90 ? "bg-red-500" : percent > 70 ? "bg-amber-500" : "bg-purple-500"}`}
                                 style={{ width: `${percent}%` }}
@@ -203,9 +243,15 @@ export default function AdminUserManagement({ roleFilter = "all" }) {
                     </td>
                     <td className="px-5 py-3">
                       <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-[11px] font-bold
+<<<<<<< HEAD
                         ${isLocked ? "bg-red-50 text-red-600 border border-red-200" 
                         : user.status === "PENDING" ? "bg-amber-50 text-amber-600 border border-amber-200"
                         : "bg-green-50 text-green-700 border border-green-200"}`}>
+=======
+                        ${isLocked ? "bg-red-50 text-red-600 border border-red-200"
+                          : user.status === "PENDING" ? "bg-amber-50 text-amber-600 border border-amber-200"
+                            : "bg-green-50 text-green-700 border border-green-200"}`}>
+>>>>>>> main
                         <span className="w-1.5 h-1.5 rounded-full bg-current" />
                         {isLocked ? "Đã khóa" : user.status === "PENDING" ? "Chờ duyệt" : "Hoạt động"}
                       </span>
@@ -251,6 +297,7 @@ export default function AdminUserManagement({ roleFilter = "all" }) {
         {/* Pagination */}
         {totalPages > 1 && (
           <div className="flex items-center justify-center gap-3 px-5 py-4 bg-slate-50 border-t border-gray-200">
+<<<<<<< HEAD
             {/* Left Button */}
             <button
               onClick={() => setPage(p => Math.max(p - 1, 1))}
@@ -289,6 +336,9 @@ export default function AdminUserManagement({ roleFilter = "all" }) {
             >
               <ArrowRight size={14} />
             </button>
+=======
+            <Pagination page={page} setPage={setPage} totalPages={totalPages} />
+>>>>>>> main
           </div>
         )}
       </div>
@@ -320,7 +370,11 @@ export default function AdminUserManagement({ roleFilter = "all" }) {
               <button
                 id="adm-confirm-action-btn"
                 onClick={() => {
+<<<<<<< HEAD
                   if (confirm.action === "lock")   handleLock(confirm.user);
+=======
+                  if (confirm.action === "lock") handleLock(confirm.user);
+>>>>>>> main
                   if (confirm.action === "unlock" || confirm.action === "approve") handleUnlock(confirm.user);
                 }}
                 className={`px-4 py-2 rounded-lg text-[13px] font-bold text-white transition-opacity hover:opacity-90
@@ -336,8 +390,13 @@ export default function AdminUserManagement({ roleFilter = "all" }) {
       {toast && (
         <div className={`fixed bottom-6 right-6 flex items-center gap-2.5 px-4 py-3 rounded-xl text-[13px] font-semibold text-white shadow-xl z-50 animate-in slide-in-from-bottom-3
           ${toast.type === "success" ? "bg-slate-800 border-l-4 border-green-400"
+<<<<<<< HEAD
           : toast.type === "error"   ? "bg-slate-800 border-l-4 border-red-400"
           : "bg-slate-800 border-l-4 border-purple-400"}`}>
+=======
+            : toast.type === "error" ? "bg-slate-800 border-l-4 border-red-400"
+              : "bg-slate-800 border-l-4 border-purple-400"}`}>
+>>>>>>> main
           <span>{toast.type === "success" ? "✓" : toast.type === "error" ? "✕" : "ℹ"}</span>
           {toast.message}
         </div>
