@@ -385,7 +385,13 @@ export default function Home() {
   ]);
   const [chatInput, setChatInput] = useState("");
   const [isAiTyping, setIsAiTyping] = useState(false);
-  const [useCopilotMode, setUseCopilotMode] = useState(true);
+  const [aiMode, setAiMode] = useState("General AI");
+  const [useWeb, setUseWeb] = useState(false);
+  const [useScholar, setUseScholar] = useState(false);
+  const [deepResearch, setDeepResearch] = useState(false);
+  const [attachedFile, setAttachedFile] = useState(null);
+  const [isParsingFile, setIsParsingFile] = useState(false);
+  const fileInputRef = useRef(null);
 
   // Change Password States
   const [currentPassword, setCurrentPassword] = useState("");
@@ -934,41 +940,161 @@ export default function Home() {
 
     try {
       const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-      const response = await axios.post("http://localhost:5000/api/chat", {
-        message: text
-      }, {
+      
+      const payload = {
+        message: text,
+        history: aiMessages,
+        aiMode: aiMode,
+        useWeb: useWeb,
+        useScholar: useScholar,
+        deepResearch: deepResearch,
+        documentContext: attachedFile ? attachedFile.content : ""
+      };
+
+      const res = await axios.post("http://localhost:5000/api/chat", payload, {
         headers: {
           "Authorization": `Bearer ${token}`
         }
       });
-      const aiText = response.data.response || "Xin lỗi, tôi không thể trả lời câu hỏi này do lỗi từ máy chủ AI.";
-      
+
       setAiMessages((prev) => [
         ...prev,
         {
           id: Date.now() + 1,
           sender: "ai",
-          text: aiText
+          text: res.data.response || "Không nhận được phản hồi từ AI."
         }
       ]);
-    } catch (error) {
-      console.error("Lỗi khi gửi tin nhắn cho AI:", error);
-      let errorMsg = "Xin lỗi, hệ thống AI đang gặp sự cố. Vui lòng thử lại sau.";
-      if (error.response && error.response.data && error.response.data.error) {
-        errorMsg = error.response.data.error;
-      }
-      
+    } catch (err) {
+      console.error("AI assistant chat error:", err);
+      const errMsg = err.response?.data?.error || err.message || "Lỗi kết nối đến máy chủ AI.";
       setAiMessages((prev) => [
         ...prev,
         {
           id: Date.now() + 1,
           sender: "ai",
-          text: errorMsg
+          text: `❌ **Lỗi Kết Nối:** ${errMsg}`
         }
       ]);
+      toast.error("Trò chuyện AI thất bại.");
     } finally {
       setIsAiTyping(false);
     }
+  };
+
+  // Handle temporary file attachment
+  const handleAttachFileChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsParsingFile(true);
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+      const res = await axios.post("http://localhost:5000/api/chat/upload-temp", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+          "Authorization": `Bearer ${token}`
+        }
+      });
+
+      setAttachedFile({
+        name: res.data.fileName,
+        size: res.data.fileSize,
+        type: res.data.fileType,
+        content: res.data.extractedText
+      });
+      
+      toast.success(`Tải lên và phân tích tệp "${res.data.fileName}" thành công!`);
+    } catch (err) {
+      console.error("File parsing failed:", err);
+      const errMsg = err.response?.data?.error || err.message || "Không thể tải lên và xử lý tệp.";
+      toast.error(`Phân tích tệp thất bại: ${errMsg}`);
+    } finally {
+      setIsParsingFile(false);
+      e.target.value = "";
+    }
+  };
+
+  // Get prompt chips based on file attachment
+  const getPromptChips = () => {
+    if (!attachedFile) {
+      return [
+        { text: "Giải thích về môn học Thiết kế Web (WED202c)", label: "Cấu trúc WED202c" },
+        { text: "Tóm tắt thuật toán Dijkstra tìm đường đi ngắn nhất", label: "Giải thuật Dijkstra" },
+        { text: "Tầm quan trọng của Đại số tuyến tính trong học máy", label: "Đại số tuyến tính & AI" }
+      ];
+    }
+
+    if (attachedFile.type === "ZIP") {
+      return [
+        { text: "Hãy phân tích kiến trúc hệ thống của dự án mã nguồn này.", label: "Phân tích kiến trúc" },
+        { text: "Hãy tìm kiếm và phát hiện các code smell trong dự án này.", label: "Phát hiện code smell" },
+        { text: "Hãy đề xuất refactor mã nguồn trong dự án này để tối ưu hơn.", label: "Đề xuất refactor" },
+        { text: "Hãy vẽ sơ đồ lớp (Class Diagram bằng Mermaid) của dự án này.", label: "Vẽ sơ đồ lớp (Mermaid)" },
+        { text: "Hãy giải thích cấu trúc dự án và chức năng của từng file/thư mục.", label: "Giải thích cấu trúc" }
+      ];
+    }
+
+    return [
+      { text: "Hãy tóm tắt nội dung chính của tài liệu này.", label: "Tóm tắt nội dung" },
+      { text: "Hãy giải thích nội dung chi tiết từng chương của tài liệu này.", label: "Giải thích từng chương" },
+      { text: "Hãy trích xuất toàn bộ các công thức quan trọng, định lý từ tài liệu.", label: "Trích công thức" },
+      { text: "Hãy tạo danh sách các câu hỏi tự luận để ôn tập kiến thức từ tài liệu này.", label: "Tạo câu hỏi ôn tập" },
+      { text: "Hãy tạo 5 câu trắc nghiệm (quiz) kèm đáp án để kiểm tra kiến thức từ tài liệu.", label: "Tạo quiz học tập" },
+      { text: "Hãy tạo các cặp flashcard (Thuật ngữ - Định nghĩa) để học nhanh tài liệu.", label: "Tạo flashcard" }
+    ];
+  };
+
+  // Helper to render markdown and code blocks in AI responses
+  const renderMessageText = (text) => {
+    if (!text) return null;
+    
+    const parts = text.split(/(```[\s\S]*?```)/g);
+    
+    return parts.map((part, index) => {
+      if (part.startsWith("```") && part.endsWith("```")) {
+        const match = part.match(/```(\w*)\n([\s\S]*?)```/);
+        const language = match ? match[1] : "";
+        const code = match ? match[2] : part.slice(3, -3);
+        return (
+          <pre key={index} className="bg-slate-950 text-slate-100 font-mono text-[11px] p-3 rounded-lg overflow-x-auto my-2 border border-slate-800 text-left w-full select-text selection:bg-purple-500/30">
+            {language && <div className="text-[9px] uppercase text-purple-400 font-extrabold tracking-wider border-b border-white/5 pb-1 mb-1.5">{language}</div>}
+            <code>{code.trim()}</code>
+          </pre>
+        );
+      }
+      
+      const lines = part.split("\n");
+      return (
+        <div key={index} className="space-y-1.5 w-full text-left font-medium select-text selection:bg-purple-500/20">
+          {lines.map((line, lineIdx) => {
+            const isBullet = line.trim().startsWith("- ") || line.trim().startsWith("* ");
+            const cleanLine = isBullet ? line.trim().substring(2) : line;
+            
+            const segments = cleanLine.split(/(\*\*.*?\*\*)/g);
+            const formattedLine = segments.map((seg, segIdx) => {
+              if (seg.startsWith("**") && seg.endsWith("**")) {
+                return <strong key={segIdx} className="font-extrabold text-black dark:text-white">{seg.slice(2, -2)}</strong>;
+              }
+              return seg;
+            });
+            
+            if (isBullet) {
+              return (
+                <ul key={lineIdx} className="list-disc pl-5 my-0.5 space-y-1">
+                  <li className="leading-relaxed">{formattedLine}</li>
+                </ul>
+              );
+            }
+            
+            return <p key={lineIdx} className="leading-relaxed whitespace-pre-wrap">{formattedLine}</p>;
+          })}
+        </div>
+      );
+    });
   };
 
   const handleSendResetEmail = async () => {
@@ -2336,7 +2462,7 @@ export default function Home() {
         {activeTab === "AI Assistant" && (
           <div className="flex-1 flex flex-col justify-between py-2 select-none h-full animate-in fade-in-50 duration-300 max-w-4xl w-full mx-auto">
             {/* Minimal Header */}
-            <header className="flex flex-col gap-1 text-left select-none border-b border-slate-100 dark:border-slate-800/60 pb-4">
+            <header className="flex flex-col gap-1 text-left select-none border-b border-slate-100 dark:border-slate-800/60 pb-3">
               <div className="flex items-center gap-1.5 text-[9px] font-bold text-purple-600 dark:text-purple-400 uppercase tracking-widest">
                 <Sparkles className="w-3.5 h-3.5" />
                 <span>Trợ lý Nghiên cứu Khoa học & Học thuật AI</span>
@@ -2344,24 +2470,102 @@ export default function Home() {
               <h1 className="text-2xl font-black text-black dark:text-white mt-1">
                 AI Scholar Assistant
               </h1>
-              <p className="text-xs text-slate-450 mt-1 font-medium">Hệ thống phân tích bài luận, cấu trúc mã nguồn và tóm tắt thuật toán khoa học.</p>
+              <p className="text-xs text-slate-450 mt-0.5 font-medium">Hệ thống phân tích bài luận, cấu trúc mã nguồn và tóm tắt thuật toán khoa học.</p>
             </header>
 
-            {/* Chat Messages flow (Perplexity-like simplicity) */}
-            <div className="flex-1 overflow-y-auto my-5 bg-white/30 dark:bg-[#0f111a]/30 backdrop-blur-xl border border-slate-200/30 dark:border-white/5 rounded-xl p-4.5 flex flex-col gap-4.5 custom-scrollbar shadow-inner">
+            {/* AI Modes Selector */}
+            <div className="mt-3.5 mb-2">
+              <span className="text-[9px] font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-widest block mb-1.5 text-left">Chế độ hoạt động AI</span>
+              <div className="grid grid-cols-3 md:grid-cols-6 gap-2 w-full">
+                {[
+                  { id: "Scholar", label: "Scholar", desc: "Học thuật, dễ hiểu", icon: "BookOpen" },
+                  { id: "Research", label: "Research", desc: "Tìm kiếm học thuật", icon: "Search" },
+                  { id: "Coding", label: "Coding", desc: "Tạo & Debug code", icon: "Code" },
+                  { id: "Summarize", label: "Summarize", desc: "Tóm tắt nội dung", icon: "FileText" },
+                  { id: "Translation", label: "Translation", desc: "Dịch chính xác", icon: "Globe" },
+                  { id: "General AI", label: "General AI", desc: "Trò chuyện & Hỗ trợ", icon: "Bot" }
+                ].map((mode) => {
+                  const isActive = aiMode === mode.id;
+                  return (
+                    <button
+                      key={mode.id}
+                      type="button"
+                      onClick={() => setAiMode(mode.id)}
+                      className={`flex flex-col items-center justify-center p-2 rounded-xl border transition-all cursor-pointer text-center relative ${
+                        isActive 
+                          ? "bg-purple-600 text-white border-purple-600 shadow-md shadow-purple-500/25 scale-[1.02]" 
+                          : "bg-white/55 dark:bg-slate-900/55 border-slate-200/50 dark:border-white/5 text-slate-700 dark:text-slate-355 hover:bg-slate-100/80 dark:hover:bg-slate-800"
+                      }`}
+                    >
+                      {mode.icon === "BookOpen" && <BookOpen className={`w-4 h-4 mb-0.5 ${isActive ? "text-white" : "text-purple-500"}`} />}
+                      {mode.icon === "Search" && <Search className={`w-4 h-4 mb-0.5 ${isActive ? "text-white" : "text-blue-500"}`} />}
+                      {mode.icon === "Code" && <FileCode className={`w-4 h-4 mb-0.5 ${isActive ? "text-white" : "text-emerald-500"}`} />}
+                      {mode.icon === "FileText" && <FileText className={`w-4 h-4 mb-0.5 ${isActive ? "text-white" : "text-orange-500"}`} />}
+                      {mode.icon === "Globe" && <Globe className={`w-4 h-4 mb-0.5 ${isActive ? "text-white" : "text-indigo-500"}`} />}
+                      {mode.icon === "Bot" && <Bot className={`w-4 h-4 mb-0.5 ${isActive ? "text-white" : "text-slate-500"}`} />}
+                      <span className="text-[10px] font-black tracking-tight">{mode.label}</span>
+                      <span className="text-[7.5px] opacity-75 mt-0.5 whitespace-nowrap leading-none font-semibold">{mode.desc}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Web Search Controls Panel */}
+            <div className="flex flex-wrap gap-4 items-center bg-white/40 dark:bg-[#0f111a]/45 border border-slate-200/30 dark:border-white/5 rounded-xl px-4 py-2 mb-3 text-left">
+              <div className="flex items-center gap-1 text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mr-2">
+                <Globe className="w-3.5 h-3.5 text-purple-500" />
+                <span>Tìm kiếm Web & Học thuật</span>
+              </div>
+              
+              <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-700 dark:text-slate-350 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={useWeb}
+                  onChange={() => setUseWeb(!useWeb)}
+                  className="rounded border-slate-355 text-purple-650 focus:ring-purple-500 w-3.5 h-3.5 cursor-pointer"
+                />
+                <span>Tìm kiếm Web (Wikipedia)</span>
+              </label>
+
+              <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-700 dark:text-slate-355 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={useScholar}
+                  onChange={() => setUseScholar(!useScholar)}
+                  className="rounded border-slate-355 text-purple-650 focus:ring-purple-500 w-3.5 h-3.5 cursor-pointer"
+                />
+                <span>Nguồn học thuật (Scholar/Arxiv/Crossref)</span>
+              </label>
+
+              <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-700 dark:text-slate-355 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={deepResearch}
+                  onChange={() => setDeepResearch(!deepResearch)}
+                  className="rounded border-slate-355 text-purple-650 focus:ring-purple-500 w-3.5 h-3.5 cursor-pointer"
+                />
+                <span>Suy luận sâu (Deep Research)</span>
+              </label>
+            </div>
+
+            {/* Chat Messages flow */}
+            <div className="flex-1 overflow-y-auto my-3 bg-white/30 dark:bg-[#0f111a]/30 backdrop-blur-xl border border-slate-200/30 dark:border-white/5 rounded-xl p-4 flex flex-col gap-4 custom-scrollbar shadow-inner h-[380px]">
               {aiMessages.map((msg) => (
                 <div
                   key={msg.id}
-                  className={`flex flex-col max-w-[85%] rounded-xl p-4 text-xs leading-relaxed border transition-all duration-305 ${msg.sender === "ai"
-                    ? "bg-white/70 dark:bg-[#0f111a]/70 backdrop-blur-md border-slate-200/40 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.4)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] text-slate-800 dark:text-slate-200 self-start shadow-sm"
+                  className={`flex flex-col max-w-[85%] rounded-xl p-4 text-xs leading-relaxed border transition-all duration-300 ${msg.sender === "ai"
+                    ? "bg-white/75 dark:bg-[#0f111a]/75 backdrop-blur-md border-slate-200/40 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.4)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] text-slate-800 dark:text-slate-200 self-start shadow-sm"
                     : "bg-purple-600/10 dark:bg-purple-500/15 border-purple-500/20 dark:border-purple-400/20 text-purple-900 dark:text-purple-200 self-end shadow-[inset_0_1px_1px_rgba(255,255,255,0.15)]"
                     }`}
                 >
-                  <div className="flex items-center gap-1.5 mb-1.5 opacity-70">
+                  <div className="flex items-center gap-1.5 mb-1.5 opacity-70 select-none">
                     {msg.sender === "ai" ? (
                       <>
                         <Bot className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
-                        <span className="text-[9px] font-extrabold uppercase tracking-widest text-purple-700 dark:text-purple-300">Học giả AI (Scholar Core)</span>
+                        <span className="text-[9px] font-extrabold uppercase tracking-widest text-purple-700 dark:text-purple-300 flex-wrap">
+                          AI Scholar Assistant ({aiMode})
+                        </span>
                       </>
                     ) : (
                       <>
@@ -2370,13 +2574,13 @@ export default function Home() {
                         ) : (
                           <UserIcon className="w-3.5 h-3.5 text-purple-500" />
                         )}
-                        <span className="text-[9px] font-extrabold uppercase tracking-widest">
+                        <span className="text-[9px] font-extrabold uppercase tracking-widest text-purple-600 dark:text-purple-400">
                           {user?.role === "ADMIN" ? "Quản trị viên" : user?.role === "LECTURER" ? "Giảng viên" : "Học viên"}
                         </span>
                       </>
                     )}
                   </div>
-                  <p className="font-bold whitespace-pre-line leading-relaxed">{msg.text}</p>
+                  {renderMessageText(msg.text)}
                 </div>
               ))}
 
@@ -2389,28 +2593,24 @@ export default function Home() {
             </div>
 
             {/* Quick Suggestion Chips */}
-            <div className="flex flex-col gap-2 mb-4">
-              <span className="text-[9px] font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Đề xuất câu hỏi thảo luận</span>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                {[
-                  { text: "Giải thích về môn học Thiết kế Web (WED202c)", label: "Cấu trúc WED202c" },
-                  { text: "Tóm tắt thuật toán Dijkstra tìm đường đi ngắn nhất", label: "Giải thuật Dijkstra" },
-                  { text: "Tầm quan trọng của Đại số tuyến tính trong học máy", label: "Đại số tuyến tính & AI" }
-                ].map((item, idx) => (
+            <div className="flex flex-col gap-2 mb-3 text-left">
+              <span className="text-[9px] font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-wider block">Đề xuất câu hỏi & Phân tích chuyên sâu</span>
+              <div className="flex flex-wrap gap-2">
+                {getPromptChips().map((item, idx) => (
                   <button
                     key={idx}
                     onClick={() => handleSendChatMessage(item.text)}
-                    disabled={isAiTyping}
-                    className="flex items-center gap-2 p-3 rounded-lg border border-slate-200/30 dark:border-white/5 bg-white/45 dark:bg-[#0f111a]/45 backdrop-blur-md hover:bg-white/60 dark:hover:bg-[#0f111a]/65 active:scale-[0.98] transition-all cursor-pointer text-left text-xs font-bold text-slate-750 dark:text-slate-300 shadow-[inset_0_1px_1px_rgba(255,255,255,0.2)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]"
+                    disabled={isAiTyping || isParsingFile}
+                    className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg border border-slate-200/30 dark:border-white/5 bg-white/45 dark:bg-[#0f111a]/45 backdrop-blur-md hover:bg-white/60 dark:hover:bg-[#0f111a]/65 active:scale-[0.98] transition-all cursor-pointer text-xs font-bold text-slate-750 dark:text-slate-300 shadow-[inset_0_1px_1px_rgba(255,255,255,0.2)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] text-left"
                   >
                     <ChevronRight className="w-3.5 h-3.5 text-purple-500 shrink-0" />
-                    <span className="truncate">{item.label}</span>
+                    <span>{item.label}</span>
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* Perplexity-style Premium Chat Input */}
+            {/* Chat Input Container */}
             <div className="w-full relative select-none">
               <form
                 onSubmit={(e) => {
@@ -2419,47 +2619,80 @@ export default function Home() {
                 }}
                 className="relative flex flex-col gap-3 bg-white/65 dark:bg-[#0f111a]/70 backdrop-blur-xl border border-slate-200/40 dark:border-white/10 rounded-xl shadow-lg p-3.5 focus-within:ring-1 focus-within:ring-purple-500/50 shadow-[inset_0_1px_1px_rgba(255,255,255,0.3)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition-all"
               >
+                {/* Parse loader */}
+                {isParsingFile && (
+                  <div className="flex items-center gap-2 bg-purple-500/10 dark:bg-purple-900/20 border border-purple-500/20 rounded-lg p-2.5 text-xs text-purple-700 dark:text-purple-300 font-bold animate-pulse text-left animate-in fade-in slide-in-from-top-1 duration-200">
+                    <Bot className="w-4 h-4 text-purple-500 animate-spin" />
+                    <span>Hệ thống đang tải lên và trích xuất tài liệu học tập, vui lòng đợi...</span>
+                  </div>
+                )}
+
+                {/* Attached File Chip */}
+                {attachedFile && (
+                  <div className="flex items-center justify-between bg-purple-500/8 dark:bg-purple-500/12 border border-purple-500/15 rounded-lg px-3 py-2 animate-in fade-in zoom-in-95 duration-200">
+                    <div className="flex items-center gap-2 text-xs font-bold text-purple-900 dark:text-purple-300 text-left">
+                      {getFileIcon(attachedFile.type, "w-4 h-4")}
+                      <span className="truncate max-w-[320px]">{attachedFile.name}</span>
+                      <span className="text-[10px] text-purple-500 font-medium">({(attachedFile.size / 1024).toFixed(1)} KB)</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setAttachedFile(null)}
+                      className="p-1 text-purple-500 hover:text-purple-700 dark:hover:text-purple-355 hover:bg-purple-500/10 rounded-full transition-all cursor-pointer"
+                      title="Gỡ bỏ tài liệu"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+
                 {/* Input text */}
                 <div className="flex items-center gap-3">
                   <input
                     type="text"
-                    placeholder="Nhập câu hỏi học tập hoặc dán mã nguồn cần phân tích..."
+                    placeholder={attachedFile ? "Đang chat với tài liệu đính kèm... Hãy đặt câu hỏi bất kỳ." : "Nhập câu hỏi học tập hoặc đính kèm tài liệu cần phân tích..."}
                     value={chatInput}
                     onChange={(e) => setChatInput(e.target.value)}
-                    disabled={isAiTyping}
-                    className="flex-1 bg-transparent border-none outline-none text-xs placeholder:text-slate-400 text-slate-800 dark:text-slate-100 py-1"
+                    disabled={isAiTyping || isParsingFile}
+                    className="flex-1 bg-transparent border-none outline-none text-xs placeholder:text-slate-400 text-slate-805 dark:text-slate-100 py-1"
                   />
 
                   <button
                     type="submit"
-                    disabled={isAiTyping}
-                    className="p-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg flex items-center justify-center cursor-pointer hover:scale-105 active:scale-95 transition-all shadow-sm focus:outline-none"
+                    disabled={isAiTyping || isParsingFile}
+                    className="p-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg flex items-center justify-center cursor-pointer hover:scale-105 active:scale-95 transition-all shadow-sm focus:outline-none disabled:opacity-50"
                   >
                     <Send className="w-3.5 h-3.5" />
                   </button>
                 </div>
 
-                {/* Bottom Options inside Input box (Duolingo/Notion vibe) */}
+                {/* Bottom Options inside Input box */}
                 <div className="flex items-center justify-between border-t border-slate-100 dark:border-slate-800/60 pt-2.5 text-[10px] text-slate-400 font-bold">
                   <div className="flex items-center gap-4">
-                    <button type="button" className="flex items-center gap-1 hover:text-purple-600 transition-colors">
+                    <button 
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isParsingFile || isAiTyping}
+                      className="flex items-center gap-1 hover:text-purple-600 disabled:opacity-50 transition-colors cursor-pointer"
+                    >
                       <Paperclip className="w-3.5 h-3.5" /> Đính kèm tài liệu
                     </button>
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={handleAttachFileChange}
+                      accept=".pdf,.docx,.xlsx,.xls,.pptx,.zip,.png,.jpg,.jpeg,.webp,.txt,.json,.js,.py,.md"
+                      className="hidden"
+                    />
 
-                    {/* Copilot toggle */}
-                    <div className="flex items-center gap-1.5 border-l border-slate-200 dark:border-slate-800 pl-4">
-                      <input
-                        type="checkbox"
-                        id="copilot-mode"
-                        checked={useCopilotMode}
-                        onChange={() => setUseCopilotMode(!useCopilotMode)}
-                        className="rounded border-slate-300 text-purple-600 focus:ring-purple-500 w-3 h-3 cursor-pointer"
-                      />
-                      <label htmlFor="copilot-mode" className="cursor-pointer select-none hover:text-purple-600">Copilot (Lập luận sâu)</label>
-                    </div>
+                    {attachedFile && (
+                      <span className="text-purple-600 dark:text-purple-400 border-l border-slate-200 dark:border-slate-800 pl-4 uppercase tracking-widest text-[8.5px]">
+                        🔒 Chỉ chat với tài liệu
+                      </span>
+                    )}
                   </div>
 
-                  <span>AI Study Scholar v2.0</span>
+                  <span>AI Study Scholar v3.0</span>
                 </div>
               </form>
             </div>
