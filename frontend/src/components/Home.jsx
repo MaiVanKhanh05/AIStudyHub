@@ -2963,6 +2963,7 @@ export default function Home() {
               </form>
             </div>
           </div>
+        )}
 
 
         {/* ── SCREEN 4: COMMUNITY ── */}
