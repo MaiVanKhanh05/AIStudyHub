@@ -2741,24 +2741,6 @@ export default function Home() {
               )}
             </div>
 
-            {/* Quick Suggestion Chips */}
-            <div className="flex flex-col gap-2 mb-3 text-left">
-              <span className="text-[9px] font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-wider block">Đề xuất câu hỏi & Phân tích chuyên sâu</span>
-              <div className="flex flex-wrap gap-2">
-                {getPromptChips().map((item, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => handleSendChatMessage(item.text)}
-                    disabled={isAiTyping || isParsingFile}
-                    className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg border border-slate-200/30 dark:border-white/5 bg-white/45 dark:bg-[#0f111a]/45 backdrop-blur-md hover:bg-white/60 dark:hover:bg-[#0f111a]/65 active:scale-[0.98] transition-all cursor-pointer text-xs font-bold text-slate-755 dark:text-slate-300 shadow-[inset_0_1px_1px_rgba(255,255,255,0.2)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] text-left"
-                  >
-                    <ChevronRight className="w-3.5 h-3.5 text-purple-500 shrink-0" />
-                    <span>{item.label}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
             {/* Chat Input Container matching reference layout */}
             <div className="w-full relative select-none">
               <form
@@ -2768,6 +2750,39 @@ export default function Home() {
                 }}
                 className="relative flex flex-col gap-3 bg-white dark:bg-[#0f111a] border border-slate-200 focus-within:border-[#8B5CF6] focus-within:ring-1 focus-within:ring-purple-500/20 rounded-2xl shadow-sm focus-within:shadow-md transition-all p-3.5"
               >
+                {/* Staged File Chips Row - NOW rendered at the top of the search bar */}
+                {attachedFiles.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 dark:border-slate-850 pb-2.5 text-[10px] text-slate-400 font-bold select-none text-left animate-in fade-in slide-in-from-top-1 duration-200">
+                    {/* Purple sparks icon */}
+                    <Sparkles className="w-3.5 h-3.5 text-[#8B5CF6] shrink-0" />
+
+                    {attachedFiles.map((file) => (
+                      <div key={file.id} className={`flex items-center gap-1.5 px-2 py-0.5 rounded-lg border text-[9.5px] font-extrabold select-none animate-in zoom-in-95 duration-155 ${
+                        file.type === "PDF"
+                          ? "bg-rose-50 border-rose-100 text-rose-700 dark:bg-rose-950/20 dark:border-rose-900/30 dark:text-rose-400"
+                          : file.type === "ZIP"
+                          ? "bg-amber-50 border-amber-100 text-amber-700 dark:bg-amber-950/20 dark:border-amber-900/30 dark:text-amber-400"
+                          : file.type === "IMAGE" || file.type === "PNG" || file.type === "JPG" || file.type === "JPEG"
+                          ? "bg-emerald-50 border-emerald-100 text-emerald-700 dark:bg-emerald-950/20 dark:border-emerald-900/30 dark:text-emerald-400"
+                          : "bg-blue-50 border-blue-100 text-blue-700 dark:bg-blue-950/20 dark:border-blue-900/30 dark:text-blue-400"
+                      }`}>
+                        {getFileIcon(file.type, "w-3 h-3 shrink-0")}
+                        <span className="max-w-[120px] truncate" title={file.name}>{file.name}</span>
+                        <button
+                          type="button"
+                          onClick={() => setAttachedFiles((prev) => prev.filter((f) => f.id !== file.id))}
+                          className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-355 ml-0.5 p-0.5 rounded-full hover:bg-black/5 cursor-pointer"
+                          title="Xóa tệp đính kèm"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))}
+
+                    <span className="ml-auto text-[9px] text-slate-450">AI Study Scholar v3.0</span>
+                  </div>
+                )}
+
                 {/* File parsing state indicator */}
                 {isParsingFile && (
                   <div className="flex items-center gap-2 bg-purple-500/10 dark:bg-purple-900/20 border border-purple-500/20 rounded-lg p-2.5 text-xs text-purple-700 dark:text-purple-300 font-bold animate-pulse text-left animate-in fade-in slide-in-from-top-1 duration-200">
@@ -2871,16 +2886,6 @@ export default function Home() {
                     multiple
                   />
 
-                  {/* Voice Button */}
-                  <button
-                    type="button"
-                    onClick={() => toast.info("Tính năng thoại bằng giọng nói sẽ sớm ra mắt!")}
-                    className="w-8 h-8 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-900 text-slate-450 hover:text-purple-600 dark:hover:text-purple-400 flex items-center justify-center cursor-pointer transition-colors shrink-0"
-                    title="Ghi âm câu hỏi"
-                  >
-                    <Mic className="w-4.5 h-4.5" />
-                  </button>
-
                   {/* Send Button */}
                   <button
                     type="submit"
@@ -2890,39 +2895,6 @@ export default function Home() {
                     <Send className="w-3.5 h-3.5 text-white" />
                   </button>
                 </div>
-
-                {/* Staged File Chips & Status Bottom Row - ONLY render when a file is attached! */}
-                {attachedFiles.length > 0 && (
-                  <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 dark:border-slate-850 pt-2.5 text-[10px] text-slate-400 font-bold select-none text-left animate-in fade-in slide-in-from-top-1 duration-200">
-                    {/* Purple sparks icon */}
-                    <Sparkles className="w-3.5 h-3.5 text-[#8B5CF6] shrink-0" />
-
-                    {attachedFiles.map((file) => (
-                      <div key={file.id} className={`flex items-center gap-1.5 px-2 py-0.5 rounded-lg border text-[9.5px] font-extrabold select-none animate-in zoom-in-95 duration-155 ${
-                        file.type === "PDF"
-                          ? "bg-rose-50 border-rose-100 text-rose-700 dark:bg-rose-950/20 dark:border-rose-900/30 dark:text-rose-400"
-                          : file.type === "ZIP"
-                          ? "bg-amber-50 border-amber-100 text-amber-700 dark:bg-amber-950/20 dark:border-amber-900/30 dark:text-amber-400"
-                          : file.type === "IMAGE" || file.type === "PNG" || file.type === "JPG" || file.type === "JPEG"
-                          ? "bg-emerald-50 border-emerald-100 text-emerald-700 dark:bg-emerald-950/20 dark:border-emerald-900/30 dark:text-emerald-400"
-                          : "bg-blue-50 border-blue-100 text-blue-700 dark:bg-blue-950/20 dark:border-blue-900/30 dark:text-blue-400"
-                      }`}>
-                        {getFileIcon(file.type, "w-3 h-3 shrink-0")}
-                        <span className="max-w-[120px] truncate" title={file.name}>{file.name}</span>
-                        <button
-                          type="button"
-                          onClick={() => setAttachedFiles((prev) => prev.filter((f) => f.id !== file.id))}
-                          className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-355 ml-0.5 p-0.5 rounded-full hover:bg-black/5 cursor-pointer"
-                          title="Xóa tệp đính kèm"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      </div>
-                    ))}
-
-                    <span className="ml-auto text-[9px] text-slate-450">AI Study Scholar v3.0</span>
-                  </div>
-                )}
               </form>
             </div>
           </div>
