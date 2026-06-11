@@ -80,3 +80,11 @@ export const loginOrRegisterGoogleUser = async (email, fullName) => {
         throw error;
     }
 };
+
+export const searchUsers = async (query) => {
+    try {
+        return await userRepository.searchUsers(query);
+    } catch (error) {
+        throw error;
+    }
+};

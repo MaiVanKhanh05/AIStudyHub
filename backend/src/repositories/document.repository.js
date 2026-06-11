@@ -89,7 +89,7 @@ export const createDocument = async (docData) => {
              (user_id, subject_code, title, description, file_url, file_size, file_type, visibility) 
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8) 
              RETURNING *`,
-            [user_id, subject_code, title, description, file_url, file_size, file_type, visibility || "PRIVATE"]
+            [user_id, subject_code, title, description, file_url, file_size, file_type, visibility || "RESTRICTED"]
         );
         return rows[0] ? new Document(rows[0]) : null;
     } catch (error) {
@@ -99,11 +99,11 @@ export const createDocument = async (docData) => {
 };
 
 // Delete a document from the database (restricted to owner)
-export const deleteDocument = async (id, userId) => {
+export const deleteDocument = async (id) => {
     try {
         const { rowCount } = await pool.query(
-            "DELETE FROM document WHERE document_id = $1 AND user_id = $2",
-            [id, userId]
+            "DELETE FROM document WHERE document_id = $1",
+            [id]
         );
         return rowCount > 0;
     } catch (error) {
@@ -174,12 +174,15 @@ export const getCommunityDocuments = async (userId = null) => {
     }
 };
 
-export const updateDocumentVisibility = async (documentId, userId, visibility, description) => {
+export const updateDocumentVisibility = async (documentId, visibility, description = null) => {
     try {
-        const { rows } = await pool.query(
-            "UPDATE document SET visibility = $1, description = $2 WHERE document_id = $3 AND user_id = $4 RETURNING *",
-            [visibility, description, documentId, userId]
-        );
+        const queryStr = description !== null
+            ? "UPDATE document SET visibility = $1, description = $2 WHERE document_id = $3 RETURNING *"
+            : "UPDATE document SET visibility = $1 WHERE document_id = $2 RETURNING *";
+        const queryParams = description !== null
+            ? [visibility, description, documentId]
+            : [visibility, documentId];
+        const { rows } = await pool.query(queryStr, queryParams);
         return rows[0] ? new Document(rows[0]) : null;
     } catch (error) {
         console.error("Error updating document visibility:", error);

@@ -39,3 +39,36 @@ export const createUser = async (email, hashedPassword, fullName = null) => {
         throw error;
     }
 };
+
+export const findUserById = async (userId) => {
+    try {
+        const { rows } = await pool.query(
+            "SELECT user_id, email, first_name, last_name, avatar_url, role, status FROM users WHERE user_id = $1",
+            [userId]
+        );
+        return rows[0] || null;
+    } catch (error) {
+        console.error("Error fetching user by ID:", error);
+        throw error;
+    }
+};
+
+export const searchUsers = async (query) => {
+    try {
+        const sqlQuery = `%${query.trim().toLowerCase()}%`;
+        const { rows } = await pool.query(
+            `SELECT user_id, email, first_name, last_name, avatar_url, role
+             FROM users
+             WHERE LOWER(user_id) LIKE $1 
+                OR LOWER(email) LIKE $1 
+                OR LOWER(first_name) LIKE $1 
+                OR LOWER(last_name) LIKE $1
+             LIMIT 10`,
+            [sqlQuery]
+        );
+        return rows;
+    } catch (error) {
+        console.error("Error searching users in repository:", error);
+        throw error;
+    }
+};
