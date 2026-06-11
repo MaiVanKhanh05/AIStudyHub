@@ -59,7 +59,8 @@ export async function uploadTempFile(req, res) {
       if (!hasNullBytes) {
         extractedText = req.file.buffer.toString("utf8");
       } else {
-        return res.status(400).json({ error: `Định dạng tệp ${ext} không được hỗ trợ.` });
+        // Gracefully support other binary formats by acknowledging their upload in the context
+        extractedText = `[Đã đính kèm tệp nhị phân: ${originalName} (Kích thước: ${(req.file.size / 1024).toFixed(1)} KB). Hệ thống đã ghi nhận tệp nhị phân này làm ngữ cảnh cuộc trò chuyện.]`;
       }
     }
 
