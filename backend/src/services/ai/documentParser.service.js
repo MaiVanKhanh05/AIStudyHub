@@ -1,8 +1,6 @@
 import fs from "fs";
 import path from "path";
-import { createRequire } from "module";
-const require = createRequire(import.meta.url);
-const pdf = require("pdf-parse");
+import { PDFParse } from "pdf-parse";
 import mammoth from "mammoth";
 import xlsx from "xlsx";
 import StreamZip from "node-stream-zip";
@@ -43,7 +41,8 @@ function extractTextFromXml(obj) {
 
 // 1. PDF Parser
 export async function parsePDF(buffer) {
-  const data = await pdf(buffer);
+  const parser = new PDFParse({ data: buffer });
+  const data = await parser.getText();
   return data.text || "";
 }
 

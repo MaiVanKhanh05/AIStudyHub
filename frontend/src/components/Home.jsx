@@ -450,7 +450,7 @@ export default function Home() {
   const [useWeb, setUseWeb] = useState(false);
   const [useScholar, setUseScholar] = useState(false);
   const [deepResearch, setDeepResearch] = useState(false);
-  const [attachedFile, setAttachedFile] = useState(null);
+  const [attachedFiles, setAttachedFiles] = useState([]);
   const [isParsingFile, setIsParsingFile] = useState(false);
   const fileInputRef = useRef(null);
   const [showToolMenu, setShowToolMenu] = useState(false);
@@ -1023,7 +1023,9 @@ export default function Home() {
         useWeb: useWeb,
         useScholar: useScholar,
         deepResearch: deepResearch,
-        documentContext: attachedFile ? attachedFile.content : ""
+        documentContext: attachedFiles.length > 0
+          ? attachedFiles.map(file => `--- TẬP TIN: ${file.name} ---\n${file.content}`).join("\n\n")
+          : ""
       };
 
       const res = await axios.post("http://localhost:5000/api/chat", payload, {
@@ -1059,34 +1061,66 @@ export default function Home() {
 
   // Handle temporary file attachment
   const handleAttachFileChange = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    if (files.length > 10) {
+      toast.error("Bạn chỉ có thể tải lên tối đa 10 tệp mỗi lần.");
+      e.target.value = "";
+      return;
+    }
+
+    if (attachedFiles.length + files.length > 10) {
+      toast.error("Tổng số tệp đính kèm không được vượt quá 10 tệp.");
+      e.target.value = "";
+      return;
+    }
 
     setIsParsingFile(true);
-    const formData = new FormData();
-    formData.append("file", file);
+    const token = localStorage.getItem("token") || sessionStorage.getItem("token");
 
     try {
-      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-      const res = await axios.post("http://localhost:5000/api/chat/upload-temp", formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-          "Authorization": `Bearer ${token}`
-        }
-      });
+      const parsedFiles = [];
+      const errors = [];
 
-      setAttachedFile({
-        name: res.data.fileName,
-        size: res.data.fileSize,
-        type: res.data.fileType,
-        content: res.data.extractedText
-      });
-      
-      toast.success(`Tải lên và phân tích tệp "${res.data.fileName}" thành công!`);
+      await Promise.all(
+        files.map(async (file) => {
+          try {
+            const formData = new FormData();
+            formData.append("file", file);
+
+            const res = await axios.post("http://localhost:5000/api/chat/upload-temp", formData, {
+              headers: {
+                "Content-Type": "multipart/form-data",
+                "Authorization": `Bearer ${token}`
+              }
+            });
+
+            parsedFiles.push({
+              id: Date.now() + Math.random(),
+              name: res.data.fileName,
+              size: res.data.fileSize,
+              type: res.data.fileType,
+              content: res.data.extractedText
+            });
+          } catch (err) {
+            console.error(`Failed to upload ${file.name}:`, err);
+            const errMsg = err.response?.data?.error || err.message || "Không thể tải lên.";
+            errors.push(`${file.name}: ${errMsg}`);
+          }
+        })
+      );
+
+      if (parsedFiles.length > 0) {
+        setAttachedFiles((prev) => [...prev, ...parsedFiles]);
+      }
+
+      if (errors.length > 0) {
+        toast.error(`Một số tệp tải lên thất bại:\n${errors.join("\n")}`);
+      }
     } catch (err) {
       console.error("File parsing failed:", err);
-      const errMsg = err.response?.data?.error || err.message || "Không thể tải lên và xử lý tệp.";
-      toast.error(`Phân tích tệp thất bại: ${errMsg}`);
+      toast.error("Đã xảy ra lỗi khi xử lý tệp.");
     } finally {
       setIsParsingFile(false);
       e.target.value = "";
@@ -1095,7 +1129,7 @@ export default function Home() {
 
   // Get prompt chips based on file attachment
   const getPromptChips = () => {
-    if (!attachedFile) {
+    if (attachedFiles.length === 0) {
       return [
         { text: "Giải thích về môn học Thiết kế Web (WED202c)", label: "Cấu trúc WED202c" },
         { text: "Tóm tắt thuật toán Dijkstra tìm đường đi ngắn nhất", label: "Giải thuật Dijkstra" },
@@ -1103,7 +1137,8 @@ export default function Home() {
       ];
     }
 
-    if (attachedFile.type === "ZIP") {
+    const hasZip = attachedFiles.some(file => file.type === "ZIP");
+    if (hasZip) {
       return [
         { text: "Hãy phân tích kiến trúc hệ thống của dự án mã nguồn này.", label: "Phân tích kiến trúc" },
         { text: "Hãy tìm kiếm và phát hiện các code smell trong dự án này.", label: "Phát hiện code smell" },
@@ -2789,67 +2824,29 @@ export default function Home() {
                         <button
                           type="button"
                           onClick={() => setUseWeb(!useWeb)}
-                          className={`w-full flex items-center justify-between p-2 rounded-xl text-xs transition-colors cursor-pointer ${useWeb ? 'bg-purple-50/50 dark:bg-purple-950/20' : ''}`}
+                          className={`w-full flex items-center gap-2.5 p-2 rounded-xl text-xs transition-colors cursor-pointer ${useWeb ? 'bg-purple-50/50 dark:bg-purple-950/20' : ''}`}
                         >
-                          <div className="flex items-center gap-2.5">
-                            <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${useWeb ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30' : 'bg-slate-50 text-slate-500 dark:bg-slate-800'}`}>
-                              <Globe className="w-4 h-4" />
-                            </div>
-                            <div className="flex flex-col text-left">
-                              <span className="font-bold text-slate-850 dark:text-slate-200 leading-snug">Search Web</span>
-                              <span className="text-[9.5px] text-slate-400 dark:text-slate-500 font-medium">Tìm thông tin trên Internet</span>
-                            </div>
+                          <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${useWeb ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30' : 'bg-slate-50 text-slate-500 dark:bg-slate-800'}`}>
+                            <Globe className="w-4 h-4" />
                           </div>
-                          <input
-                            type="checkbox"
-                            checked={useWeb}
-                            onChange={() => setUseWeb(!useWeb)}
-                            className="rounded border-slate-300 text-purple-600 focus:ring-purple-500 w-3.5 h-3.5 cursor-pointer"
-                          />
+                          <div className="flex flex-col text-left">
+                            <span className="font-bold text-slate-850 dark:text-slate-200 leading-snug">Search Web</span>
+                            <span className="text-[9.5px] text-slate-400 dark:text-slate-500 font-medium">Tìm thông tin trên Internet</span>
+                          </div>
                         </button>
 
                         <button
                           type="button"
                           onClick={() => setUseScholar(!useScholar)}
-                          className={`w-full flex items-center justify-between p-2 rounded-xl text-xs transition-colors cursor-pointer mt-1.5 ${useScholar ? 'bg-purple-50/50 dark:bg-purple-950/20' : ''}`}
+                          className={`w-full flex items-center gap-2.5 p-2 rounded-xl text-xs transition-colors cursor-pointer mt-1.5 ${useScholar ? 'bg-purple-50/50 dark:bg-purple-950/20' : ''}`}
                         >
-                          <div className="flex items-center gap-2.5">
-                            <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${useScholar ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30' : 'bg-slate-50 text-slate-500 dark:bg-slate-800'}`}>
-                              <BookOpen className="w-4 h-4" />
-                            </div>
-                            <div className="flex flex-col text-left">
-                              <span className="font-bold text-slate-850 dark:text-slate-200 leading-snug">Academic Search</span>
-                              <span className="text-[9.5px] text-slate-400 dark:text-slate-500 font-medium">Tìm nguồn học thuật uy tín</span>
-                            </div>
+                          <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${useScholar ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30' : 'bg-slate-50 text-slate-500 dark:bg-slate-800'}`}>
+                            <BookOpen className="w-4 h-4" />
                           </div>
-                          <input
-                            type="checkbox"
-                            checked={useScholar}
-                            onChange={() => setUseScholar(!useScholar)}
-                            className="rounded border-slate-300 text-purple-600 focus:ring-purple-500 w-3.5 h-3.5 cursor-pointer"
-                          />
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => setDeepResearch(!deepResearch)}
-                          className={`w-full flex items-center justify-between p-2 rounded-xl text-xs transition-colors cursor-pointer mt-1.5 ${deepResearch ? 'bg-purple-50/50 dark:bg-purple-950/20' : ''}`}
-                        >
-                          <div className="flex items-center gap-2.5">
-                            <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${deepResearch ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30' : 'bg-slate-50 text-slate-500 dark:bg-slate-800'}`}>
-                              <Search className="w-4 h-4" />
-                            </div>
-                            <div className="flex flex-col text-left">
-                              <span className="font-bold text-slate-850 dark:text-slate-200 leading-snug">Deep Research</span>
-                              <span className="text-[9.5px] text-slate-400 dark:text-slate-500 font-medium">Nghiên cứu lập luận sâu</span>
-                            </div>
+                          <div className="flex flex-col text-left">
+                            <span className="font-bold text-slate-850 dark:text-slate-200 leading-snug">Academic Search</span>
+                            <span className="text-[9.5px] text-slate-400 dark:text-slate-500 font-medium">Tìm nguồn học thuật uy tín</span>
                           </div>
-                          <input
-                            type="checkbox"
-                            checked={deepResearch}
-                            onChange={() => setDeepResearch(!deepResearch)}
-                            className="rounded border-slate-300 text-purple-600 focus:ring-purple-500 w-3.5 h-3.5 cursor-pointer"
-                          />
                         </button>
                       </div>
                     </div>
@@ -2871,6 +2868,7 @@ export default function Home() {
                     ref={fileInputRef}
                     onChange={handleAttachFileChange}
                     className="hidden"
+                    multiple
                   />
 
                   {/* Voice Button */}
@@ -2894,31 +2892,33 @@ export default function Home() {
                 </div>
 
                 {/* Staged File Chips & Status Bottom Row - ONLY render when a file is attached! */}
-                {attachedFile && (
-                  <div className="flex items-center gap-3 border-t border-slate-100 dark:border-slate-850 pt-2.5 text-[10px] text-slate-400 font-bold select-none text-left animate-in fade-in slide-in-from-top-1 duration-200">
+                {attachedFiles.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 dark:border-slate-850 pt-2.5 text-[10px] text-slate-400 font-bold select-none text-left animate-in fade-in slide-in-from-top-1 duration-200">
                     {/* Purple sparks icon */}
                     <Sparkles className="w-3.5 h-3.5 text-[#8B5CF6] shrink-0" />
 
-                    <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-lg border text-[9.5px] font-extrabold select-none animate-in zoom-in-95 duration-155 ${
-                      attachedFile.type === "PDF"
-                        ? "bg-rose-50 border-rose-100 text-rose-700 dark:bg-rose-950/20 dark:border-rose-900/30 dark:text-rose-400"
-                        : attachedFile.type === "ZIP"
-                        ? "bg-amber-50 border-amber-100 text-amber-700 dark:bg-amber-950/20 dark:border-amber-900/30 dark:text-amber-400"
-                        : attachedFile.type === "IMAGE" || attachedFile.type === "PNG" || attachedFile.type === "JPG" || attachedFile.type === "JPEG"
-                        ? "bg-emerald-50 border-emerald-100 text-emerald-700 dark:bg-emerald-950/20 dark:border-emerald-900/30 dark:text-emerald-400"
-                        : "bg-blue-50 border-blue-100 text-blue-700 dark:bg-blue-950/20 dark:border-blue-900/30 dark:text-blue-400"
-                    }`}>
-                      {getFileIcon(attachedFile.type, "w-3 h-3 shrink-0")}
-                      <span className="max-w-[120px] truncate">{attachedFile.name}</span>
-                      <button
-                        type="button"
-                        onClick={() => setAttachedFile(null)}
-                        className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-355 ml-0.5 p-0.5 rounded-full hover:bg-black/5 cursor-pointer"
-                        title="Xóa tệp đính kèm"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </div>
+                    {attachedFiles.map((file) => (
+                      <div key={file.id} className={`flex items-center gap-1.5 px-2 py-0.5 rounded-lg border text-[9.5px] font-extrabold select-none animate-in zoom-in-95 duration-155 ${
+                        file.type === "PDF"
+                          ? "bg-rose-50 border-rose-100 text-rose-700 dark:bg-rose-950/20 dark:border-rose-900/30 dark:text-rose-400"
+                          : file.type === "ZIP"
+                          ? "bg-amber-50 border-amber-100 text-amber-700 dark:bg-amber-950/20 dark:border-amber-900/30 dark:text-amber-400"
+                          : file.type === "IMAGE" || file.type === "PNG" || file.type === "JPG" || file.type === "JPEG"
+                          ? "bg-emerald-50 border-emerald-100 text-emerald-700 dark:bg-emerald-950/20 dark:border-emerald-900/30 dark:text-emerald-400"
+                          : "bg-blue-50 border-blue-100 text-blue-700 dark:bg-blue-950/20 dark:border-blue-900/30 dark:text-blue-400"
+                      }`}>
+                        {getFileIcon(file.type, "w-3 h-3 shrink-0")}
+                        <span className="max-w-[120px] truncate" title={file.name}>{file.name}</span>
+                        <button
+                          type="button"
+                          onClick={() => setAttachedFiles((prev) => prev.filter((f) => f.id !== file.id))}
+                          className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-355 ml-0.5 p-0.5 rounded-full hover:bg-black/5 cursor-pointer"
+                          title="Xóa tệp đính kèm"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))}
 
                     <span className="ml-auto text-[9px] text-slate-450">AI Study Scholar v3.0</span>
                   </div>
