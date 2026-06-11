@@ -46,7 +46,11 @@ import {
   Phone,
   Pencil,
   Save,
-  Heart
+  Heart,
+  Copy,
+  ThumbsUp,
+  ThumbsDown,
+  Mic
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -82,6 +86,63 @@ function getFileType(url = "") {
   if (ext === "txt") return "txt";
   return "other";
 }
+
+function extractSources(text) {
+  if (!text) return { cleanText: "", sources: [] };
+  
+  const index = text.indexOf("📚 **Nguồn tham khảo**");
+  const indexAlt = text.indexOf("📚 Nguồn tham khảo");
+  const targetIndex = index !== -1 ? index : indexAlt;
+  
+  if (targetIndex === -1) {
+    return { cleanText: text, sources: [] };
+  }
+  
+  const mainText = text.substring(0, targetIndex).trim();
+  const sourcesText = text.substring(targetIndex);
+  
+  const sources = [];
+  const lines = sourcesText.split("\n");
+  for (const line of lines) {
+    const match = line.match(/^\[(\d+)\]\s+(.*?)\s+-\s+\*(.*?)\*(?:\s+\((.*?)\))?$/);
+    if (match) {
+      sources.push({
+        index: match[1],
+        title: match[2].trim(),
+        source: match[3].trim(),
+        url: match[4] ? match[4].trim() : ""
+      });
+    }
+  }
+  
+  return { cleanText: mainText, sources };
+}
+
+const getSourceIcon = (sourceName) => {
+  const name = sourceName.toLowerCase();
+  if (name.includes("google")) {
+    return <span className="w-4 h-4 flex items-center justify-center rounded bg-rose-100 text-rose-600 dark:bg-rose-950/45 dark:text-rose-405 font-black text-[9px] shrink-0 select-none">G</span>;
+  }
+  if (name.includes("acm")) {
+    return <span className="w-4 h-4 flex items-center justify-center rounded bg-blue-100 text-blue-600 dark:bg-blue-950/45 dark:text-blue-405 font-black text-[9px] shrink-0 select-none">A</span>;
+  }
+  if (name.includes("w3schools")) {
+    return <span className="w-4 h-4 flex items-center justify-center rounded bg-emerald-100 text-emerald-600 dark:bg-emerald-950/45 dark:text-emerald-405 font-black text-[9px] shrink-0 select-none">W</span>;
+  }
+  if (name.includes("mozilla") || name.includes("mdn")) {
+    return <span className="w-4 h-4 flex items-center justify-center rounded bg-orange-100 text-orange-600 dark:bg-orange-950/45 dark:text-orange-405 font-black text-[9px] shrink-0 select-none">M</span>;
+  }
+  if (name.includes("wikipedia")) {
+    return <span className="w-4 h-4 flex items-center justify-center rounded bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-350 font-black text-[9px] shrink-0 select-none">W</span>;
+  }
+  if (name.includes("arxiv")) {
+    return <span className="w-4 h-4 flex items-center justify-center rounded bg-indigo-100 text-indigo-600 dark:bg-indigo-950/45 dark:text-indigo-405 font-black text-[9px] shrink-0 select-none">X</span>;
+  }
+  if (name.includes("crossref")) {
+    return <span className="w-4 h-4 flex items-center justify-center rounded bg-purple-100 text-purple-600 dark:bg-purple-950/45 dark:text-purple-405 font-black text-[9px] shrink-0 select-none">C</span>;
+  }
+  return <Globe className="w-3.5 h-3.5 text-purple-500 shrink-0" />;
+};
 
 const formatToDDMMYYYY = (dateString) => {
   if (!dateString) return "Chưa cập nhật";
@@ -392,6 +453,20 @@ export default function Home() {
   const [attachedFile, setAttachedFile] = useState(null);
   const [isParsingFile, setIsParsingFile] = useState(false);
   const fileInputRef = useRef(null);
+  const [showToolMenu, setShowToolMenu] = useState(false);
+  const toolMenuRef = useRef(null);
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (toolMenuRef.current && !toolMenuRef.current.contains(event.target)) {
+        setShowToolMenu(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
   // Change Password States
   const [currentPassword, setCurrentPassword] = useState("");
@@ -2416,178 +2491,202 @@ export default function Home() {
 
               <div className="w-full flex flex-col space-y-6">
                 {bookmarkedDocs.length === 0 ? (
-                  <div className="text-center py-20 bg-white/30 dark:bg-[#0f111a]/30 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 p-8">
-                    <div className="text-5xl mb-4 text-slate-300 dark:text-slate-600">
-                      <Heart className="w-16 h-16 mx-auto opacity-50" />
-                    </div>
-                    <p className="text-sm font-bold text-slate-850 dark:text-slate-200 m-0">
-                      Bạn chưa yêu thích tài liệu nào
-                    </p>
-                    <p className="text-xs text-slate-450 mt-2 m-0">
-                      Hãy quay lại cộng đồng và thả tim những tài liệu hữu ích nhé.
-                    </p>
-                  </div>
-                ) : (
-                  <>
-                    <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 xl:grid-cols-3 w-full">
-                      {bookmarkedDocs.slice((bookmarkPage - 1) * 9, bookmarkPage * 9).map((doc) => (
-                        <DocumentCard
-                          key={doc.document_id || doc.id}
-                          doc={{ ...doc, isBookmarked: true }}
-                          isPersonal={false}
-                          isMyShared={false}
-                        />
-                      ))}
-                    </div>
-                    
-                    {Math.ceil(bookmarkedDocs.length / 9) > 1 && (
-                      <div className="mt-6 flex justify-center">
-                        <Pagination
-                          page={bookmarkPage}
-                          totalPages={Math.ceil(bookmarkedDocs.length / 9)}
-                          setPage={setBookmarkPage}
-                        />
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-            </section>
-          </div>
-        )}
-
-
-
         {/* ── SCREEN 3: AI ASSISTANT VIEW (Academic Study Chat) ── */}
         {activeTab === "AI Assistant" && (
           <div className="flex-1 flex flex-col justify-between py-2 select-none h-full animate-in fade-in-50 duration-300 max-w-4xl w-full mx-auto">
-            {/* Minimal Header */}
-            <header className="flex flex-col gap-1 text-left select-none border-b border-slate-100 dark:border-slate-800/60 pb-3">
-              <div className="flex items-center gap-1.5 text-[9px] font-bold text-purple-600 dark:text-purple-400 uppercase tracking-widest">
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>Trợ lý Nghiên cứu Khoa học & Học thuật AI</span>
+            {/* Minimal Header matching reference layout */}
+            <header className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/60 pb-3 select-none text-left">
+              <div className="flex items-center gap-3">
+                {/* Purple spark icon container */}
+                <div className="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center text-purple-600 dark:text-purple-400 shrink-0">
+                  <Sparkles className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                </div>
+                <div className="text-left">
+                  <h1 className="text-lg font-black text-slate-850 dark:text-white leading-tight">
+                    AI Scholar Assistant
+                  </h1>
+                  <p className="text-[10.5px] text-slate-450 dark:text-slate-500 font-semibold mt-0.5">Trợ lý nghiên cứu và học thuật AI</p>
+                </div>
               </div>
-              <h1 className="text-2xl font-black text-black dark:text-white mt-1">
-                AI Scholar Assistant
-              </h1>
-              <p className="text-xs text-slate-450 mt-0.5 font-medium">Hệ thống phân tích bài luận, cấu trúc mã nguồn và tóm tắt thuật toán khoa học.</p>
+
+              <div className="flex items-center gap-2">
+                {/* Mode selection dropdown */}
+                <div className="relative select-none">
+                  <select
+                    value={aiMode}
+                    onChange={(e) => setAiMode(e.target.value)}
+                    className="appearance-none bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl pl-3 pr-8 py-1.5 text-xs font-bold text-slate-700 dark:text-slate-355 cursor-pointer focus:outline-none focus:ring-1 focus:ring-purple-500"
+                  >
+                    <option value="Scholar">Scholar Mode</option>
+                    <option value="Research">Research Mode</option>
+                    <option value="Coding">Coding Mode</option>
+                    <option value="Summarize">Summarize Mode</option>
+                    <option value="Translation">Translation Mode</option>
+                    <option value="General AI">General AI</option>
+                  </select>
+                  <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-2.5 pointer-events-none" />
+                </div>
+
+                <button type="button" className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-450 dark:text-slate-500 hover:text-purple-600 dark:hover:text-purple-400 transition-colors cursor-pointer" title="Bản đồ học tập / Web">
+                  <Globe className="w-4 h-4" />
+                </button>
+                <button type="button" className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-450 dark:text-slate-500 hover:text-purple-600 dark:hover:text-purple-400 transition-colors cursor-pointer" title="Lịch sử nghiên cứu">
+                  <Clock className="w-4 h-4" />
+                </button>
+                <div className="w-8 h-8 rounded-full bg-purple-600 text-white flex items-center justify-center font-bold text-xs select-none shadow-sm" title={fullName}>
+                  {fullName.slice(0, 2).toUpperCase()}
+                </div>
+              </div>
             </header>
 
-            {/* AI Modes Selector */}
-            <div className="mt-3.5 mb-2">
-              <span className="text-[9px] font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-widest block mb-1.5 text-left">Chế độ hoạt động AI</span>
-              <div className="grid grid-cols-3 md:grid-cols-6 gap-2 w-full">
-                {[
-                  { id: "Scholar", label: "Scholar", desc: "Học thuật, dễ hiểu", icon: "BookOpen" },
-                  { id: "Research", label: "Research", desc: "Tìm kiếm học thuật", icon: "Search" },
-                  { id: "Coding", label: "Coding", desc: "Tạo & Debug code", icon: "Code" },
-                  { id: "Summarize", label: "Summarize", desc: "Tóm tắt nội dung", icon: "FileText" },
-                  { id: "Translation", label: "Translation", desc: "Dịch chính xác", icon: "Globe" },
-                  { id: "General AI", label: "General AI", desc: "Trò chuyện & Hỗ trợ", icon: "Bot" }
-                ].map((mode) => {
-                  const isActive = aiMode === mode.id;
+            {/* Chat Messages Flow */}
+            <div className="flex-1 overflow-y-auto my-3 bg-[#F9FAFC] dark:bg-[#0b0c14] border border-slate-100 dark:border-white/5 rounded-2xl p-5 flex flex-col gap-5 custom-scrollbar shadow-inner h-[380px]">
+              {aiMessages.map((msg) => {
+                const isAi = msg.sender === "ai";
+
+                if (isAi) {
+                  const { cleanText, sources } = extractSources(msg.text);
                   return (
-                    <button
-                      key={mode.id}
-                      type="button"
-                      onClick={() => setAiMode(mode.id)}
-                      className={`flex flex-col items-center justify-center p-2 rounded-xl border transition-all cursor-pointer text-center relative ${
-                        isActive 
-                          ? "bg-purple-600 text-white border-purple-600 shadow-md shadow-purple-500/25 scale-[1.02]" 
-                          : "bg-white/55 dark:bg-slate-900/55 border-slate-200/50 dark:border-white/5 text-slate-700 dark:text-slate-355 hover:bg-slate-100/80 dark:hover:bg-slate-800"
-                      }`}
-                    >
-                      {mode.icon === "BookOpen" && <BookOpen className={`w-4 h-4 mb-0.5 ${isActive ? "text-white" : "text-purple-500"}`} />}
-                      {mode.icon === "Search" && <Search className={`w-4 h-4 mb-0.5 ${isActive ? "text-white" : "text-blue-500"}`} />}
-                      {mode.icon === "Code" && <FileCode className={`w-4 h-4 mb-0.5 ${isActive ? "text-white" : "text-emerald-500"}`} />}
-                      {mode.icon === "FileText" && <FileText className={`w-4 h-4 mb-0.5 ${isActive ? "text-white" : "text-orange-500"}`} />}
-                      {mode.icon === "Globe" && <Globe className={`w-4 h-4 mb-0.5 ${isActive ? "text-white" : "text-indigo-500"}`} />}
-                      {mode.icon === "Bot" && <Bot className={`w-4 h-4 mb-0.5 ${isActive ? "text-white" : "text-slate-500"}`} />}
-                      <span className="text-[10px] font-black tracking-tight">{mode.label}</span>
-                      <span className="text-[7.5px] opacity-75 mt-0.5 whitespace-nowrap leading-none font-semibold">{mode.desc}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+                    <div key={msg.id} className="flex items-start gap-3 self-start max-w-[90%] w-full">
+                      {/* Robot profile icon */}
+                      <div className="w-9 h-9 rounded-full bg-purple-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+                        <Bot className="w-5 h-5 text-white" />
+                      </div>
 
-            {/* Web Search Controls Panel */}
-            <div className="flex flex-wrap gap-4 items-center bg-white/40 dark:bg-[#0f111a]/45 border border-slate-200/30 dark:border-white/5 rounded-xl px-4 py-2 mb-3 text-left">
-              <div className="flex items-center gap-1 text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mr-2">
-                <Globe className="w-3.5 h-3.5 text-purple-500" />
-                <span>Tìm kiếm Web & Học thuật</span>
-              </div>
-              
-              <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-700 dark:text-slate-350 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={useWeb}
-                  onChange={() => setUseWeb(!useWeb)}
-                  className="rounded border-slate-355 text-purple-650 focus:ring-purple-500 w-3.5 h-3.5 cursor-pointer"
-                />
-                <span>Tìm kiếm Web (Wikipedia)</span>
-              </label>
+                      {/* Response card container */}
+                      <div className="flex-1 bg-white dark:bg-[#11121d] border border-slate-100 dark:border-slate-850 rounded-2xl p-5 shadow-sm hover:shadow-md transition-all text-left">
+                        {/* Card Header */}
+                        <div className="flex items-center gap-2 mb-3 select-none">
+                          <span className="text-xs font-black text-slate-850 dark:text-slate-100">AI Scholar</span>
+                          <div className="flex items-center gap-1 bg-emerald-50 dark:bg-emerald-950/30 px-1.5 py-0.5 rounded-full border border-emerald-100/40">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            <span className="text-[8.5px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest">Online</span>
+                          </div>
+                          <span className="text-[9.5px] text-slate-400 font-semibold ml-auto">{aiMode} mode</span>
+                        </div>
 
-              <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-700 dark:text-slate-355 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={useScholar}
-                  onChange={() => setUseScholar(!useScholar)}
-                  className="rounded border-slate-355 text-purple-650 focus:ring-purple-500 w-3.5 h-3.5 cursor-pointer"
-                />
-                <span>Nguồn học thuật (Scholar/Arxiv/Crossref)</span>
-              </label>
+                        {/* Message Content */}
+                        <div className="text-xs text-slate-850 dark:text-slate-200 leading-relaxed font-medium">
+                          {renderMessageText(cleanText)}
+                        </div>
 
-              <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-700 dark:text-slate-355 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={deepResearch}
-                  onChange={() => setDeepResearch(!deepResearch)}
-                  className="rounded border-slate-355 text-purple-650 focus:ring-purple-500 w-3.5 h-3.5 cursor-pointer"
-                />
-                <span>Suy luận sâu (Deep Research)</span>
-              </label>
-            </div>
-
-            {/* Chat Messages flow */}
-            <div className="flex-1 overflow-y-auto my-3 bg-white/30 dark:bg-[#0f111a]/30 backdrop-blur-xl border border-slate-200/30 dark:border-white/5 rounded-xl p-4 flex flex-col gap-4 custom-scrollbar shadow-inner h-[380px]">
-              {aiMessages.map((msg) => (
-                <div
-                  key={msg.id}
-                  className={`flex flex-col max-w-[85%] rounded-xl p-4 text-xs leading-relaxed border transition-all duration-300 ${msg.sender === "ai"
-                    ? "bg-white/75 dark:bg-[#0f111a]/75 backdrop-blur-md border-slate-200/40 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.4)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] text-slate-800 dark:text-slate-200 self-start shadow-sm"
-                    : "bg-purple-600/10 dark:bg-purple-500/15 border-purple-500/20 dark:border-purple-400/20 text-purple-900 dark:text-purple-200 self-end shadow-[inset_0_1px_1px_rgba(255,255,255,0.15)]"
-                    }`}
-                >
-                  <div className="flex items-center gap-1.5 mb-1.5 opacity-70 select-none">
-                    {msg.sender === "ai" ? (
-                      <>
-                        <Bot className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
-                        <span className="text-[9px] font-extrabold uppercase tracking-widest text-purple-700 dark:text-purple-300 flex-wrap">
-                          AI Scholar Assistant ({aiMode})
-                        </span>
-                      </>
-                    ) : (
-                      <>
-                        {user?.avatar_url ? (
-                          <img src={user.avatar_url} alt="Avatar" className="w-3.5 h-3.5 rounded-full object-cover" />
-                        ) : (
-                          <UserIcon className="w-3.5 h-3.5 text-purple-500" />
+                        {/* Sources Section */}
+                        {sources.length > 0 && (
+                          <div className="mt-4 border-t border-slate-100 dark:border-slate-800/60 pt-4">
+                            <div className="flex items-center gap-1.5 text-[10px] font-black text-slate-850 dark:text-slate-200 uppercase tracking-wider mb-2.5 select-none">
+                              <BookOpen className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                              <span>Sources</span>
+                            </div>
+                            <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-purple-200 scrollbar-track-transparent custom-scrollbar max-w-full">
+                              {sources.map((src, idx) => (
+                                <a
+                                  key={idx}
+                                  href={src.url || "#"}
+                                  target={src.url ? "_blank" : undefined}
+                                  rel="noopener noreferrer"
+                                  className="flex-shrink-0 w-48 p-2.5 bg-slate-50 dark:bg-slate-900/50 hover:bg-slate-100 dark:hover:bg-slate-800/50 border border-slate-100 dark:border-slate-850 rounded-xl transition-all flex flex-col justify-between group"
+                                >
+                                  <div>
+                                    <div className="flex items-center gap-1 text-[9px] font-black uppercase tracking-wider mb-1">
+                                      {getSourceIcon(src.source)}
+                                      <span className="text-slate-500 dark:text-slate-400 ml-1">{src.source}</span>
+                                    </div>
+                                    <p className="text-[10.5px] font-bold text-slate-700 dark:text-slate-250 line-clamp-2 leading-tight group-hover:text-purple-600 transition-colors">
+                                      {src.title}
+                                    </p>
+                                  </div>
+                                  <span className="text-[8.5px] text-slate-450 dark:text-slate-500 mt-2 block font-medium">
+                                    {src.url ? "Xem nguồn tài liệu" : "Tài liệu học thuật"}
+                                  </span>
+                                </a>
+                              ))}
+                            </div>
+                          </div>
                         )}
-                        <span className="text-[9px] font-extrabold uppercase tracking-widest text-purple-600 dark:text-purple-400">
-                          {user?.role === "ADMIN" ? "Quản trị viên" : user?.role === "LECTURER" ? "Giảng viên" : "Học viên"}
+
+                        {/* Card Footer Actions */}
+                        <div className="flex items-center gap-4 mt-4 border-t border-slate-100 dark:border-slate-800/60 pt-3 select-none">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard.writeText(cleanText);
+                              toast.success("Đã sao chép phản hồi vào bộ nhớ tạm!");
+                            }}
+                            className="p-1 text-slate-400 hover:text-purple-600 dark:hover:text-purple-400 transition-colors cursor-pointer"
+                            title="Sao chép"
+                          >
+                            <Copy className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => toast.success("Cảm ơn bạn đã phản hồi!")}
+                            className="p-1 text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors cursor-pointer"
+                            title="Hữu ích"
+                          >
+                            <ThumbsUp className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => toast.success("Cảm ơn bạn đã phản hồi!")}
+                            className="p-1 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors cursor-pointer"
+                            title="Không hữu ích"
+                          >
+                            <ThumbsDown className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => toast.success("Đã lưu vào danh sách đánh dấu!")}
+                            className="p-1 text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 transition-colors cursor-pointer"
+                            title="Đánh dấu"
+                          >
+                            <Heart className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard.writeText(window.location.href);
+                              toast.success("Đã sao chép liên kết chia sẻ cuộc hội thoại!");
+                            }}
+                            className="p-1 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors ml-auto cursor-pointer"
+                            title="Chia sẻ"
+                          >
+                            <Share2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                } else {
+                  return (
+                    <div key={msg.id} className="flex items-start justify-end gap-3 self-end max-w-[85%]">
+                      {/* User Text Bubble */}
+                      <div className="bg-[#F0EEFF] dark:bg-purple-900/30 border border-purple-100/60 dark:border-purple-900/40 text-slate-800 dark:text-slate-200 px-4 py-3 rounded-2xl rounded-tr-none text-xs text-left leading-relaxed font-semibold shadow-sm">
+                        {msg.text}
+                      </div>
+
+                      {/* User Profile Avatar */}
+                      <div className="flex flex-col items-center shrink-0">
+                        <div className="w-8 h-8 rounded-full bg-[#8B5CF6] text-white flex items-center justify-center font-bold text-[11px] select-none shadow-sm">
+                          {fullName.slice(0, 2).toUpperCase()}
+                        </div>
+                        <span className="text-[9px] text-slate-400 mt-1 select-none font-medium">
+                          {new Date(msg.id).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}
                         </span>
-                      </>
-                    )}
-                  </div>
-                  {renderMessageText(msg.text)}
-                </div>
-              ))}
+                      </div>
+                    </div>
+                  );
+                }
+              })}
 
               {isAiTyping && (
-                <div className="bg-white dark:bg-[#13141f]/95 border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 self-start shadow-sm flex items-center gap-2 animate-pulse">
-                  <Bot className="w-4 h-4 text-purple-500 animate-spin" />
-                  <span className="text-[10px] font-extrabold text-slate-450 uppercase tracking-widest">AI Đang lập luận học thuật...</span>
+                <div className="flex items-start gap-3 self-start max-w-[90%] w-full">
+                  <div className="w-9 h-9 rounded-full bg-purple-600 text-white flex items-center justify-center shrink-0 shadow-sm animate-pulse">
+                    <Bot className="w-5 h-5 text-white" />
+                  </div>
+                  <div className="bg-white dark:bg-[#11121d] border border-slate-100 dark:border-slate-800 rounded-2xl p-4 flex items-center gap-2.5 animate-pulse shadow-sm">
+                    <Bot className="w-4 h-4 text-purple-500 animate-spin" />
+                    <span className="text-[10px] font-extrabold text-slate-450 uppercase tracking-widest">AI Đang lập luận học thuật...</span>
+                  </div>
                 </div>
               )}
             </div>
@@ -2601,7 +2700,7 @@ export default function Home() {
                     key={idx}
                     onClick={() => handleSendChatMessage(item.text)}
                     disabled={isAiTyping || isParsingFile}
-                    className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg border border-slate-200/30 dark:border-white/5 bg-white/45 dark:bg-[#0f111a]/45 backdrop-blur-md hover:bg-white/60 dark:hover:bg-[#0f111a]/65 active:scale-[0.98] transition-all cursor-pointer text-xs font-bold text-slate-750 dark:text-slate-300 shadow-[inset_0_1px_1px_rgba(255,255,255,0.2)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] text-left"
+                    className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg border border-slate-200/30 dark:border-white/5 bg-white/45 dark:bg-[#0f111a]/45 backdrop-blur-md hover:bg-white/60 dark:hover:bg-[#0f111a]/65 active:scale-[0.98] transition-all cursor-pointer text-xs font-bold text-slate-755 dark:text-slate-300 shadow-[inset_0_1px_1px_rgba(255,255,255,0.2)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] text-left"
                   >
                     <ChevronRight className="w-3.5 h-3.5 text-purple-500 shrink-0" />
                     <span>{item.label}</span>
@@ -2610,16 +2709,16 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Chat Input Container */}
+            {/* Chat Input Container matching reference layout */}
             <div className="w-full relative select-none">
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
                   handleSendChatMessage();
                 }}
-                className="relative flex flex-col gap-3 bg-white/65 dark:bg-[#0f111a]/70 backdrop-blur-xl border border-slate-200/40 dark:border-white/10 rounded-xl shadow-lg p-3.5 focus-within:ring-1 focus-within:ring-purple-500/50 shadow-[inset_0_1px_1px_rgba(255,255,255,0.3)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition-all"
+                className="relative flex flex-col gap-3 bg-white dark:bg-[#0f111a] border border-slate-200 focus-within:border-[#8B5CF6] focus-within:ring-1 focus-within:ring-purple-500/20 rounded-2xl shadow-sm focus-within:shadow-md transition-all p-3.5"
               >
-                {/* Parse loader */}
+                {/* File parsing state indicator */}
                 {isParsingFile && (
                   <div className="flex items-center gap-2 bg-purple-500/10 dark:bg-purple-900/20 border border-purple-500/20 rounded-lg p-2.5 text-xs text-purple-700 dark:text-purple-300 font-bold animate-pulse text-left animate-in fade-in slide-in-from-top-1 duration-200">
                     <Bot className="w-4 h-4 text-purple-500 animate-spin" />
@@ -2627,77 +2726,206 @@ export default function Home() {
                   </div>
                 )}
 
-                {/* Attached File Chip */}
-                {attachedFile && (
-                  <div className="flex items-center justify-between bg-purple-500/8 dark:bg-purple-500/12 border border-purple-500/15 rounded-lg px-3 py-2 animate-in fade-in zoom-in-95 duration-200">
-                    <div className="flex items-center gap-2 text-xs font-bold text-purple-900 dark:text-purple-300 text-left">
-                      {getFileIcon(attachedFile.type, "w-4 h-4")}
-                      <span className="truncate max-w-[320px]">{attachedFile.name}</span>
-                      <span className="text-[10px] text-purple-500 font-medium">({(attachedFile.size / 1024).toFixed(1)} KB)</span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setAttachedFile(null)}
-                      className="p-1 text-purple-500 hover:text-purple-700 dark:hover:text-purple-355 hover:bg-purple-500/10 rounded-full transition-all cursor-pointer"
-                      title="Gỡ bỏ tài liệu"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                )}
+                {/* Input Text Box Row */}
+                <div className="flex items-center gap-3 relative">
+                  {/* Plus Trigger Button */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowToolMenu(!showToolMenu);
+                    }}
+                    disabled={isParsingFile || isAiTyping}
+                    className="w-8 h-8 rounded-xl bg-slate-50 dark:bg-slate-900 hover:bg-purple-100 dark:hover:bg-purple-950/40 text-slate-500 hover:text-[#8B5CF6] flex items-center justify-center cursor-pointer transition-colors shrink-0 disabled:opacity-50"
+                    title="Đính kèm và Công cụ"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
 
-                {/* Input text */}
-                <div className="flex items-center gap-3">
+                  {/* Floating Tool and File Upload Menu */}
+                  {showToolMenu && (
+                    <div
+                      ref={toolMenuRef}
+                      className="absolute bottom-12 left-0 w-64 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-2xl p-4 z-50 flex flex-col gap-3 animate-in fade-in slide-in-from-bottom-2 duration-200 text-left"
+                    >
+                      <div>
+                        <span className="text-[9px] font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-widest block mb-2 px-1">Tệp đính kèm</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowToolMenu(false);
+                            fileInputRef.current?.click();
+                          }}
+                          className="w-full flex items-center gap-2.5 p-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-250 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors cursor-pointer"
+                        >
+                          <div className="w-7 h-7 rounded-lg bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
+                            <Paperclip className="w-4 h-4" />
+                          </div>
+                          <div className="flex flex-col text-left">
+                            <span className="font-bold text-slate-850 dark:text-slate-200 leading-snug">Upload File</span>
+                            <span className="text-[9.5px] text-slate-400 dark:text-slate-500 font-medium">Tải lên bất kỳ tệp từ máy bạn</span>
+                          </div>
+                        </button>
+                      </div>
+
+                      <div className="border-t border-slate-100 dark:border-slate-800/80 pt-2.5">
+                        <span className="text-[9px] font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-widest block mb-2 px-1">Công cụ</span>
+                        
+                        <button
+                          type="button"
+                          onClick={() => setUseWeb(!useWeb)}
+                          className={`w-full flex items-center justify-between p-2 rounded-xl text-xs transition-colors cursor-pointer ${useWeb ? 'bg-purple-50/50 dark:bg-purple-950/20' : ''}`}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${useWeb ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30' : 'bg-slate-50 text-slate-500 dark:bg-slate-800'}`}>
+                              <Globe className="w-4 h-4" />
+                            </div>
+                            <div className="flex flex-col text-left">
+                              <span className="font-bold text-slate-850 dark:text-slate-200 leading-snug">Search Web</span>
+                              <span className="text-[9.5px] text-slate-400 dark:text-slate-500 font-medium">Tìm thông tin trên Internet</span>
+                            </div>
+                          </div>
+                          <input
+                            type="checkbox"
+                            checked={useWeb}
+                            onChange={() => setUseWeb(!useWeb)}
+                            className="rounded border-slate-300 text-purple-600 focus:ring-purple-500 w-3.5 h-3.5 cursor-pointer"
+                          />
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setUseScholar(!useScholar)}
+                          className={`w-full flex items-center justify-between p-2 rounded-xl text-xs transition-colors cursor-pointer mt-1.5 ${useScholar ? 'bg-purple-50/50 dark:bg-purple-950/20' : ''}`}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${useScholar ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30' : 'bg-slate-50 text-slate-500 dark:bg-slate-800'}`}>
+                              <BookOpen className="w-4 h-4" />
+                            </div>
+                            <div className="flex flex-col text-left">
+                              <span className="font-bold text-slate-850 dark:text-slate-200 leading-snug">Academic Search</span>
+                              <span className="text-[9.5px] text-slate-400 dark:text-slate-500 font-medium">Tìm nguồn học thuật uy tín</span>
+                            </div>
+                          </div>
+                          <input
+                            type="checkbox"
+                            checked={useScholar}
+                            onChange={() => setUseScholar(!useScholar)}
+                            className="rounded border-slate-300 text-purple-600 focus:ring-purple-500 w-3.5 h-3.5 cursor-pointer"
+                          />
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setDeepResearch(!deepResearch)}
+                          className={`w-full flex items-center justify-between p-2 rounded-xl text-xs transition-colors cursor-pointer mt-1.5 ${deepResearch ? 'bg-purple-50/50 dark:bg-purple-950/20' : ''}`}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${deepResearch ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30' : 'bg-slate-50 text-slate-500 dark:bg-slate-800'}`}>
+                              <Search className="w-4 h-4" />
+                            </div>
+                            <div className="flex flex-col text-left">
+                              <span className="font-bold text-slate-850 dark:text-slate-200 leading-snug">Deep Research</span>
+                              <span className="text-[9.5px] text-slate-400 dark:text-slate-500 font-medium">Nghiên cứu lập luận sâu</span>
+                            </div>
+                          </div>
+                          <input
+                            type="checkbox"
+                            checked={deepResearch}
+                            onChange={() => setDeepResearch(!deepResearch)}
+                            className="rounded border-slate-300 text-purple-600 focus:ring-purple-500 w-3.5 h-3.5 cursor-pointer"
+                          />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Input field */}
                   <input
                     type="text"
-                    placeholder={attachedFile ? "Đang chat với tài liệu đính kèm... Hãy đặt câu hỏi bất kỳ." : "Nhập câu hỏi học tập hoặc đính kèm tài liệu cần phân tích..."}
+                    placeholder="Hỏi bất cứ điều gì về học tập, nghiên cứu..."
                     value={chatInput}
                     onChange={(e) => setChatInput(e.target.value)}
                     disabled={isAiTyping || isParsingFile}
-                    className="flex-1 bg-transparent border-none outline-none text-xs placeholder:text-slate-400 text-slate-805 dark:text-slate-100 py-1"
+                    className="flex-1 bg-transparent border-none outline-none text-xs placeholder:text-slate-400 text-slate-800 dark:text-slate-100 py-1.5 px-0.5"
                   />
 
+                  {/* Hidden file input */}
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleAttachFileChange}
+                    accept=".pdf,.docx,.xlsx,.xls,.pptx,.zip,.png,.jpg,.jpeg,.webp,.txt,.json,.js,.py,.md"
+                    className="hidden"
+                  />
+
+                  {/* Voice Button */}
+                  <button
+                    type="button"
+                    onClick={() => toast.info("Tính năng thoại bằng giọng nói sẽ sớm ra mắt!")}
+                    className="w-8 h-8 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-900 text-slate-450 hover:text-purple-600 dark:hover:text-purple-400 flex items-center justify-center cursor-pointer transition-colors shrink-0"
+                    title="Ghi âm câu hỏi"
+                  >
+                    <Mic className="w-4.5 h-4.5" />
+                  </button>
+
+                  {/* Send Button */}
                   <button
                     type="submit"
-                    disabled={isAiTyping || isParsingFile}
-                    className="p-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg flex items-center justify-center cursor-pointer hover:scale-105 active:scale-95 transition-all shadow-sm focus:outline-none disabled:opacity-50"
+                    disabled={isAiTyping || isParsingFile || !chatInput.trim()}
+                    className="w-8 h-8 rounded-full bg-[#8B5CF6] hover:bg-purple-700 text-white flex items-center justify-center cursor-pointer hover:scale-105 active:scale-95 transition-all shadow-sm focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
                   >
-                    <Send className="w-3.5 h-3.5" />
+                    <Send className="w-3.5 h-3.5 text-white" />
                   </button>
                 </div>
 
-                {/* Bottom Options inside Input box */}
-                <div className="flex items-center justify-between border-t border-slate-100 dark:border-slate-800/60 pt-2.5 text-[10px] text-slate-400 font-bold">
-                  <div className="flex items-center gap-4">
-                    <button 
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={isParsingFile || isAiTyping}
-                      className="flex items-center gap-1 hover:text-purple-600 disabled:opacity-50 transition-colors cursor-pointer"
-                    >
-                      <Paperclip className="w-3.5 h-3.5" /> Đính kèm tài liệu
-                    </button>
-                    <input
-                      type="file"
-                      ref={fileInputRef}
-                      onChange={handleAttachFileChange}
-                      accept=".pdf,.docx,.xlsx,.xls,.pptx,.zip,.png,.jpg,.jpeg,.webp,.txt,.json,.js,.py,.md"
-                      className="hidden"
-                    />
+                {/* Staged File Chips & Status Bottom Row */}
+                <div className="flex items-center gap-3 border-t border-slate-100 dark:border-slate-850 pt-2.5 text-[10px] text-slate-400 font-bold select-none text-left">
+                  {/* Purple sparks icon */}
+                  <Sparkles className="w-3.5 h-3.5 text-[#8B5CF6] shrink-0" />
 
-                    {attachedFile && (
-                      <span className="text-purple-600 dark:text-purple-400 border-l border-slate-200 dark:border-slate-800 pl-4 uppercase tracking-widest text-[8.5px]">
-                        🔒 Chỉ chat với tài liệu
-                      </span>
-                    )}
-                  </div>
+                  {/* If there is a file attached, display it as a styled badge tag */}
+                  {attachedFile ? (
+                    <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-lg border text-[9.5px] font-extrabold select-none animate-in zoom-in-95 duration-150 ${
+                      attachedFile.type === "PDF"
+                        ? "bg-rose-50 border-rose-100 text-rose-700 dark:bg-rose-950/20 dark:border-rose-900/30 dark:text-rose-400"
+                        : attachedFile.type === "ZIP"
+                        ? "bg-amber-50 border-amber-100 text-amber-700 dark:bg-amber-950/20 dark:border-amber-900/30 dark:text-amber-400"
+                        : attachedFile.type === "IMAGE" || attachedFile.type === "PNG" || attachedFile.type === "JPG" || attachedFile.type === "JPEG"
+                        ? "bg-emerald-50 border-emerald-100 text-emerald-700 dark:bg-emerald-950/20 dark:border-emerald-900/30 dark:text-emerald-400"
+                        : "bg-blue-50 border-blue-100 text-blue-700 dark:bg-blue-950/20 dark:border-blue-900/30 dark:text-blue-400"
+                    }`}>
+                      {getFileIcon(attachedFile.type, "w-3 h-3 shrink-0")}
+                      <span className="max-w-[120px] truncate">{attachedFile.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => setAttachedFile(null)}
+                        className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-355 ml-0.5 p-0.5 rounded-full hover:bg-black/5 cursor-pointer"
+                        title="Xóa tệp đính kèm"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ) : (
+                    <span className="text-slate-400/80 font-medium">Không có tệp học liệu nào được đính kèm</span>
+                  )}
 
-                  <span>AI Study Scholar v3.0</span>
+                  {/* Active Tool indicators if no file attached */}
+                  {!attachedFile && (useWeb || useScholar || deepResearch) && (
+                    <div className="flex items-center gap-2 border-l border-slate-100 dark:border-slate-800 pl-3">
+                      <span className="text-[8.5px] font-black uppercase tracking-widest text-[#8B5CF6]">Active Tools:</span>
+                      {useWeb && <span className="text-[8.5px] bg-purple-50 dark:bg-purple-950/30 text-purple-600 px-1 py-0.5 rounded">Web Search</span>}
+                      {useScholar && <span className="text-[8.5px] bg-purple-50 dark:bg-purple-950/30 text-purple-600 px-1 py-0.5 rounded">Scholar</span>}
+                      {deepResearch && <span className="text-[8.5px] bg-purple-50 dark:bg-purple-950/30 text-purple-600 px-1 py-0.5 rounded">Deep Research</span>}
+                    </div>
+                  )}
+
+                  <span className="ml-auto text-[9px] text-slate-450">AI Study Scholar v3.0</span>
                 </div>
               </form>
             </div>
           </div>
-        )}
+
 
         {/* ── SCREEN 4: COMMUNITY ── */}
         {activeTab === "Community" && (() => {
