@@ -2917,14 +2917,13 @@ export default function Home() {
                   </button>
                 </div>
 
-                {/* Staged File Chips & Status Bottom Row */}
-                <div className="flex items-center gap-3 border-t border-slate-100 dark:border-slate-850 pt-2.5 text-[10px] text-slate-400 font-bold select-none text-left">
-                  {/* Purple sparks icon */}
-                  <Sparkles className="w-3.5 h-3.5 text-[#8B5CF6] shrink-0" />
+                {/* Staged File Chips & Status Bottom Row - ONLY render when a file is attached! */}
+                {attachedFile && (
+                  <div className="flex items-center gap-3 border-t border-slate-100 dark:border-slate-850 pt-2.5 text-[10px] text-slate-400 font-bold select-none text-left animate-in fade-in slide-in-from-top-1 duration-200">
+                    {/* Purple sparks icon */}
+                    <Sparkles className="w-3.5 h-3.5 text-[#8B5CF6] shrink-0" />
 
-                  {/* If there is a file attached, display it as a styled badge tag */}
-                  {attachedFile ? (
-                    <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-lg border text-[9.5px] font-extrabold select-none animate-in zoom-in-95 duration-150 ${
+                    <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-lg border text-[9.5px] font-extrabold select-none animate-in zoom-in-95 duration-155 ${
                       attachedFile.type === "PDF"
                         ? "bg-rose-50 border-rose-100 text-rose-700 dark:bg-rose-950/20 dark:border-rose-900/30 dark:text-rose-400"
                         : attachedFile.type === "ZIP"
@@ -2944,22 +2943,10 @@ export default function Home() {
                         <X className="w-3 h-3" />
                       </button>
                     </div>
-                  ) : (
-                    <span className="text-slate-400/80 font-medium">Không có tệp học liệu nào được đính kèm</span>
-                  )}
 
-                  {/* Active Tool indicators if no file attached */}
-                  {!attachedFile && (useWeb || useScholar || deepResearch) && (
-                    <div className="flex items-center gap-2 border-l border-slate-100 dark:border-slate-800 pl-3">
-                      <span className="text-[8.5px] font-black uppercase tracking-widest text-[#8B5CF6]">Active Tools:</span>
-                      {useWeb && <span className="text-[8.5px] bg-purple-50 dark:bg-purple-950/30 text-purple-600 px-1 py-0.5 rounded">Web Search</span>}
-                      {useScholar && <span className="text-[8.5px] bg-purple-50 dark:bg-purple-950/30 text-purple-600 px-1 py-0.5 rounded">Scholar</span>}
-                      {deepResearch && <span className="text-[8.5px] bg-purple-50 dark:bg-purple-950/30 text-purple-600 px-1 py-0.5 rounded">Deep Research</span>}
-                    </div>
-                  )}
-
-                  <span className="ml-auto text-[9px] text-slate-450">AI Study Scholar v3.0</span>
-                </div>
+                    <span className="ml-auto text-[9px] text-slate-450">AI Study Scholar v3.0</span>
+                  </div>
+                )}
               </form>
             </div>
           </div>
