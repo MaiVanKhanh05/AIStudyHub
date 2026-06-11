@@ -2870,7 +2870,6 @@ export default function Home() {
                     type="file"
                     ref={fileInputRef}
                     onChange={handleAttachFileChange}
-                    accept=".pdf,.docx,.xlsx,.xls,.pptx,.zip,.png,.jpg,.jpeg,.webp,.txt,.json,.js,.py,.md"
                     className="hidden"
                   />
 

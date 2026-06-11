@@ -54,7 +54,13 @@ export async function uploadTempFile(req, res) {
     } else if (ext === ".txt" || ext === ".json" || ext === ".js" || ext === ".py" || ext === ".md") {
       extractedText = req.file.buffer.toString("utf8");
     } else {
-      return res.status(400).json({ error: `Định dạng tệp ${ext} không được hỗ trợ.` });
+      // Fallback for arbitrary code/text files: check if buffer contains NULL bytes in the first 512 bytes
+      const hasNullBytes = req.file.buffer.slice(0, 512).includes(0);
+      if (!hasNullBytes) {
+        extractedText = req.file.buffer.toString("utf8");
+      } else {
+        return res.status(400).json({ error: `Định dạng tệp ${ext} không được hỗ trợ.` });
+      }
     }
 
     return res.json({
