@@ -193,7 +193,7 @@ export const editDocument = async (id, userId, { title, subject, tags, descripti
             await subjectRepository.getOrCreateSubject("OTHER", "OTHER");
         }
 
-        const updatedDoc = await documentRepository.updateDocumentMeta(id, { title, subject_code: subjectCode, description });
+        const updatedDoc = await documentRepository.updateDocumentMeta(id, userId, { title, subject_code: subjectCode, description });
         if (!updatedDoc) {
             throw new Error("Document not found or unauthorized");
         }

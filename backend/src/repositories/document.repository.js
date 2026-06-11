@@ -214,14 +214,14 @@ export const getDocumentById = async (documentId) => {
     }
 };
 
-export const updateDocumentMeta = async (documentId, { title, subject_code, description }) => {
+export const updateDocumentMeta = async (documentId, userId, { title, subject_code, description }) => {
     try {
         const { rows } = await pool.query(
             `UPDATE document
              SET title = $1, subject_code = $2, description = $3
-             WHERE document_id = $4
+             WHERE document_id = $4 AND user_id = $5
              RETURNING *`,
-            [title, subject_code, description, documentId]
+            [title, subject_code, description, documentId, userId]
         );
         return rows[0] ? new Document(rows[0]) : null;
     } catch (error) {

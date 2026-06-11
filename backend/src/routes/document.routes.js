@@ -27,6 +27,9 @@ router.put("/:id/edit", authenticateToken, requireEditorAccess, documentControll
 // PUT /api/documents/:id/share (Legacy community share endpoint)
 router.put("/:id/share", authenticateToken, requireOwnerAccess, documentController.shareDoc);
 
+// PUT /api/documents/:id/edit
+router.put("/:id/edit", authenticateToken, documentController.editDoc);
+
 // GET /api/documents/:id
 router.get("/:id", authenticateToken, requireDocumentAccess, documentController.getDocById);
 
@@ -45,5 +48,14 @@ router.post("/:id/share", authenticateToken, requireOwnerAccess, documentPermiss
 router.patch("/:id/share/:userId", authenticateToken, requireOwnerAccess, documentPermissionController.updateSharePermission);
 router.delete("/:id/share/:userId", authenticateToken, requireOwnerAccess, documentPermissionController.deleteSharePermission);
 router.patch("/:id/visibility", authenticateToken, requireOwnerAccess, documentPermissionController.updateVisibility);
+
+// PUT /api/documents/:id/view
+router.put("/:id/view", documentController.increaseView);
+
+// PUT /api/documents/:id/download
+router.put("/:id/download", documentController.increaseDownload);
+
+// DELETE /api/documents/:id
+router.delete("/:id", authenticateToken, documentController.deleteDoc);
 
 export default router;

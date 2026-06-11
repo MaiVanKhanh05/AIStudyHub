@@ -1,3 +1,4 @@
+
 import pool from "../../DB/db.js";
 
 // GET /api/admin/stats — tổng hợp số liệu dashboard
@@ -22,7 +23,7 @@ export const getAdminStats = async (req, res) => {
             ),
         ]);
 
-        const totalStudents  = parseInt(studentsResult.rows[0].count, 10);
+        const totalStudents = parseInt(studentsResult.rows[0].count, 10);
         const totalLecturers = parseInt(lecturersResult.rows[0].count, 10);
         const totalDocuments = parseInt(documentsResult.rows[0].count, 10);
         const totalStorageBytes = parseInt(storageResult.rows[0].total, 10);
