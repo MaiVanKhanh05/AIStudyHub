@@ -2491,7 +2491,45 @@ export default function Home() {
 
               <div className="w-full flex flex-col space-y-6">
                 {bookmarkedDocs.length === 0 ? (
-        {/* ── SCREEN 3: AI ASSISTANT VIEW (Academic Study Chat) ── */}
+                  <div className="text-center py-20 bg-white/30 dark:bg-[#0f111a]/30 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 p-8">
+                    <div className="text-5xl mb-4 text-slate-300 dark:text-slate-600">
+                      <Heart className="w-16 h-16 mx-auto opacity-50" />
+                    </div>
+                    <p className="text-sm font-bold text-slate-850 dark:text-slate-200 m-0">
+                      Bạn chưa yêu thích tài liệu nào
+                    </p>
+                    <p className="text-xs text-slate-450 mt-2 m-0">
+                      Hãy quay lại cộng đồng và thả tim những tài liệu hữu ích nhé.
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 xl:grid-cols-3 w-full">
+                      {bookmarkedDocs.slice((bookmarkPage - 1) * 9, bookmarkPage * 9).map((doc) => (
+                        <DocumentCard
+                          key={doc.document_id || doc.id}
+                          doc={{ ...doc, isBookmarked: true }}
+                          isPersonal={false}
+                          isMyShared={false}
+                        />
+                      ))}
+                    </div>
+                    
+                    {Math.ceil(bookmarkedDocs.length / 9) > 1 && (
+                      <div className="mt-6 flex justify-center">
+                        <Pagination
+                          page={bookmarkPage}
+                          totalPages={Math.ceil(bookmarkedDocs.length / 9)}
+                          setPage={setBookmarkPage}
+                        />
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            </section>
+          </div>
+        )}
         {activeTab === "AI Assistant" && (
           <div className="flex-1 flex flex-col justify-between py-2 select-none h-full animate-in fade-in-50 duration-300 max-w-4xl w-full mx-auto">
             {/* Minimal Header matching reference layout */}
