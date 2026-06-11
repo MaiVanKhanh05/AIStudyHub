@@ -446,7 +446,7 @@ export default function Home() {
   ]);
   const [chatInput, setChatInput] = useState("");
   const [isAiTyping, setIsAiTyping] = useState(false);
-  const [aiMode, setAiMode] = useState("General AI");
+  const [aiMode, setAiMode] = useState("Scholar");
   const [useWeb, setUseWeb] = useState(false);
   const [useScholar, setUseScholar] = useState(false);
   const [deepResearch, setDeepResearch] = useState(false);
@@ -2548,32 +2548,9 @@ export default function Home() {
               </div>
 
               <div className="flex items-center gap-2">
-                {/* Mode selection dropdown */}
-                <div className="relative select-none">
-                  <select
-                    value={aiMode}
-                    onChange={(e) => setAiMode(e.target.value)}
-                    className="appearance-none bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl pl-3 pr-8 py-1.5 text-xs font-bold text-slate-700 dark:text-slate-355 cursor-pointer focus:outline-none focus:ring-1 focus:ring-purple-500"
-                  >
-                    <option value="Scholar">Scholar Mode</option>
-                    <option value="Research">Research Mode</option>
-                    <option value="Coding">Coding Mode</option>
-                    <option value="Summarize">Summarize Mode</option>
-                    <option value="Translation">Translation Mode</option>
-                    <option value="General AI">General AI</option>
-                  </select>
-                  <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-2.5 pointer-events-none" />
-                </div>
-
-                <button type="button" className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-450 dark:text-slate-500 hover:text-purple-600 dark:hover:text-purple-400 transition-colors cursor-pointer" title="Bản đồ học tập / Web">
-                  <Globe className="w-4 h-4" />
-                </button>
                 <button type="button" className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-450 dark:text-slate-500 hover:text-purple-600 dark:hover:text-purple-400 transition-colors cursor-pointer" title="Lịch sử nghiên cứu">
-                  <Clock className="w-4 h-4" />
+                  <Clock className="w-4.5 h-4.5" />
                 </button>
-                <div className="w-8 h-8 rounded-full bg-purple-600 text-white flex items-center justify-center font-bold text-xs select-none shadow-sm" title={fullName}>
-                  {fullName.slice(0, 2).toUpperCase()}
-                </div>
               </div>
             </header>
 
