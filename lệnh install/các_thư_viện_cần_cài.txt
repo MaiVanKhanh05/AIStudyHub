@@ -1,0 +1,5 @@
+front-end:
+npm install react-router sonner axios lucide-react @cyntler/react-doc-viewer @supabase/supabase-js
+
+back-end:
+npm install pg pdf-parse mammoth xlsx node-stream-zip xml2js openai multer @supabase/supabase-js
