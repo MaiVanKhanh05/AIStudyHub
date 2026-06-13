@@ -78,7 +78,7 @@ export const getCommunityDocs = async (userId = null) => {
 
 export const shareDocument = async (documentId, userId, description) => {
     try {
-        return await documentRepository.updateDocumentVisibility(documentId, userId, 'PUBLIC', description);
+        return await documentRepository.updateDocumentVisibility(documentId, 'PUBLIC', description);
     } catch (error) {
         throw error;
     }
@@ -143,9 +143,9 @@ export const uploadNewDocument = async (docData) => {
 };
 
 // Delete document from repository
-export const deleteUserDocument = async (id, userId) => {
+export const deleteUserDocument = async (id) => {
     try {
-        return await documentRepository.deleteDocument(id, userId);
+        return await documentRepository.deleteDocument(id);
     } catch (error) {
         throw error;
     }

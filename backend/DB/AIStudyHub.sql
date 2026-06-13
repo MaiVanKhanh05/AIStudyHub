@@ -65,7 +65,7 @@ CREATE TABLE document (
     file_size BIGINT NOT NULL,
     file_type VARCHAR(10) NOT NULL,
     upload_status VARCHAR(20) DEFAULT 'SUCCESS',
-    visibility VARCHAR(20) DEFAULT 'PRIVATE',
+    visibility VARCHAR(20) DEFAULT 'RESTRICTED',
     ai_summary TEXT,
     views INT DEFAULT 0,
     downloads INT DEFAULT 0,
