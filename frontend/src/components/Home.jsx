@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useSearchHistory } from "../hooks/useSearchHistory";
 import { useNavigate } from "react-router-dom";
 import {
@@ -13,8 +13,10 @@ import {
   Settings,
   Search,
   ArrowUpRight,
+  ArrowUp,
   Download,
   ChevronDown,
+  ChevronUp,
   Sparkles,
   FileText,
   FileSpreadsheet,
@@ -26,6 +28,11 @@ import {
   LogOut,
   Paperclip,
   Send,
+  Pin,
+  Menu,
+  PanelLeft,
+  SquarePen,
+  MessageCircle,
   UploadCloud,
   Trash2,
   Users,
@@ -50,7 +57,9 @@ import {
   Copy,
   ThumbsUp,
   ThumbsDown,
-  Mic
+  Mic,
+  RotateCcw,
+  Camera
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -73,6 +82,74 @@ function getFileIcon(fileType = "", className = "w-5 h-5") {
   if (["jpg", "jpeg", "png", "webp", "image"].includes(type)) return <FileImage className={`${className} text-indigo-500 dark:text-indigo-400`} />;
   if (["txt", "code", "js", "html", "css"].includes(type)) return <FileCode className={`${className} text-purple-500 dark:text-purple-400`} />;
   return <File className={`${className} text-slate-500 dark:text-slate-400`} />;
+}
+
+function renderMiniIcon(fileType = "") {
+  const type = (fileType || "").toLowerCase();
+  if (type === "pdf") {
+    return (
+      <div className="w-8 h-8 rounded-lg bg-red-650 text-white flex items-center justify-center font-extrabold text-[9px] select-none shadow-sm">
+        PDF
+      </div>
+    );
+  }
+  if (["xls", "xlsx", "excel"].includes(type)) {
+    return (
+      <div className="w-8 h-8 rounded-lg bg-emerald-650 text-white flex items-center justify-center font-extrabold text-[9px] select-none shadow-sm">
+        XLSX
+      </div>
+    );
+  }
+  if (["doc", "docx"].includes(type)) {
+    return (
+      <div className="w-8 h-8 rounded-lg bg-blue-650 text-white flex items-center justify-center font-extrabold text-[9px] select-none shadow-sm">
+        DOCX
+      </div>
+    );
+  }
+  if (["ppt", "pptx", "powerpoint"].includes(type)) {
+    return (
+      <div className="w-8 h-8 rounded-lg bg-orange-650 text-white flex items-center justify-center font-extrabold text-[9px] select-none shadow-sm">
+        PPTX
+      </div>
+    );
+  }
+  if (["zip", "rar"].includes(type)) {
+    return (
+      <div className="w-8 h-8 rounded-lg bg-amber-650 text-white flex items-center justify-center font-extrabold text-[9px] select-none shadow-sm">
+        ZIP
+      </div>
+    );
+  }
+  if (["jpg", "jpeg", "png", "webp", "image"].includes(type)) {
+    return (
+      <div className="w-8 h-8 rounded-lg bg-indigo-650 text-white flex items-center justify-center font-extrabold text-[9px] select-none shadow-sm">
+        IMG
+      </div>
+    );
+  }
+  return (
+    <div className="w-8 h-8 rounded-lg bg-slate-600 text-white flex items-center justify-center font-extrabold text-[9px] select-none shadow-sm">
+      FILE
+    </div>
+  );
+}
+
+function renderMiniBadge(fileType = "") {
+  const type = (fileType || "").toLowerCase();
+  let bgClass = "bg-red-500";
+  if (["xls", "xlsx", "excel"].includes(type)) bgClass = "bg-emerald-600";
+  else if (["doc", "docx"].includes(type)) bgClass = "bg-blue-600";
+  else if (["ppt", "pptx"].includes(type)) bgClass = "bg-orange-500";
+  else if (["zip", "rar"].includes(type)) bgClass = "bg-amber-500";
+  else if (["jpg", "jpeg", "png", "webp", "image"].includes(type)) bgClass = "bg-indigo-500";
+  else bgClass = "bg-slate-500";
+
+  return (
+    <div className={`w-10 h-10 rounded-xl ${bgClass} flex items-center justify-center shadow-sm shrink-0`}>
+      <FileText className="w-5 h-5 text-white" />
+    </div>
+  );
 }
 
 function getFileType(url = "") {
@@ -165,6 +242,8 @@ export default function Home() {
   const mainContentRef = useRef(null);
 
   const [currentCalDate, setCurrentCalDate] = useState(new Date());
+  const [sidebarWidth, setSidebarWidth] = useState(230);
+  const [isResizing, setIsResizing] = useState(false);
   const [rangeStart, setRangeStart] = useState(null);
   const [rangeEnd, setRangeEnd] = useState(null);
   const [isCalDragging, setIsCalDragging] = useState(false);
@@ -174,6 +253,31 @@ export default function Home() {
   const [personalRangeEnd, setPersonalRangeEnd] = useState(null);
   const [isPersonalCalDragging, setIsPersonalCalDragging] = useState(false);
   const [uploadCalDate, setUploadCalDate] = useState(new Date());
+
+  // Fix page layout shift/cut-off by locking body scroll and resetting scroll position
+  useEffect(() => {
+    window.scrollTo(0, 0);
+    
+    // Save original styles
+    const originalBodyOverflow = document.body.style.overflow;
+    const originalBodyHeight = document.body.style.height;
+    const originalHtmlOverflow = document.documentElement.style.overflow;
+    const originalHtmlHeight = document.documentElement.style.height;
+
+    // Lock scroll on Home mount
+    document.body.style.overflow = "hidden";
+    document.body.style.height = "100%";
+    document.documentElement.style.overflow = "hidden";
+    document.documentElement.style.height = "100%";
+
+    return () => {
+      // Restore styles on Home unmount
+      document.body.style.overflow = originalBodyOverflow;
+      document.body.style.height = originalBodyHeight;
+      document.documentElement.style.overflow = originalHtmlOverflow;
+      document.documentElement.style.height = originalHtmlHeight;
+    };
+  }, []);
 
   useEffect(() => {
     if (!showCalendarPopover) return;
@@ -210,9 +314,41 @@ export default function Home() {
     };
   }, [isPersonalCalDragging]);
 
+  const startResizing = (e) => {
+    e.preventDefault();
+    setIsResizing(true);
+  };
+
+  useEffect(() => {
+    if (!isResizing) return;
+
+    const handleMouseMove = (e) => {
+      const sidebarElement = document.getElementById("ai-chat-sidebar");
+      if (sidebarElement) {
+        const rect = sidebarElement.getBoundingClientRect();
+        const newWidth = e.clientX - rect.left;
+        if (newWidth >= 180 && newWidth <= 450) {
+          setSidebarWidth(newWidth);
+        }
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [isResizing]);
+
   // Load authenticated user session
   const userStr = localStorage.getItem("user") || sessionStorage.getItem("user");
-  const user = userStr ? JSON.parse(userStr) : null;
+  const user = useMemo(() => userStr ? JSON.parse(userStr) : null, [userStr]);
   const fullName = user?.first_name ? `${user.last_name} ${user.first_name}`.trim() : (user?.email || "Học Viên AIStudyHub");
 
   // Extract first name or display name
@@ -437,13 +573,23 @@ export default function Home() {
   const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   // AI Assistant Chatbot States
-  const [aiMessages, setAiMessages] = useState([
-    {
-      id: 1,
-      sender: "ai",
-      text: `Xin chào ${displayGreetingName}. Tôi là Trợ lý Nghiên cứu & Học tập AI của bạn. Bạn muốn tôi giúp tóm tắt học liệu, phân tích mã nguồn hay giải đáp kiến thức học thuật nào hôm nay?`
-    }
-  ]);
+  const [chats, setChats] = useState(() => {
+    const saved = localStorage.getItem("ai_chats");
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [currentChatId, setCurrentChatId] = useState(() => {
+    const saved = localStorage.getItem("ai_chats");
+    const parsed = saved ? JSON.parse(saved) : [];
+    return parsed.length > 0 ? parsed[0].id : null;
+  });
+  const [chatSearchQuery, setChatSearchQuery] = useState("");
+  const [activeMatchIndex, setActiveMatchIndex] = useState(0);
+  const [showChatSidebar, setShowChatSidebar] = useState(false);
+  const [renamingChatId, setRenamingChatId] = useState(null);
+  const [renameChatTitle, setRenameChatTitle] = useState("");
+  const chatInputRef = useRef(null);
+
+  const [aiMessages, setAiMessages] = useState([]);
   const [chatInput, setChatInput] = useState("");
   const [isAiTyping, setIsAiTyping] = useState(false);
   const [aiMode, setAiMode] = useState("Scholar");
@@ -455,6 +601,529 @@ export default function Home() {
   const fileInputRef = useRef(null);
   const [showToolMenu, setShowToolMenu] = useState(false);
   const toolMenuRef = useRef(null);
+  const [editingMessageId, setEditingMessageId] = useState(null);
+  const [editingText, setEditingText] = useState("");
+  const editInputRef = useRef(null);
+  const messagesContainerRef = useRef(null);
+
+  useEffect(() => {
+    if (chatInputRef.current) {
+      if (chatInput === "") {
+        chatInputRef.current.style.height = "auto";
+      } else {
+        chatInputRef.current.style.height = "auto";
+        chatInputRef.current.style.height = `${Math.min(chatInputRef.current.scrollHeight, 160)}px`;
+      }
+    }
+  }, [chatInput]);
+
+  useEffect(() => {
+    if (editingMessageId && editInputRef.current) {
+      editInputRef.current.style.height = "auto";
+      editInputRef.current.style.height = `${editInputRef.current.scrollHeight}px`;
+    }
+  }, [editingMessageId, editingText]);
+
+  useEffect(() => {
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTo({
+        top: messagesContainerRef.current.scrollHeight,
+        behavior: "smooth"
+      });
+    }
+  }, [aiMessages, isAiTyping]);
+
+  const matchingMessageIds = useMemo(() => {
+    if (!chatSearchQuery.trim()) return [];
+    const query = chatSearchQuery.toLowerCase();
+    return aiMessages
+      .filter(m =>
+        (m.text && m.text.toLowerCase().includes(query)) ||
+        (m.files && m.files.some(f => f.name && f.name.toLowerCase().includes(query)))
+      )
+      .map(m => m.id);
+  }, [aiMessages, chatSearchQuery]);
+
+  const scrollToMessage = (msgId) => {
+    const el = document.getElementById(`chat-message-${msgId}`);
+    const container = messagesContainerRef.current;
+    if (el && container) {
+      const containerRect = container.getBoundingClientRect();
+      const elRect = el.getBoundingClientRect();
+      const relativeTop = elRect.top - containerRect.top + container.scrollTop;
+      const targetScrollTop = relativeTop - (containerRect.height / 2) + (elRect.height / 2);
+      
+      container.scrollTo({
+        top: targetScrollTop,
+        behavior: "smooth"
+      });
+      
+      // Clear highlight from all other messages first
+      const highlightedElements = container.querySelectorAll(".ring-purple-500\\/35");
+      highlightedElements.forEach(item => {
+        item.classList.remove("bg-purple-500/10", "dark:bg-purple-500/20", "ring-1", "ring-purple-500/35");
+      });
+
+      // Add visual highlight
+      el.classList.add("bg-purple-500/10", "dark:bg-purple-500/20", "ring-1", "ring-purple-500/35");
+      setTimeout(() => {
+        el.classList.remove("bg-purple-500/10", "dark:bg-purple-500/20", "ring-1", "ring-purple-500/35");
+      }, 2000);
+    }
+  };
+
+  const jumpToMatch = (index) => {
+    if (matchingMessageIds.length === 0) return;
+    let targetIndex = index;
+    if (targetIndex < 0) targetIndex = 0;
+    if (targetIndex >= matchingMessageIds.length) targetIndex = matchingMessageIds.length - 1;
+
+    setActiveMatchIndex(targetIndex);
+
+    const matchId = matchingMessageIds[targetIndex];
+    scrollToMessage(matchId);
+  };
+
+  useEffect(() => {
+    setActiveMatchIndex(0);
+  }, [chatSearchQuery]);
+
+  const handleNewChat = () => {
+    setCurrentChatId(null);
+    setAiMessages([]);
+    setChatInput("");
+    setAttachedFiles([]);
+    setRenamingChatId(null);
+  };
+
+  const handleSelectChat = (chatId) => {
+    const chat = chats.find(c => c.id === chatId);
+    if (chat) {
+      setCurrentChatId(chatId);
+      setAiMessages(chat.messages || []);
+      setChatInput("");
+      setAttachedFiles([]);
+      setRenamingChatId(null);
+
+      // Scroll to matched message if search query is active
+      if (chatSearchQuery.trim() && chat.messages) {
+        const query = chatSearchQuery.toLowerCase();
+        const matches = chat.messages.filter(m => 
+          (m.text && m.text.toLowerCase().includes(query)) ||
+          (m.files && m.files.some(f => f.name && f.name.toLowerCase().includes(query)))
+        );
+        if (matches.length > 0) {
+          setActiveMatchIndex(0);
+          setTimeout(() => {
+            scrollToMessage(matches[0].id);
+          }, 150);
+        }
+      }
+    }
+  };
+
+  const togglePinChat = (chatId, e) => {
+    e.stopPropagation();
+    const nextChats = chats.map(c => {
+      if (c.id === chatId) {
+        return { ...c, isPinned: !c.isPinned };
+      }
+      return c;
+    });
+    setChats(nextChats);
+    localStorage.setItem("ai_chats", JSON.stringify(nextChats));
+  };
+
+  const deleteChat = (chatId, e) => {
+    e.stopPropagation();
+    const nextChats = chats.filter(c => c.id !== chatId);
+    setChats(nextChats);
+    localStorage.setItem("ai_chats", JSON.stringify(nextChats));
+    if (currentChatId === chatId) {
+      handleNewChat();
+    }
+  };
+
+  const startRenameChat = (chat, e) => {
+    e.stopPropagation();
+    setRenamingChatId(chat.id);
+    setRenameChatTitle(chat.title);
+  };
+
+  const saveRenameChat = (chatId) => {
+    const nextChats = chats.map(c => {
+      if (c.id === chatId) {
+        return { ...c, title: renameChatTitle.trim() || c.title };
+      }
+      return c;
+    });
+    setChats(nextChats);
+    localStorage.setItem("ai_chats", JSON.stringify(nextChats));
+    setRenamingChatId(null);
+  };
+
+  const saveChatSession = (chatId, messages, initialTitleText, isNew) => {
+    setChats((prevChats) => {
+      let nextChats;
+      if (isNew || !prevChats.some(c => c.id === chatId)) {
+        const newChat = {
+          id: chatId,
+          title: initialTitleText.substring(0, 40) || "Cuộc trò chuyện mới",
+          messages: messages,
+          isPinned: false,
+          updatedAt: new Date().toISOString()
+        };
+        nextChats = [newChat, ...prevChats];
+      } else {
+        nextChats = prevChats.map(c => {
+          if (c.id === chatId) {
+            return {
+              ...c,
+              messages: messages,
+              updatedAt: new Date().toISOString()
+            };
+          }
+          return c;
+        });
+      }
+      localStorage.setItem("ai_chats", JSON.stringify(nextChats));
+      return nextChats;
+    });
+  };
+
+  const renderSidebarChatItem = (chat) => {
+    const isSelected = currentChatId === chat.id;
+    const isRenaming = renamingChatId === chat.id;
+
+    return (
+      <div
+        key={chat.id}
+        onClick={() => handleSelectChat(chat.id)}
+        className={`group relative flex flex-col items-stretch px-2.5 ${chatSearchQuery.trim() ? "py-1.5" : "py-2"} rounded-lg text-xs transition-colors duration-100 cursor-pointer select-none border antialiased ${
+          isSelected
+            ? "bg-purple-600/10 dark:bg-purple-500/15 text-purple-700 dark:text-purple-300 border-purple-500/20 shadow-sm"
+            : "text-slate-650 dark:text-slate-350 border border-transparent hover:bg-white/40 dark:hover:bg-[#0f111a]/30"
+        }`}
+        style={{ transform: "translate3d(0,0,0)", backfaceVisibility: "hidden" }}
+      >
+        <div className="flex items-center justify-between w-full">
+          <div className="flex-1 min-w-0 flex items-center gap-3 text-left">
+            <MessageCircle className={`w-4 h-4 shrink-0 ${isSelected ? "text-purple-600 dark:text-purple-400" : "text-slate-400 dark:text-slate-500"}`} />
+
+            {isRenaming ? (
+              <input
+                type="text"
+                value={renameChatTitle}
+                onChange={(e) => setRenameChatTitle(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    saveRenameChat(chat.id);
+                  } else if (e.key === "Escape") {
+                    setRenamingChatId(null);
+                  }
+                }}
+                onBlur={() => saveRenameChat(chat.id)}
+                autoFocus
+                onClick={(e) => e.stopPropagation()}
+                className="flex-1 bg-white dark:bg-slate-950 border border-purple-500 rounded px-1 py-0.5 text-xs text-slate-800 dark:text-slate-200 focus:outline-none"
+              />
+            ) : (
+              <span className="truncate flex-1 pr-2 font-bold">
+                {chat.title || "Cuộc trò chuyện"}
+              </span>
+            )}
+          </div>
+
+          {!isRenaming && (
+            <div className="flex items-center gap-1 ml-1 shrink-0 z-10">
+              <button
+                onClick={(e) => togglePinChat(chat.id, e)}
+                className="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-750 dark:hover:text-slate-200 transition-colors"
+                title={chat.isPinned ? "Bỏ ghim" : "Ghim"}
+              >
+                <Pin className={`w-3 h-3 ${chat.isPinned ? "fill-purple-600 text-purple-600" : ""}`} />
+              </button>
+              <button
+                onClick={(e) => startRenameChat(chat, e)}
+                className="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-750 dark:hover:text-slate-200 transition-colors"
+                title="Đổi tên"
+              >
+                <Pencil className="w-3 h-3" />
+              </button>
+              <button
+                onClick={(e) => deleteChat(chat.id, e)}
+                className="p-1 rounded hover:bg-red-50 dark:hover:bg-red-950/20 text-slate-400 hover:text-red-650 dark:hover:text-red-400 transition-colors"
+                title="Xóa cuộc trò chuyện"
+              >
+                <Trash2 className="w-3 h-3" />
+              </button>
+            </div>
+          )}
+        </div>
+
+        {chatSearchQuery.trim() && !isRenaming && (() => {
+          const query = chatSearchQuery.toLowerCase();
+          
+          // 1. Try to find matching text in messages
+          const matchingMessage = chat.messages?.find(m =>
+            m.text && m.text.toLowerCase().includes(query)
+          );
+          if (matchingMessage) {
+            const text = matchingMessage.text;
+            const index = text.toLowerCase().indexOf(query);
+            const start = Math.max(0, index - 20);
+            const end = Math.min(text.length, index + query.length + 30);
+            let snippet = text.substring(start, end);
+            if (start > 0) snippet = "..." + snippet;
+            if (end < text.length) snippet = snippet + "...";
+
+            return (
+              <div className="pl-7 mt-1 text-[10px] font-medium text-slate-400 dark:text-slate-500 italic truncate text-left">
+                {snippet}
+              </div>
+            );
+          }
+
+          // 2. Try to find matching file name
+          const matchingFileMessage = chat.messages?.find(m =>
+            m.files && m.files.some(f => f.name && f.name.toLowerCase().includes(query))
+          );
+          if (matchingFileMessage) {
+            const matchingFile = matchingFileMessage.files.find(f =>
+              f.name && f.name.toLowerCase().includes(query)
+            );
+            if (matchingFile) {
+              return (
+                <div className="pl-7 mt-1 text-[10px] font-semibold text-purple-600 dark:text-purple-400 italic truncate text-left flex items-center gap-1 select-none">
+                  <span>📎 Tệp:</span>
+                  <span>{matchingFile.name}</span>
+                </div>
+              );
+            }
+          }
+
+          return null;
+        })()}
+      </div>
+    );
+  };
+
+  useEffect(() => {
+    if (activeTab === "AI Assistant") {
+      if (currentChatId) {
+        const activeChat = chats.find(c => c.id === currentChatId);
+        if (activeChat) {
+          setAiMessages(activeChat.messages || []);
+          return;
+        }
+      }
+      setAiMessages([]);
+    }
+  }, [activeTab, currentChatId]);
+
+  const renderModernSearchBar = (isWelcome) => {
+    return (
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          handleSendChatMessage();
+        }}
+        className={`relative flex flex-col bg-white dark:bg-[#131522] border border-slate-200/90 dark:border-slate-800 shadow-sm focus-within:shadow-md transition-all w-full select-none ${
+          attachedFiles.length > 0 ? "rounded-3xl gap-2.5 p-3" : "rounded-full gap-1.5 p-1.5 pl-3"
+        }`}
+      >
+        {/* Attached Files List - Horizontal Cards Inside Search Bar */}
+        {attachedFiles.length > 0 && (
+          <div className="flex gap-2.5 overflow-x-auto pb-1.5 select-none text-left w-full max-w-full custom-scrollbar scrollbar-thin scrollbar-thumb-purple-200 scrollbar-track-transparent">
+            {attachedFiles.map((file) => (
+              <div
+                key={file.id}
+                onClick={() => {
+                  if (file.isExceededLimit) {
+                    toast.error("Không thể tải lên. Tổng số tệp tối đa được hỗ trợ là 10 tệp.");
+                  } else {
+                    setPreviewDoc({ ...file, hideChat: true });
+                  }
+                }}
+                className={`w-[240px] h-[58px] border rounded-2xl flex items-center justify-between px-3 py-2 gap-3 relative shadow-sm cursor-pointer transition-all duration-200 shrink-0 ${
+                  file.isExceededLimit
+                    ? "opacity-50 blur-[0.3px] border-red-300 dark:border-red-950/80 bg-red-50/10 dark:bg-red-950/10 hover:bg-red-50/20"
+                    : "bg-slate-50/50 dark:bg-slate-900/40 border-slate-150 dark:border-slate-850 hover:bg-slate-100/60 dark:hover:bg-slate-800/60"
+                }`}
+              >
+                {/* Left Mini Icon Badge */}
+                <div className="shrink-0">
+                  {renderMiniBadge(file.type)}
+                </div>
+
+                {/* Center text details */}
+                <div className="flex-1 min-w-0 flex flex-col justify-center text-left">
+                  <span 
+                    className="text-xs font-bold text-slate-855 dark:text-slate-200 leading-none truncate block" 
+                    title={file.name}
+                  >
+                    {file.name}
+                  </span>
+                  <span className="text-[9.5px] text-slate-450 dark:text-slate-500 font-bold uppercase tracking-wide mt-1 block">
+                    {file.isExceededLimit ? "Lỗi giới hạn" : file.type}
+                  </span>
+                </div>
+
+                {/* Right actions */}
+                <div className="flex items-center gap-1.5 shrink-0 ml-1.5">
+                  {file.isExceededLimit && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toast.error("Không thể tải lên. Tổng số tệp tối đa được hỗ trợ là 10 tệp.");
+                      }}
+                      className="w-5 h-5 rounded-full bg-amber-500 hover:bg-amber-600 flex items-center justify-center cursor-pointer transition-transform hover:scale-110 active:scale-90 shadow-sm"
+                      title="Thử lại"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5 text-white stroke-[3]" />
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setAttachedFiles((prev) => prev.filter((f) => f.id !== file.id));
+                    }}
+                    className="w-5 h-5 rounded-full bg-black dark:bg-white flex items-center justify-center cursor-pointer transition-transform hover:scale-110 active:scale-90 shadow-sm shrink-0"
+                    title="Xóa tệp"
+                  >
+                    <X className="w-3.5 h-3.5 text-white dark:text-black stroke-[3]" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Input & Controls Row */}
+        <div className="flex items-center gap-2 w-full relative">
+          {/* Left Plus button - Gray circular shape to match image */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowToolMenu(!showToolMenu);
+            }}
+            disabled={isParsingFile || isAiTyping}
+            className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-purple-600 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors flex items-center justify-center shrink-0 disabled:opacity-50 cursor-pointer"
+            title="Đính kèm và Công cụ"
+          >
+            <Plus className="w-4.5 h-4.5 stroke-[2.5]" />
+          </button>
+
+          {/* Input field */}
+          <textarea
+            ref={chatInputRef}
+            placeholder={isWelcome ? "Hỏi bất cứ điều gì về học tập, nghiên cứu..." : "Hỏi tôi bất cứ điều gì..."}
+            value={chatInput}
+            onChange={(e) => setChatInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                handleSendChatMessage();
+              }
+            }}
+            disabled={isAiTyping || isParsingFile}
+            rows={1}
+            className="flex-grow bg-transparent border-none outline-none text-xs placeholder:text-slate-400 text-slate-855 dark:text-slate-100 py-1.5 px-1.5 resize-none max-h-40 custom-scrollbar leading-relaxed"
+            style={{ height: "auto" }}
+          />
+
+          {/* Hidden file input */}
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleAttachFileChange}
+            className="hidden"
+            multiple
+          />
+
+          {/* Right side controls */}
+          <div className="flex items-center gap-2 shrink-0 select-none">
+            {/* Lavender circular submit button with white airplane icon to match mockup */}
+            <button
+              type="submit"
+              disabled={isAiTyping || isParsingFile || (!chatInput.trim() && !attachedFiles.some(f => !f.isExceededLimit))}
+              className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 shadow-sm shrink-0 ${
+                (chatInput.trim().length > 0 || attachedFiles.some(f => !f.isExceededLimit)) && !isAiTyping && !isParsingFile
+                  ? "bg-purple-600 hover:bg-purple-700 text-white cursor-pointer hover:scale-105 active:scale-95"
+                  : "bg-purple-100 dark:bg-slate-800 text-purple-300 dark:text-slate-500 cursor-not-allowed opacity-60"
+              }`}
+              title="Gửi câu hỏi"
+            >
+              <Send className="w-3.5 h-3.5 stroke-[2.5]" />
+            </button>
+          </div>
+
+          {/* Floating Tool and File Upload Menu inside container */}
+          {showToolMenu && (
+            <div
+              ref={toolMenuRef}
+              className="absolute bottom-12 left-0 w-64 bg-white dark:bg-[#131522] border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-2xl p-4 z-50 flex flex-col gap-3 animate-in fade-in slide-in-from-bottom-2 duration-200 text-left"
+            >
+              <div>
+                <span className="text-[9px] font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-widest block mb-2 px-1">Tệp đính kèm</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowToolMenu(false);
+                    fileInputRef.current?.click();
+                  }}
+                  className="w-full flex items-center gap-2.5 p-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-250 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors cursor-pointer"
+                >
+                  <div className="w-7 h-7 rounded-lg bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
+                    <Paperclip className="w-4 h-4" />
+                  </div>
+                  <div className="flex flex-col text-left">
+                    <span className="font-bold text-slate-855 dark:text-slate-200 leading-snug">Tải lên tài liệu</span>
+                    <span className="text-[9.5px] text-slate-400 dark:text-slate-500 font-medium">Tải lên tài liệu từ máy bạn</span>
+                  </div>
+                </button>
+              </div>
+
+              <div className="border-t border-slate-150 dark:border-slate-800/80 pt-2.5">
+                <span className="text-[9px] font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-widest block mb-2 px-1">Công cụ</span>
+                
+                <button
+                  type="button"
+                  onClick={() => setUseWeb(!useWeb)}
+                  className={`w-full flex items-center gap-2.5 p-2 rounded-xl text-xs transition-colors cursor-pointer ${useWeb ? 'bg-purple-50/50 dark:bg-purple-950/20' : ''}`}
+                >
+                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${useWeb ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30' : 'bg-slate-50 text-slate-500 dark:bg-slate-800'}`}>
+                    <Globe className="w-4 h-4" />
+                  </div>
+                  <div className="flex flex-col text-left">
+                    <span className="font-bold text-slate-855 dark:text-slate-200 leading-snug">Tìm kiếm Web</span>
+                    <span className="text-[9.5px] text-slate-400 dark:text-slate-500 font-medium">Tìm thông tin trên Internet</span>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setUseScholar(!useScholar)}
+                  className={`w-full flex items-center gap-2.5 p-2 rounded-xl text-xs transition-colors cursor-pointer mt-1.5 ${useScholar ? 'bg-purple-50/50 dark:bg-purple-950/20' : ''}`}
+                >
+                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${useScholar ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30' : 'bg-slate-50 text-slate-500 dark:bg-slate-800'}`}>
+                    <BookOpen className="w-4 h-4" />
+                  </div>
+                  <div className="flex flex-col text-left">
+                    <span className="font-bold text-slate-855 dark:text-slate-200 leading-snug">Tìm kiếm học thuật</span>
+                    <span className="text-[9.5px] text-slate-400 dark:text-slate-500 font-medium">Tìm nguồn học thuật uy tín</span>
+                  </div>
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </form>
+    );
+  };
 
   useEffect(() => {
     function handleClickOutside(event) {
@@ -998,18 +1667,35 @@ export default function Home() {
 
 
   // Send AI Chat Message action
-  const handleSendChatMessage = async (textToSend) => {
-    const text = textToSend || chatInput;
-    if (!text.trim()) return;
+  const handleSendChatMessage = async (textToSend, filesOverride) => {
+    const text = textToSend !== undefined ? textToSend : chatInput;
+    const rawTargetFiles = filesOverride !== undefined ? filesOverride : attachedFiles;
+    const targetFiles = rawTargetFiles.filter(f => !f.isExceededLimit);
+    if (!text.trim() && targetFiles.length === 0) return;
 
+    const finalQueryText = text.trim() || `Phân tích tài liệu: ${targetFiles.map(f => f.name).join(", ")}`;
+
+    // Generate or use currentChatId
+    let activeId = currentChatId;
+    let isNew = false;
+    if (!activeId) {
+      activeId = Date.now();
+      setCurrentChatId(activeId);
+      isNew = true;
+    }
     // Add user message
     const userMsg = {
       id: Date.now(),
       sender: "user",
-      text: text
+      text: text.trim() ? finalQueryText : "",
+      files: targetFiles
     };
-    setAiMessages((prev) => [...prev, userMsg]);
-    if (!textToSend) setChatInput("");
+    const updatedMessagesWithUser = [...aiMessages, userMsg];
+    setAiMessages(updatedMessagesWithUser);
+    saveChatSession(activeId, updatedMessagesWithUser, finalQueryText, isNew);
+
+    setChatInput("");
+    setAttachedFiles([]);
 
     setIsAiTyping(true);
 
@@ -1017,14 +1703,14 @@ export default function Home() {
       const token = localStorage.getItem("token") || sessionStorage.getItem("token");
       
       const payload = {
-        message: text,
+        message: finalQueryText,
         history: aiMessages,
         aiMode: aiMode,
         useWeb: useWeb,
         useScholar: useScholar,
         deepResearch: deepResearch,
-        documentContext: attachedFiles.length > 0
-          ? attachedFiles.map(file => `--- TẬP TIN: ${file.name} ---\n${file.content}`).join("\n\n")
+        documentContext: targetFiles.length > 0
+          ? targetFiles.map(file => `--- TẬP TIN: ${file.name} ---\n${file.content}`).join("\n\n")
           : ""
       };
 
@@ -1034,25 +1720,173 @@ export default function Home() {
         }
       });
 
-      setAiMessages((prev) => [
-        ...prev,
-        {
-          id: Date.now() + 1,
-          sender: "ai",
-          text: res.data.response || "Không nhận được phản hồi từ AI."
-        }
-      ]);
+      const aiMsg = {
+        id: Date.now() + 1,
+        sender: "ai",
+        text: res.data.response || "Không nhận được phản hồi từ AI."
+      };
+      
+      setAiMessages((prev) => {
+        const next = [...prev, aiMsg];
+        saveChatSession(activeId, next, finalQueryText, false);
+        return next;
+      });
     } catch (err) {
       console.error("AI assistant chat error:", err);
       const errMsg = err.response?.data?.error || err.message || "Lỗi kết nối đến máy chủ AI.";
-      setAiMessages((prev) => [
-        ...prev,
-        {
-          id: Date.now() + 1,
-          sender: "ai",
-          text: `❌ **Lỗi Kết Nối:** ${errMsg}`
+      const errMsgObj = {
+        id: Date.now() + 1,
+        sender: "ai",
+        text: `❌ **Lỗi Kết Nối:** ${errMsg}`
+      };
+      setAiMessages((prev) => {
+        const next = [...prev, errMsgObj];
+        saveChatSession(activeId, next, finalQueryText, false);
+        return next;
+      });
+      toast.error("Trò chuyện AI thất bại.");
+    } finally {
+      setIsAiTyping(false);
+    }
+  };
+
+  const handleRetryUserMessage = async (msgId) => {
+    const msgIndex = aiMessages.findIndex(m => m.id === msgId);
+    if (msgIndex === -1) return;
+
+    const targetQuery = aiMessages[msgIndex].text;
+    const historyUpToTarget = aiMessages.slice(0, msgIndex);
+
+    const updatedMessages = aiMessages.slice(0, msgIndex + 1);
+    setAiMessages(updatedMessages);
+
+    setIsAiTyping(true);
+    let activeId = currentChatId;
+
+    try {
+      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+      
+      const payload = {
+        message: targetQuery,
+        history: historyUpToTarget,
+        aiMode: aiMode,
+        useWeb: useWeb,
+        useScholar: useScholar,
+        deepResearch: deepResearch,
+        documentContext: ""
+      };
+
+      const msgFiles = aiMessages[msgIndex].files || [];
+      if (msgFiles.length > 0) {
+        payload.documentContext = msgFiles.map(file => `--- TẬP TIN: ${file.name} ---\n${file.content}`).join("\n\n");
+      }
+
+      const res = await axios.post("http://localhost:5000/api/chat", payload, {
+        headers: {
+          "Authorization": `Bearer ${token}`
         }
-      ]);
+      });
+
+      const aiMsg = {
+        id: Date.now() + 1,
+        sender: "ai",
+        text: res.data.response || "Không nhận được phản hồi từ AI."
+      };
+      
+      setAiMessages((prev) => {
+        const next = [...prev, aiMsg];
+        saveChatSession(activeId, next, targetQuery, false);
+        return next;
+      });
+    } catch (err) {
+      console.error("AI assistant chat retry error:", err);
+      const errMsg = err.response?.data?.error || err.message || "Lỗi kết nối đến máy chủ AI.";
+      const errMsgObj = {
+        id: Date.now() + 1,
+        sender: "ai",
+        text: `❌ **Lỗi Kết Nối:** ${errMsg}`
+      };
+      setAiMessages((prev) => {
+        const next = [...prev, errMsgObj];
+        saveChatSession(activeId, next, targetQuery, false);
+        return next;
+      });
+      toast.error("Trò chuyện AI thất bại.");
+    } finally {
+      setIsAiTyping(false);
+    }
+  };
+
+  const handleSaveEditMessage = async (msgId) => {
+    if (!editingText.trim()) return;
+
+    const msgIndex = aiMessages.findIndex(m => m.id === msgId);
+    if (msgIndex === -1) return;
+
+    const targetQuery = editingText.trim();
+    const historyUpToTarget = aiMessages.slice(0, msgIndex);
+
+    const updatedMessages = aiMessages.slice(0, msgIndex + 1);
+    updatedMessages[msgIndex] = {
+      ...updatedMessages[msgIndex],
+      text: targetQuery
+    };
+
+    setAiMessages(updatedMessages);
+    setEditingMessageId(null);
+    setEditingText("");
+
+    setIsAiTyping(true);
+    let activeId = currentChatId;
+
+    try {
+      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+      
+      const payload = {
+        message: targetQuery,
+        history: historyUpToTarget,
+        aiMode: aiMode,
+        useWeb: useWeb,
+        useScholar: useScholar,
+        deepResearch: deepResearch,
+        documentContext: ""
+      };
+
+      const msgFiles = updatedMessages[msgIndex].files || [];
+      if (msgFiles.length > 0) {
+        payload.documentContext = msgFiles.map(file => `--- TẬP TIN: ${file.name} ---\n${file.content}`).join("\n\n");
+      }
+
+      const res = await axios.post("http://localhost:5000/api/chat", payload, {
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      });
+
+      const aiMsg = {
+        id: Date.now() + 1,
+        sender: "ai",
+        text: res.data.response || "Không nhận được phản hồi từ AI."
+      };
+      
+      setAiMessages((prev) => {
+        const next = [...prev, aiMsg];
+        saveChatSession(activeId, next, targetQuery, false);
+        return next;
+      });
+    } catch (err) {
+      console.error("AI assistant chat edit error:", err);
+      const errMsg = err.response?.data?.error || err.message || "Lỗi kết nối đến máy chủ AI.";
+      const errMsgObj = {
+        id: Date.now() + 1,
+        sender: "ai",
+        text: `❌ **Lỗi Kết Nối:** ${errMsg}`
+      };
+      setAiMessages((prev) => {
+        const next = [...prev, errMsgObj];
+        saveChatSession(activeId, next, targetQuery, false);
+        return next;
+      });
       toast.error("Trò chuyện AI thất bại.");
     } finally {
       setIsAiTyping(false);
@@ -1064,14 +1898,33 @@ export default function Home() {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
 
-    if (files.length > 10) {
-      toast.error("Bạn chỉ có thể tải lên tối đa 10 tệp mỗi lần.");
-      e.target.value = "";
-      return;
+    const currentValidCount = attachedFiles.filter(f => !f.isExceededLimit).length;
+    const filesToUpload = [];
+    const exceededFiles = [];
+
+    files.forEach((file, index) => {
+      if (currentValidCount + filesToUpload.length < 10) {
+        filesToUpload.push(file);
+      } else {
+        exceededFiles.push({
+          id: Date.now() + Math.random() + index,
+          name: file.name,
+          size: file.size,
+          type: file.name.split('.').pop().toUpperCase() || "FILE",
+          content: "",
+          isExceededLimit: true
+        });
+      }
+    });
+
+    if (exceededFiles.length > 0) {
+      toast.warning(`Đã vượt quá giới hạn 10 tệp. ${exceededFiles.length} tệp vượt hạn sẽ bị lỗi giới hạn và có nút thử lại.`);
     }
 
-    if (attachedFiles.length + files.length > 10) {
-      toast.error("Tổng số tệp đính kèm không được vượt quá 10 tệp.");
+    if (filesToUpload.length === 0) {
+      if (exceededFiles.length > 0) {
+        setAttachedFiles((prev) => [...prev, ...exceededFiles]);
+      }
       e.target.value = "";
       return;
     }
@@ -1084,7 +1937,7 @@ export default function Home() {
       const errors = [];
 
       await Promise.all(
-        files.map(async (file) => {
+        filesToUpload.map(async (file) => {
           try {
             const formData = new FormData();
             formData.append("file", file);
@@ -1111,9 +1964,7 @@ export default function Home() {
         })
       );
 
-      if (parsedFiles.length > 0) {
-        setAttachedFiles((prev) => [...prev, ...parsedFiles]);
-      }
+      setAttachedFiles((prev) => [...prev, ...parsedFiles, ...exceededFiles]);
 
       if (errors.length > 0) {
         toast.error(`Một số tệp tải lên thất bại:\n${errors.join("\n")}`);
@@ -1179,7 +2030,7 @@ export default function Home() {
       
       const lines = part.split("\n");
       return (
-        <div key={index} className="space-y-1.5 w-full text-left font-medium select-text selection:bg-purple-500/20">
+        <div key={index} className="w-full text-left font-medium select-text selection:bg-purple-500/20 whitespace-pre-wrap leading-relaxed break-words">
           {lines.map((line, lineIdx) => {
             const isBullet = line.trim().startsWith("- ") || line.trim().startsWith("* ");
             const cleanLine = isBullet ? line.trim().substring(2) : line;
@@ -1194,13 +2045,19 @@ export default function Home() {
             
             if (isBullet) {
               return (
-                <ul key={lineIdx} className="list-disc pl-5 my-0.5 space-y-1">
-                  <li className="leading-relaxed">{formattedLine}</li>
-                </ul>
+                <span key={lineIdx} className="block pl-5 select-text">
+                  • {formattedLine}
+                  {lineIdx < lines.length - 1 ? "\n" : ""}
+                </span>
               );
             }
             
-            return <p key={lineIdx} className="leading-relaxed whitespace-pre-wrap">{formattedLine}</p>;
+            return (
+              <span key={lineIdx} className="select-text">
+                {formattedLine}
+                {lineIdx < lines.length - 1 ? "\n" : ""}
+              </span>
+            );
           })}
         </div>
       );
@@ -1403,16 +2260,19 @@ export default function Home() {
           <div className="relative">
             <button
               onClick={() => setShowProfileDropdown(!showProfileDropdown)}
-              className="w-full flex items-center justify-between p-2.5 rounded-xl border border-slate-200/40 dark:border-white/5 bg-white/40 dark:bg-[#0f111a]/45 backdrop-blur-md hover:bg-white/65 dark:hover:bg-[#0f111a]/60 shadow-[inset_0_1px_1px_rgba(255,255,255,0.2)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition-all duration-300 text-left focus:outline-none cursor-pointer"
+              className="w-full flex items-center justify-between p-2.5 rounded-xl border border-slate-200/40 dark:border-white/5 bg-white/40 dark:bg-[#0f111a]/45 backdrop-blur-md hover:bg-white/65 dark:hover:bg-[#0f111a]/60 shadow-[inset_0_1px_1px_rgba(255,255,255,0.2)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition-colors duration-100 text-left focus:outline-none cursor-pointer antialiased"
+              style={{ transform: "translate3d(0,0,0)", backfaceVisibility: "hidden" }}
             >
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="relative w-8.5 h-8.5 rounded-lg bg-purple-100 dark:bg-purple-950/50 flex items-center justify-center font-extrabold text-purple-700 dark:text-purple-300 shrink-0 overflow-hidden">
-                  {user?.avatar_url ? (
-                    <img src={user.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
-                  ) : (
-                    fullName.charAt(0)
-                  )}
-                  <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-emerald-500 border border-white dark:border-[#151722] animate-pulse z-10" />
+                <div className="relative w-8.5 h-8.5 shrink-0">
+                  <div className="w-full h-full rounded-lg bg-purple-100 dark:bg-purple-950/50 flex items-center justify-center font-extrabold text-purple-700 dark:text-purple-300 overflow-hidden">
+                    {user?.avatar_url ? (
+                      <img src={user.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+                    ) : (
+                      fullName.charAt(0)
+                    )}
+                  </div>
+                  <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-500 border border-white dark:border-[#151722] z-10" />
                 </div>
                 <div className="flex flex-col truncate">
                   <span className="text-xs font-bold text-slate-900 dark:text-slate-100 leading-tight truncate">{fullName}</span>
@@ -1456,11 +2316,21 @@ export default function Home() {
               return (
                 <button
                   key={item.name}
-                  onClick={() => setActiveTab(item.name)}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-bold transition-all duration-350 cursor-pointer select-none focus:outline-none ${isActive
+                  onClick={() => {
+                    setActiveTab(item.name);
+                    if (item.name === "AI Assistant") {
+                      setCurrentChatId(null);
+                      setAiMessages([]);
+                      setShowChatSidebar(false);
+                      setSidebarWidth(230);
+                      setChatSearchQuery("");
+                    }
+                  }}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-bold transition-colors duration-100 cursor-pointer select-none focus:outline-none antialiased ${isActive
                     ? "bg-purple-600/10 dark:bg-purple-500/15 text-purple-700 dark:text-purple-300 shadow-[inset_0_1px_1px_rgba(255,255,255,0.15)] border border-purple-500/20"
-                    : "text-slate-500 dark:text-slate-400 border border-transparent hover:bg-white/40 dark:hover:bg-[#0f111a]/30 hover:text-slate-800 dark:hover:text-slate-200"
+                    : "text-slate-650 dark:text-slate-350 border border-transparent hover:bg-white/40 dark:hover:bg-[#0f111a]/30"
                     }`}
+                  style={{ transform: "translate3d(0,0,0)", backfaceVisibility: "hidden" }}
                 >
                   <Icon className={`w-4 h-4 ${isActive ? "text-purple-600 dark:text-purple-400" : "text-slate-400 dark:text-slate-500"}`} />
                   {item.label}
@@ -1500,7 +2370,8 @@ export default function Home() {
 
           <button
             onClick={() => setActiveTab("Personal Profile")}
-            className="w-full flex items-center gap-3 px-3 py-2 text-xs font-bold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-white/40 dark:hover:bg-[#0f111a]/30 rounded-lg cursor-pointer border border-transparent hover:border-slate-200/20 dark:hover:border-white/5 transition-all focus:outline-none"
+            className="w-full flex items-center gap-3 px-3 py-2 text-xs font-bold text-slate-650 dark:text-slate-350 hover:bg-white/40 dark:hover:bg-[#0f111a]/30 rounded-lg cursor-pointer border border-transparent hover:border-slate-200/20 dark:hover:border-white/5 transition-colors duration-100 focus:outline-none antialiased"
+            style={{ transform: "translate3d(0,0,0)", backfaceVisibility: "hidden" }}
           >
             <Settings className="w-4 h-4 text-slate-400" />
             Cài đặt & Bảo mật
@@ -1529,7 +2400,16 @@ export default function Home() {
                   <p className="text-xs text-slate-500 mt-1 font-medium">Chào mừng bạn quay lại AIStudyHub. Hệ thống lưu trữ học tập đã sẵn sàng.</p>
                 </div>
                 <Button
-                  onClick={() => setActiveTab("AI Assistant")}
+                  onClick={() => {
+                    setActiveTab("AI Assistant");
+                    setCurrentChatId(null);
+                    setAiMessages([]);
+                    setChatInput("");
+                    setAttachedFiles([]);
+                    setShowChatSidebar(false);
+                    setSidebarWidth(230);
+                    setChatSearchQuery("");
+                  }}
                   className="bg-purple-600 dark:bg-purple-500 hover:bg-purple-700 dark:hover:bg-purple-600 text-white font-extrabold text-xs px-4 py-2.5 rounded-lg cursor-pointer shadow-sm transition-all flex items-center gap-1.5"
                 >
                   <Sparkles className="w-3.5 h-3.5" />
@@ -1675,13 +2555,12 @@ export default function Home() {
                             id="file-picker-input"
                             type="file"
                             className="hidden"
-                            accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt"
                             onChange={handleFileChange}
                           />
                           <div className="flex flex-col items-center gap-1.5">
                             <UploadCloud className="w-8 h-8 text-slate-400 group-hover:text-purple-500 transition-colors" />
                             <span className="text-xs font-bold text-slate-700 dark:text-slate-200">Kéo thả tệp hoặc nhấp để chọn tệp tài liệu</span>
-                            <span className="text-[10px] text-slate-400">PDF, PowerPoint, Word, Excel, TXT (Tối đa 10MB)</span>
+                            <span className="text-[10px] text-slate-400">Hỗ trợ mọi định dạng tệp (Tối đa 10MB)</span>
                           </div>
                         </div>
                       ) : (
@@ -1758,7 +2637,7 @@ export default function Home() {
                                   setShowSubjectDropdown(false);
                                 }}
                                 className={`w-full text-left px-2.5 py-1.5 text-[11px] font-bold rounded-lg transition-colors flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2 mb-1 ${!uploadSubject
-                                  ? "bg-purple-600/10 text-purple-650 dark:text-purple-400"
+                                  ? "bg-purple-600/10 text-purple-600 dark:text-purple-400"
                                   : "text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
                                   }`}
                               >
@@ -2095,7 +2974,7 @@ export default function Home() {
                               setPersonalRangeStart(null);
                               setPersonalRangeEnd(null);
                             }}
-                            className="text-[9px] font-black text-purple-650 hover:text-purple-800 dark:text-purple-400 hover:underline cursor-pointer"
+                            className="text-[9px] font-black text-purple-600 hover:text-purple-800 dark:text-purple-400 hover:underline cursor-pointer"
                           >
                             Xóa lọc
                           </button>
@@ -2409,12 +3288,29 @@ export default function Home() {
                                       e.stopPropagation();
                                       setOpenMenuId(null);
                                       if (doc.file_url) {
-                                        const link = document.createElement("a");
-                                        link.href = doc.file_url + "?download=";
-                                        link.download = doc.title || "download";
-                                        document.body.appendChild(link);
-                                        link.click();
-                                        document.body.removeChild(link);
+                                        (async () => {
+                                          try {
+                                            const response = await fetch(doc.file_url);
+                                            if (!response.ok) throw new Error("Network response was not ok");
+                                            const blob = await response.blob();
+                                            const blobUrl = URL.createObjectURL(blob);
+                                            
+                                            const link = document.createElement("a");
+                                            link.href = blobUrl;
+                                            const urlExt = doc.file_url.split('.').pop().split('?')[0] || "pdf";
+                                            const cleanTitle = (doc.title || "download").endsWith("." + urlExt) 
+                                              ? (doc.title || "download") 
+                                              : `${doc.title || "download"}.${urlExt}`;
+                                            link.download = cleanTitle;
+                                            document.body.appendChild(link);
+                                            link.click();
+                                            document.body.removeChild(link);
+                                            URL.revokeObjectURL(blobUrl);
+                                          } catch (error) {
+                                            console.error("Direct download failed, falling back to new tab:", error);
+                                            window.open(doc.file_url, "_blank");
+                                          }
+                                        })();
                                       } else {
                                         toast.error("Không tìm thấy đường dẫn tải xuống!");
                                       }
@@ -2462,7 +3358,7 @@ export default function Home() {
                                       setEditTagInput("");
                                       setEditTagSuggestions([]);
                                     }}
-                                    className="w-full flex items-center gap-2 text-left px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60 rounded-md transition-colors"
+                                    className="w-full flex items-center gap-2 text-left px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-350 hover:bg-slate-50 dark:hover:bg-slate-800/60 rounded-md transition-colors"
                                   >
                                     <Pencil className="w-4 h-4 text-slate-400" />
                                     Chỉnh sửa
@@ -2502,7 +3398,6 @@ export default function Home() {
           </div>
         )}
 
-        {/* ── NEW SCREEN: BOOKMARKS VIEW ── */}
         {activeTab === "Bookmarks" && (
           <div className="flex flex-col gap-6 max-w-5xl w-full mx-auto animate-spring-up">
             <header className="flex flex-col gap-1 border-b border-slate-100 dark:border-slate-800/60 pb-5 select-none text-left">
@@ -2565,337 +3460,436 @@ export default function Home() {
             </section>
           </div>
         )}
+
         {activeTab === "AI Assistant" && (
-          <div className="flex-1 flex flex-col justify-between py-2 select-none h-full animate-in fade-in-50 duration-300 max-w-4xl w-full mx-auto">
-            {/* Minimal Header matching reference layout */}
-            <header className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/60 pb-3 select-none text-left">
-              <div className="flex items-center gap-3">
-                {/* Purple spark icon container */}
-                <div className="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center text-purple-600 dark:text-purple-400 shrink-0">
-                  <Sparkles className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+          <div className="flex-1 flex flex-row min-h-0 bg-transparent relative h-[calc(100vh-145px)] min-h-[580px] w-full animate-spring-up">
+            {/* 1. SIDEBAR (Collapsible) */}
+            <div
+              id="ai-chat-sidebar"
+              className={`h-full bg-slate-50/40 dark:bg-[#07080c]/45 backdrop-blur-sm flex flex-col shrink-0 overflow-hidden relative ${
+                isResizing ? "" : "transition-all duration-300 ease-in-out"
+              } ${
+                showChatSidebar ? "border border-slate-200/40 dark:border-slate-850/60 rounded-2xl" : "border-0"
+              }`}
+              style={{ width: showChatSidebar ? `${sidebarWidth}px` : "0px" }}
+            >
+              <div
+                className="h-full flex flex-col shrink-0"
+                style={{ width: `${sidebarWidth}px`, minWidth: `${sidebarWidth}px` }}
+              >
+                {/* Sidebar Header/Search */}
+                <div className="pt-3 pb-3 px-2.5 flex flex-col gap-3 shrink-0 border-b border-slate-200/40 dark:border-slate-800/60">
+                  {/* Close Button Row */}
+                  <div className="flex items-center justify-end">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowChatSidebar(false);
+                        setSidebarWidth(230);
+                      }}
+                      className="p-2.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#131522] text-slate-500 hover:text-purple-600 transition-colors shadow-sm cursor-pointer flex items-center justify-center shrink-0"
+                      title="Ẩn danh sách"
+                    >
+                      <Menu className="w-4 h-4" />
+                    </button>
+                  </div>
+                  
+                  {/* New Chat Button Row */}
+                  <button
+                    type="button"
+                    onClick={handleNewChat}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-sm transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] select-none cursor-pointer"
+                  >
+                    <SquarePen className="w-4 h-4" />
+                    <span className="truncate">Cuộc trò chuyện mới</span>
+                  </button>
+
+                  {/* Search Past Chats */}
+                  <div className="relative w-full flex items-center bg-white dark:bg-[#0f111a] border border-slate-200/60 dark:border-slate-850 rounded-xl px-3 py-1.5 focus-within:border-purple-500/50 transition-colors">
+                    <Search className="w-3.5 h-3.5 text-slate-400 shrink-0 mr-2" />
+                    <input
+                      type="text"
+                      placeholder="Tìm cuộc hội thoại..."
+                      value={chatSearchQuery}
+                      onChange={(e) => setChatSearchQuery(e.target.value)}
+                      className="w-full bg-transparent border-none outline-none text-[11px] placeholder:text-slate-400 text-slate-700 dark:text-slate-200"
+                    />
+                    {chatSearchQuery && (
+                      <button
+                        onClick={() => setChatSearchQuery("")}
+                        className="text-slate-400 hover:text-slate-600 p-0.5 rounded-full hover:bg-black/5 shrink-0 ml-1"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
                 </div>
-                <div className="text-left">
-                  <h1 className="text-lg font-black text-slate-850 dark:text-white leading-tight">
-                    AI Scholar Assistant
-                  </h1>
-                  <p className="text-[10.5px] text-slate-450 dark:text-slate-500 font-semibold mt-0.5">Trợ lý nghiên cứu và học thuật AI</p>
-                </div>
-              </div>
 
-              <div className="flex items-center gap-2">
-                <button type="button" className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-450 dark:text-slate-500 hover:text-purple-600 dark:hover:text-purple-400 transition-colors cursor-pointer" title="Lịch sử nghiên cứu">
-                  <Clock className="w-4.5 h-4.5" />
-                </button>
-              </div>
-            </header>
+                {/* Chat Session List */}
+                <div className={`flex-1 overflow-y-auto px-1.5 pb-1.5 flex flex-col gap-1 custom-scrollbar ${chatSearchQuery.trim() ? "pt-2" : "pt-2.5"}`}>
+                  {(() => {
+                    const filtered = chats.filter(c => {
+                      const query = chatSearchQuery.toLowerCase();
+                      const matchesTitle = c.title.toLowerCase().includes(query);
+                      const matchesMessages = c.messages && c.messages.some(m =>
+                        m.text && m.text.toLowerCase().includes(query)
+                      );
+                      const matchesFiles = c.messages && c.messages.some(m =>
+                        m.files && m.files.some(f => f.name && f.name.toLowerCase().includes(query))
+                      );
+                      return matchesTitle || matchesMessages || matchesFiles;
+                    });
+                    
+                    const pinned = filtered.filter(c => c.isPinned);
+                    const others = filtered.filter(c => !c.isPinned);
 
-            {/* Chat Messages Flow */}
-            <div className="flex-1 overflow-y-auto my-3 bg-[#F9FAFC] dark:bg-[#0b0c14] border border-slate-100 dark:border-white/5 rounded-2xl p-5 flex flex-col gap-5 custom-scrollbar shadow-inner h-[380px]">
-              {aiMessages.map((msg) => {
-                const isAi = msg.sender === "ai";
-
-                if (isAi) {
-                  const { cleanText, sources } = extractSources(msg.text);
-                  return (
-                    <div key={msg.id} className="flex items-start gap-3 self-start max-w-[90%] w-full">
-                      {/* Robot profile icon */}
-                      <div className="w-9 h-9 rounded-full bg-purple-600 text-white flex items-center justify-center shrink-0 shadow-sm">
-                        <Bot className="w-5 h-5 text-white" />
-                      </div>
-
-                      {/* Response card container */}
-                      <div className="flex-1 bg-white dark:bg-[#11121d] border border-slate-100 dark:border-slate-850 rounded-2xl p-5 shadow-sm hover:shadow-md transition-all text-left">
-                        {/* Card Header */}
-                        <div className="flex items-center gap-2 mb-3 select-none">
-                          <span className="text-xs font-black text-slate-850 dark:text-slate-100">AI Scholar</span>
-                          <div className="flex items-center gap-1 bg-emerald-50 dark:bg-emerald-950/30 px-1.5 py-0.5 rounded-full border border-emerald-100/40">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                            <span className="text-[8.5px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest">Online</span>
-                          </div>
-                          <span className="text-[9.5px] text-slate-400 font-semibold ml-auto">{aiMode} mode</span>
-                        </div>
-
-                        {/* Message Content */}
-                        <div className="text-xs text-slate-850 dark:text-slate-200 leading-relaxed font-medium">
-                          {renderMessageText(cleanText)}
-                        </div>
-
-                        {/* Sources Section */}
-                        {sources.length > 0 && (
-                          <div className="mt-4 border-t border-slate-100 dark:border-slate-800/60 pt-4">
-                            <div className="flex items-center gap-1.5 text-[10px] font-black text-slate-850 dark:text-slate-200 uppercase tracking-wider mb-2.5 select-none">
-                              <BookOpen className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
-                              <span>Sources</span>
-                            </div>
-                            <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-purple-200 scrollbar-track-transparent custom-scrollbar max-w-full">
-                              {sources.map((src, idx) => (
-                                <a
-                                  key={idx}
-                                  href={src.url || "#"}
-                                  target={src.url ? "_blank" : undefined}
-                                  rel="noopener noreferrer"
-                                  className="flex-shrink-0 w-48 p-2.5 bg-slate-50 dark:bg-slate-900/50 hover:bg-slate-100 dark:hover:bg-slate-800/50 border border-slate-100 dark:border-slate-850 rounded-xl transition-all flex flex-col justify-between group"
-                                >
-                                  <div>
-                                    <div className="flex items-center gap-1 text-[9px] font-black uppercase tracking-wider mb-1">
-                                      {getSourceIcon(src.source)}
-                                      <span className="text-slate-500 dark:text-slate-400 ml-1">{src.source}</span>
-                                    </div>
-                                    <p className="text-[10.5px] font-bold text-slate-700 dark:text-slate-250 line-clamp-2 leading-tight group-hover:text-purple-600 transition-colors">
-                                      {src.title}
-                                    </p>
-                                  </div>
-                                  <span className="text-[8.5px] text-slate-450 dark:text-slate-500 mt-2 block font-medium">
-                                    {src.url ? "Xem nguồn tài liệu" : "Tài liệu học thuật"}
-                                  </span>
-                                </a>
-                              ))}
+                    return (
+                      <>
+                        {pinned.length > 0 && (
+                          <div className="mb-2">
+                            <span className="text-[9px] font-black text-slate-450 uppercase tracking-widest block px-2.5 mb-1.5 select-none">
+                              Đã ghim
+                            </span>
+                            <div className="flex flex-col gap-1">
+                              {pinned.map(renderSidebarChatItem)}
                             </div>
                           </div>
                         )}
 
-                        {/* Card Footer Actions */}
-                        <div className="flex items-center gap-4 mt-4 border-t border-slate-100 dark:border-slate-800/60 pt-3 select-none">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              navigator.clipboard.writeText(cleanText);
-                              toast.success("Đã sao chép phản hồi vào bộ nhớ tạm!");
-                            }}
-                            className="p-1 text-slate-400 hover:text-purple-600 dark:hover:text-purple-400 transition-colors cursor-pointer"
-                            title="Sao chép"
-                          >
-                            <Copy className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => toast.success("Cảm ơn bạn đã phản hồi!")}
-                            className="p-1 text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors cursor-pointer"
-                            title="Hữu ích"
-                          >
-                            <ThumbsUp className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => toast.success("Cảm ơn bạn đã phản hồi!")}
-                            className="p-1 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors cursor-pointer"
-                            title="Không hữu ích"
-                          >
-                            <ThumbsDown className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => toast.success("Đã lưu vào danh sách đánh dấu!")}
-                            className="p-1 text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 transition-colors cursor-pointer"
-                            title="Đánh dấu"
-                          >
-                            <Heart className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              navigator.clipboard.writeText(window.location.href);
-                              toast.success("Đã sao chép liên kết chia sẻ cuộc hội thoại!");
-                            }}
-                            className="p-1 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors ml-auto cursor-pointer"
-                            title="Chia sẻ"
-                          >
-                            <Share2 className="w-3.5 h-3.5" />
-                          </button>
+                        <div>
+                          {others.length > 0 && !chatSearchQuery.trim() && (
+                            <span className={`text-[9px] font-black text-slate-450 uppercase tracking-widest block px-2.5 mb-1.5 select-none ${pinned.length > 0 ? "mt-2" : ""}`}>
+                              Gần đây
+                            </span>
+                          )}
+                          {filtered.length === 0 ? (
+                            <div className="text-center py-8 text-[10px] font-bold text-slate-400">
+                              Không tìm thấy cuộc trò chuyện nào
+                            </div>
+                          ) : (
+                            <div className="flex flex-col gap-1">
+                              {others.map(renderSidebarChatItem)}
+                            </div>
+                          )}
                         </div>
-                      </div>
-                    </div>
-                  );
-                } else {
-                  return (
-                    <div key={msg.id} className="flex items-start justify-end gap-3 self-end max-w-[85%]">
-                      {/* User Text Bubble */}
-                      <div className="bg-[#F0EEFF] dark:bg-purple-900/30 border border-purple-100/60 dark:border-purple-900/40 text-slate-800 dark:text-slate-200 px-4 py-3 rounded-2xl rounded-tr-none text-xs text-left leading-relaxed font-semibold shadow-sm">
-                        {msg.text}
-                      </div>
+                      </>
+                    );
+                  })()}
+                </div>
+              </div>
 
-                      {/* User Profile Avatar */}
-                      <div className="flex flex-col items-center shrink-0">
-                        <div className="w-8 h-8 rounded-full bg-[#8B5CF6] text-white flex items-center justify-center font-bold text-[11px] select-none shadow-sm">
-                          {fullName.slice(0, 2).toUpperCase()}
-                        </div>
-                        <span className="text-[9px] text-slate-400 mt-1 select-none font-medium">
-                          {new Date(msg.id).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                }
-              })}
-
-              {isAiTyping && (
-                <div className="flex items-start gap-3 self-start max-w-[90%] w-full">
-                  <div className="w-9 h-9 rounded-full bg-purple-600 text-white flex items-center justify-center shrink-0 shadow-sm animate-pulse">
-                    <Bot className="w-5 h-5 text-white" />
-                  </div>
-                  <div className="bg-white dark:bg-[#11121d] border border-slate-100 dark:border-slate-800 rounded-2xl p-4 flex items-center gap-2.5 animate-pulse shadow-sm">
-                    <Bot className="w-4 h-4 text-purple-500 animate-spin" />
-                    <span className="text-[10px] font-extrabold text-slate-450 uppercase tracking-widest">AI Đang lập luận học thuật...</span>
-                  </div>
+              {/* Resize Handle */}
+              {showChatSidebar && (
+                <div
+                  onMouseDown={startResizing}
+                  className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-purple-500/40 active:bg-purple-500/60 transition-all duration-150 z-30 flex items-center justify-center group"
+                >
+                  <div className="w-[2px] h-8 bg-slate-300 dark:bg-slate-700 rounded-full group-hover:bg-purple-500 opacity-0 group-hover:opacity-100 transition-opacity" />
                 </div>
               )}
             </div>
 
-            {/* Chat Input Container matching reference layout */}
-            <div className="w-full relative select-none">
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  handleSendChatMessage();
+            {/* Toggle Sidebar Button (Only shown when sidebar is hidden) */}
+            {!showChatSidebar && (
+              <button
+                type="button"
+                onClick={() => {
+                  setShowChatSidebar(true);
+                  setSidebarWidth(230);
                 }}
-                className="relative flex flex-col gap-3 bg-white dark:bg-[#0f111a] border border-slate-200 focus-within:border-[#8B5CF6] focus-within:ring-1 focus-within:ring-purple-500/20 rounded-2xl shadow-sm focus-within:shadow-md transition-all p-3.5"
+                className="absolute left-3.5 top-3.5 z-25 p-2.5 rounded-lg border bg-white dark:bg-[#131522] border-slate-200 dark:border-slate-800 text-slate-500 hover:text-purple-600 transition-colors shadow-sm select-none cursor-pointer flex items-center justify-center animate-in fade-in zoom-in duration-200"
+                title="Hiện danh sách"
               >
-                {/* Staged File Chips Row - NOW rendered at the top of the search bar */}
-                {attachedFiles.length > 0 && (
-                  <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 dark:border-slate-850 pb-2.5 text-[10px] text-slate-400 font-bold select-none text-left animate-in fade-in slide-in-from-top-1 duration-200">
-                    {/* Purple sparks icon */}
-                    <Sparkles className="w-3.5 h-3.5 text-[#8B5CF6] shrink-0" />
+                <Menu className="w-4 h-4" />
+              </button>
+            )}
 
-                    {attachedFiles.map((file) => (
-                      <div key={file.id} className={`flex items-center gap-1.5 px-2 py-0.5 rounded-lg border text-[9.5px] font-extrabold select-none animate-in zoom-in-95 duration-155 ${
-                        file.type === "PDF"
-                          ? "bg-rose-50 border-rose-100 text-rose-700 dark:bg-rose-950/20 dark:border-rose-900/30 dark:text-rose-400"
-                          : file.type === "ZIP"
-                          ? "bg-amber-50 border-amber-100 text-amber-700 dark:bg-amber-950/20 dark:border-amber-900/30 dark:text-amber-400"
-                          : file.type === "IMAGE" || file.type === "PNG" || file.type === "JPG" || file.type === "JPEG"
-                          ? "bg-emerald-50 border-emerald-100 text-emerald-700 dark:bg-emerald-950/20 dark:border-emerald-900/30 dark:text-emerald-400"
-                          : "bg-blue-50 border-blue-100 text-blue-700 dark:bg-blue-950/20 dark:border-blue-900/30 dark:text-blue-400"
-                      }`}>
-                        {getFileIcon(file.type, "w-3 h-3 shrink-0")}
-                        <span className="max-w-[120px] truncate" title={file.name}>{file.name}</span>
-                        <button
-                          type="button"
-                          onClick={() => setAttachedFiles((prev) => prev.filter((f) => f.id !== file.id))}
-                          className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-355 ml-0.5 p-0.5 rounded-full hover:bg-black/5 cursor-pointer"
-                          title="Xóa tệp đính kèm"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      </div>
-                    ))}
-
-                    <span className="ml-auto text-[9px] text-slate-450">AI Study Scholar v3.0</span>
-                  </div>
-                )}
-
-                {/* File parsing state indicator */}
-                {isParsingFile && (
-                  <div className="flex items-center gap-2 bg-purple-500/10 dark:bg-purple-900/20 border border-purple-500/20 rounded-lg p-2.5 text-xs text-purple-700 dark:text-purple-300 font-bold animate-pulse text-left animate-in fade-in slide-in-from-top-1 duration-200">
-                    <Bot className="w-4 h-4 text-purple-500 animate-spin" />
-                    <span>Hệ thống đang tải lên và trích xuất tài liệu học tập, vui lòng đợi...</span>
-                  </div>
-                )}
-
-                {/* Input Text Box Row */}
-                <div className="flex items-center gap-3 relative">
-                  {/* Plus Trigger Button */}
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setShowToolMenu(!showToolMenu);
-                    }}
-                    disabled={isParsingFile || isAiTyping}
-                    className="w-8 h-8 rounded-xl bg-slate-50 dark:bg-slate-900 hover:bg-purple-100 dark:hover:bg-purple-950/40 text-slate-500 hover:text-[#8B5CF6] flex items-center justify-center cursor-pointer transition-colors shrink-0 disabled:opacity-50"
-                    title="Đính kèm và Công cụ"
-                  >
-                    <Plus className="w-4 h-4" />
-                  </button>
-
-                  {/* Floating Tool and File Upload Menu */}
-                  {showToolMenu && (
-                    <div
-                      ref={toolMenuRef}
-                      className="absolute bottom-12 left-0 w-64 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-2xl p-4 z-50 flex flex-col gap-3 animate-in fade-in slide-in-from-bottom-2 duration-200 text-left"
+            {/* 2. MAIN WORKSPACE */}
+            <div className="flex-1 flex flex-col min-w-0 h-full relative">
+              
+              {/* If welcome screen (messages length is empty) */}
+              {aiMessages.length === 0 ? (
+                <div className="flex-1 flex flex-col justify-center items-center max-w-2xl w-full mx-auto px-6 pb-20 animate-spring-up select-none">
+                  {/* Premium Sparkles Logo (Transparent Frame, Purple-to-Pink Gradient Icon) */}
+                  <div className="w-24 h-24 flex items-center justify-center mb-0 select-none">
+                    <svg
+                      className="w-24 h-24 select-none"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="url(#sparkles-grad)"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
                     >
-                      <div>
-                        <span className="text-[9px] font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-widest block mb-2 px-1">Tệp đính kèm</span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShowToolMenu(false);
-                            fileInputRef.current?.click();
-                          }}
-                          className="w-full flex items-center gap-2.5 p-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-250 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors cursor-pointer"
-                        >
-                          <div className="w-7 h-7 rounded-lg bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
-                            <Paperclip className="w-4 h-4" />
-                          </div>
-                          <div className="flex flex-col text-left">
-                            <span className="font-bold text-slate-850 dark:text-slate-200 leading-snug">Upload File</span>
-                            <span className="text-[9.5px] text-slate-400 dark:text-slate-500 font-medium">Tải lên bất kỳ tệp từ máy bạn</span>
-                          </div>
-                        </button>
-                      </div>
+                      <defs>
+                        <linearGradient id="sparkles-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                          <stop offset="0%" stopColor="#6366f1" />
+                          <stop offset="50%" stopColor="#a855f7" />
+                          <stop offset="100%" stopColor="#ec4899" />
+                        </linearGradient>
+                      </defs>
+                      <path d="M9.93 10.93L12 4l2.07 6.93L21 13l-6.93 2.07L12 22l-2.07-6.93L3 13l6.93-2.07z" />
+                      <path d="M19 5l.7 2.3L22 8l-2.3.7-.7 2.3-.7-2.3L16 8l2.3-.7L19 5z" />
+                    </svg>
+                  </div>
 
-                      <div className="border-t border-slate-100 dark:border-slate-800/80 pt-2.5">
-                        <span className="text-[9px] font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-widest block mb-2 px-1">Công cụ</span>
-                        
-                        <button
-                          type="button"
-                          onClick={() => setUseWeb(!useWeb)}
-                          className={`w-full flex items-center gap-2.5 p-2 rounded-xl text-xs transition-colors cursor-pointer ${useWeb ? 'bg-purple-50/50 dark:bg-purple-950/20' : ''}`}
-                        >
-                          <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${useWeb ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30' : 'bg-slate-50 text-slate-500 dark:bg-slate-800'}`}>
-                            <Globe className="w-4 h-4" />
-                          </div>
-                          <div className="flex flex-col text-left">
-                            <span className="font-bold text-slate-850 dark:text-slate-200 leading-snug">Search Web</span>
-                            <span className="text-[9.5px] text-slate-400 dark:text-slate-500 font-medium">Tìm thông tin trên Internet</span>
-                          </div>
-                        </button>
+                  <h1 className="text-3xl md:text-[38px] font-extrabold bg-gradient-to-r from-[#6366f1] via-[#a855f7] to-[#ec4899] bg-clip-text text-transparent tracking-tight mt-8 mb-8 text-center leading-[1.15] select-none">
+                    Hôm nay bạn muốn nghiên cứu gì?
+                  </h1>
 
+                  {/* Large Welcome Search Bar */}
+                  <div className="w-full max-w-xl">
+                    {renderModernSearchBar(true)}
+                  </div>
+                </div>
+              ) : (
+                /* Active Chat View */
+                <div className="flex-1 flex flex-col justify-between p-6 min-h-0 h-full w-full max-w-3xl mx-auto relative">
+                  {/* Floating Search Navigator */}
+                  {matchingMessageIds.length > 0 && (
+                    <div className="absolute top-8 right-8 z-30 bg-white dark:bg-[#131522] border border-slate-200/90 dark:border-slate-800 rounded-full px-3.5 py-1.5 flex items-center gap-3 shadow-md select-none animate-in slide-in-from-top-3 duration-250 border-purple-500/20">
+                      <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                        {activeMatchIndex + 1} / {matchingMessageIds.length} kết quả
+                      </span>
+                      <div className="w-[1px] h-3 bg-slate-200 dark:bg-slate-800" />
+                      <div className="flex items-center gap-1">
                         <button
                           type="button"
-                          onClick={() => setUseScholar(!useScholar)}
-                          className={`w-full flex items-center gap-2.5 p-2 rounded-xl text-xs transition-colors cursor-pointer mt-1.5 ${useScholar ? 'bg-purple-50/50 dark:bg-purple-950/20' : ''}`}
+                          onClick={() => jumpToMatch(activeMatchIndex - 1)}
+                          disabled={activeMatchIndex === 0}
+                          className="p-1 text-slate-500 hover:text-purple-600 dark:hover:text-purple-400 transition-colors hover:bg-slate-50 dark:hover:bg-slate-900 rounded-full cursor-pointer flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-slate-500"
+                          title="Lên"
                         >
-                          <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${useScholar ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30' : 'bg-slate-50 text-slate-500 dark:bg-slate-800'}`}>
-                            <BookOpen className="w-4 h-4" />
-                          </div>
-                          <div className="flex flex-col text-left">
-                            <span className="font-bold text-slate-850 dark:text-slate-200 leading-snug">Academic Search</span>
-                            <span className="text-[9.5px] text-slate-400 dark:text-slate-500 font-medium">Tìm nguồn học thuật uy tín</span>
-                          </div>
+                          <ChevronUp className="w-4 h-4 stroke-[2.5]" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => jumpToMatch(activeMatchIndex + 1)}
+                          disabled={activeMatchIndex === matchingMessageIds.length - 1}
+                          className="p-1 text-slate-500 hover:text-purple-600 dark:hover:text-purple-400 transition-colors hover:bg-slate-50 dark:hover:bg-slate-900 rounded-full cursor-pointer flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-slate-500"
+                          title="Xuống"
+                        >
+                          <ChevronDown className="w-4 h-4 stroke-[2.5]" />
                         </button>
                       </div>
                     </div>
                   )}
+                  {/* Messages Log */}
+                  <div ref={messagesContainerRef} className="flex-1 overflow-y-auto mb-4 bg-transparent flex flex-col gap-6 custom-scrollbar pr-2 scroll-smooth">
+                    {aiMessages.map((msg) => {
+                      const isAi = msg.sender === "ai";
+                      
+                      if (isAi) {
+                        const { cleanText, sources } = extractSources(msg.text);
+                        return (
+                          <div key={msg.id} id={`chat-message-${msg.id}`} className="flex flex-col gap-2.5 self-start w-full text-left transition-all duration-500 rounded-lg p-1.5">
+                            {/* Message Content (Clean text, no container) */}
+                            <div className="text-xs text-slate-855 dark:text-slate-200 leading-relaxed font-medium">
+                              {renderMessageText(cleanText)}
+                            </div>
 
-                  {/* Input field */}
-                  <input
-                    type="text"
-                    placeholder="Hỏi bất cứ điều gì về học tập, nghiên cứu..."
-                    value={chatInput}
-                    onChange={(e) => setChatInput(e.target.value)}
-                    disabled={isAiTyping || isParsingFile}
-                    className="flex-1 bg-transparent border-none outline-none text-xs placeholder:text-slate-400 text-slate-800 dark:text-slate-100 py-1.5 px-0.5"
-                  />
+                            {/* Sources Section */}
+                            {sources.length > 0 && (
+                              <div className="mt-2 border-t border-slate-100 dark:border-slate-800/60 pt-3 animate-in fade-in duration-200">
+                                <div className="flex items-center gap-1.5 text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2 select-none">
+                                  <BookOpen className="w-3.5 h-3.5 text-purple-600" />
+                                  <span>Nguồn tài liệu tham khảo</span>
+                                </div>
+                                <div className="flex gap-2.5 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-purple-200 scrollbar-track-transparent custom-scrollbar max-w-full">
+                                  {sources.map((src, idx) => (
+                                    <a
+                                      key={idx}
+                                      href={src.url || "#"}
+                                      target={src.url ? "_blank" : undefined}
+                                      rel="noopener noreferrer"
+                                      className="flex-shrink-0 w-40 p-2 bg-slate-50 dark:bg-slate-900/50 hover:bg-slate-100 dark:hover:bg-slate-800/50 border border-slate-150 dark:border-slate-850 rounded-xl transition-all flex flex-col justify-between group"
+                                    >
+                                      <div>
+                                        <div className="flex items-center gap-1 text-[8px] font-black uppercase tracking-wider mb-0.5">
+                                          {getSourceIcon(src.source)}
+                                          <span className="text-slate-550 dark:text-slate-400 ml-1">{src.source}</span>
+                                        </div>
+                                        <p className="text-[10px] font-bold text-slate-700 dark:text-slate-250 line-clamp-2 leading-tight group-hover:text-purple-600 transition-colors">
+                                          {src.title}
+                                        </p>
+                                      </div>
+                                    </a>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
 
-                  {/* Hidden file input */}
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    onChange={handleAttachFileChange}
-                    className="hidden"
-                    multiple
-                  />
+                            {/* Actions Row matching mockup */}
+                            <div className="flex items-center gap-4 mt-1 select-none text-slate-450 dark:text-slate-500">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(cleanText);
+                                  toast.success("Đã sao chép phản hồi vào bộ nhớ tạm!");
+                                }}
+                                className="hover:text-slate-700 dark:hover:text-slate-200 transition-colors cursor-pointer"
+                                title="Sao chép"
+                              >
+                                <Copy className="w-3.5 h-3.5" />
+                              </button>
+                              {msg.text && msg.text.includes("Lỗi Kết Nối") && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const errIndex = aiMessages.findIndex(m => m.id === msg.id);
+                                    if (errIndex !== -1) {
+                                      const precedingUserMsg = aiMessages
+                                        .slice(0, errIndex)
+                                        .reverse()
+                                        .find(m => m.sender === "user");
+                                      if (precedingUserMsg) {
+                                        handleRetryUserMessage(precedingUserMsg.id);
+                                      } else {
+                                        toast.error("Không tìm thấy câu hỏi trước đó để thử lại!");
+                                      }
+                                    }
+                                  }}
+                                  className="hover:text-purple-600 transition-colors cursor-pointer"
+                                  title="Thử lại"
+                                >
+                                  <RotateCcw className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      } else {
+                        const isEditing = editingMessageId === msg.id;
+                        return (
+                          <div key={msg.id} id={`chat-message-${msg.id}`} className="flex flex-col items-end self-end max-w-[85%] gap-2 transition-all duration-500 rounded-lg p-1.5 w-fit">
+                            {/* User Text Bubble (Clean slate/gray theme) */}
+                            {isEditing ? (
+                              <div className="w-[600px] max-w-full bg-[#F4F4F5] dark:bg-[#27272A] p-3 rounded-2xl border border-purple-500/30 flex flex-col gap-2 text-left shadow-sm">
+                                <textarea
+                                  ref={editInputRef}
+                                  value={editingText}
+                                  onChange={(e) => setEditingText(e.target.value)}
+                                  className="w-full bg-transparent border-none outline-none text-xs text-slate-800 dark:text-slate-100 resize-none font-semibold leading-relaxed whitespace-pre-wrap break-all"
+                                  autoFocus
+                                />
+                                <div className="flex justify-end gap-2 text-[10px] font-bold">
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditingMessageId(null)}
+                                    className="px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 text-slate-650 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                                  >
+                                    Hủy
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSaveEditMessage(msg.id)}
+                                    className="px-3 py-1.5 rounded-lg bg-purple-600 text-white hover:bg-purple-700 transition-colors cursor-pointer"
+                                  >
+                                    Lưu & Gửi
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              msg.text && (
+                                <div className="bg-[#F4F4F5] dark:bg-[#27272A] text-slate-800 dark:text-slate-100 px-4 py-2 rounded-2xl text-xs text-left leading-relaxed font-semibold shadow-sm whitespace-pre-wrap break-all w-fit max-w-full">
+                                  {msg.text}
+                                </div>
+                              )
+                            )}
 
-                  {/* Send Button */}
-                  <button
-                    type="submit"
-                    disabled={isAiTyping || isParsingFile || !chatInput.trim()}
-                    className="w-8 h-8 rounded-full bg-[#8B5CF6] hover:bg-purple-700 text-white flex items-center justify-center cursor-pointer hover:scale-105 active:scale-95 transition-all shadow-sm focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
-                  >
-                    <Send className="w-3.5 h-3.5 text-white" />
-                  </button>
+                            {/* User Message Actions */}
+                            {!isEditing && msg.text && (
+                              <div className="flex items-center gap-4 mt-1 select-none text-slate-450 dark:text-slate-500 pr-1">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(msg.text);
+                                    toast.success("Đã sao chép tin nhắn vào bộ nhớ tạm!");
+                                  }}
+                                  className="hover:text-slate-700 dark:hover:text-slate-200 transition-colors cursor-pointer"
+                                  title="Sao chép"
+                                >
+                                  <Copy className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditingMessageId(msg.id);
+                                    setEditingText(msg.text);
+                                  }}
+                                  className="hover:text-purple-600 transition-colors cursor-pointer"
+                                  title="Chỉnh sửa"
+                                >
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    handleRetryUserMessage(msg.id);
+                                  }}
+                                  className="hover:text-purple-600 transition-colors cursor-pointer"
+                                  title="Thử lại"
+                                >
+                                  <RotateCcw className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            )}
+
+                            {/* Attached Files Grid in Chat Log - Gemini Style */}
+                            {msg.files && msg.files.length > 0 && (
+                              <div className="flex flex-wrap gap-2.5 justify-end mt-1.5 select-none">
+                                {msg.files.map((file) => {
+                                  const type = (file.type || "").toLowerCase();
+                                  let typeColor = "text-slate-500";
+                                  if (type === "pdf") typeColor = "text-red-600";
+                                  else if (["xls", "xlsx", "excel"].includes(type)) typeColor = "text-emerald-600";
+                                  else if (["doc", "docx"].includes(type)) typeColor = "text-blue-600";
+                                  else if (["ppt", "pptx"].includes(type)) typeColor = "text-orange-550";
+                                  else if (["zip", "rar"].includes(type)) typeColor = "text-amber-600";
+                                  else if (["jpg", "jpeg", "png", "webp", "image"].includes(type)) typeColor = "text-indigo-650";
+
+                                  return (
+                                    <div
+                                      key={file.id}
+                                      onClick={() => setPreviewDoc({ ...file, hideChat: true })}
+                                      className="w-28 h-28 p-3.5 flex flex-col justify-between rounded-2xl bg-[#f3f4f6]/70 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800/80 shadow-sm hover:scale-[1.02] transition-transform duration-200 cursor-pointer text-left"
+                                    >
+                                      {/* Top extension text */}
+                                      <span className={`text-[10px] font-black uppercase tracking-wider ${typeColor}`}>
+                                        {file.type || "FILE"}
+                                      </span>
+
+                                      {/* Bottom file name */}
+                                      <span 
+                                        className="text-[10px] font-bold text-slate-800 dark:text-slate-200 leading-snug line-clamp-3 break-all" 
+                                        title={file.name}
+                                      >
+                                        {file.name}
+                                      </span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      }
+                    })}
+
+                    {isAiTyping && (
+                      <div className="flex items-center gap-2.5 self-start w-full animate-pulse">
+                        <Bot className="w-4 h-4 text-purple-600 animate-spin shrink-0" />
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">AI Đang lập luận...</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Search bar inside active chat */}
+                  <div className="w-full select-none">
+                    {renderModernSearchBar(false)}
+                  </div>
                 </div>
-              </form>
+              )}
             </div>
           </div>
         )}
@@ -3019,7 +4013,7 @@ export default function Home() {
                     className={`
                       flex items-center gap-2 px-4 py-3 rounded-xl border text-xs font-bold transition-all duration-300 shadow-sm h-[46px] select-none cursor-pointer
                       ${showCalendarPopover || rangeStart
-                        ? "bg-purple-600 border-purple-650 text-white shadow-purple-500/10"
+                        ? "bg-purple-600 border-purple-600 text-white shadow-purple-500/10"
                         : "bg-white/40 dark:bg-[#0f111a]/45 backdrop-blur-xl border-slate-200/30 dark:border-white/5 text-slate-700 dark:text-slate-300 hover:bg-white/60 dark:hover:bg-[#0f111a]/60 hover:text-purple-600 dark:hover:text-purple-400"
                       }
                     `}
@@ -3368,15 +4362,16 @@ export default function Home() {
                   <div className="flex items-end gap-5">
                     {/* Avatar Container with overlapping camera badge */}
                     <div className="relative z-10 shrink-0 w-28 h-28 md:w-32 md:h-32 -mt-16">
-                      <div className="w-full h-full rounded-full bg-purple-650 flex flex-col items-center justify-center font-bold text-white text-4xl shadow-md overflow-hidden transition-all duration-300 border-[6px] border-white dark:border-[#0f111a] group relative">
+                      <div className="w-full h-full rounded-full bg-purple-600 flex flex-col items-center justify-center font-bold text-white text-4xl shadow-md overflow-hidden transition-all duration-300 border-[6px] border-white dark:border-[#0f111a] group relative">
                         {avatarPreview || user?.avatar_url ? (
                           <img src={avatarPreview || user?.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
                         ) : (
                           <span className="group-hover:opacity-0 transition-opacity duration-300">{fullName.charAt(0)}</span>
                         )}
 
-                        <label className="absolute inset-0 bg-black/50 text-white flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 cursor-pointer backdrop-blur-sm z-10">
-                          <span className="text-xs font-bold uppercase tracking-wider">Đổi ảnh</span>
+                        <label className="absolute inset-0 bg-purple-950/70 text-white flex flex-col items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 cursor-pointer z-10 rounded-full">
+                          <Camera className="w-5 h-5 text-white/90" />
+                          <span className="text-[10px] font-black uppercase tracking-wider text-white/90 select-none">Đổi ảnh</span>
                           <input type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
                         </label>
                       </div>
@@ -3716,7 +4711,7 @@ export default function Home() {
         <div className="fixed inset-0 bg-slate-900/60 dark:bg-black/70 backdrop-blur-md flex items-center justify-center z-[9999] animate-in fade-in duration-200" onClick={() => !isSharing && setShareModalDoc(null)}>
           <div className="w-full max-w-md p-6 bg-white/95 dark:bg-[#0f111a]/95 border border-slate-200/50 dark:border-white/10 rounded-2xl shadow-2xl flex flex-col gap-4 animate-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-950/40 text-purple-650 dark:text-purple-400 flex items-center justify-center border border-purple-500/10">
+              <div className="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 flex items-center justify-center border border-purple-500/10">
                 <Share2 className="w-5 h-5" />
               </div>
               <div>
@@ -3789,7 +4784,7 @@ export default function Home() {
           <div className="w-full max-w-md p-6 bg-white/95 dark:bg-[#0f111a]/95 border border-slate-200/50 dark:border-white/10 rounded-2xl shadow-2xl flex flex-col gap-4 animate-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-950/40 text-purple-650 dark:text-purple-400 flex items-center justify-center border border-purple-500/10">
+                <div className="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 flex items-center justify-center border border-purple-500/10">
                   <Pencil className="w-5 h-5" />
                 </div>
                 <div>

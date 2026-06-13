@@ -172,18 +172,38 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
     }
   };
 
-  const handleDownload = (e) => {
+  const handleDownload = async (e) => {
     if (e) e.stopPropagation();
 
     setDownloadCount((prev) => prev + 1);
     increaseDownload();
 
-    const a = document.createElement("a");
-    a.href = doc.file_url;
-    a.download = doc.title || "file";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    if (!doc.file_url) {
+      toast.error("Không tìm thấy đường dẫn tải xuống!");
+      return;
+    }
+
+    try {
+      const response = await fetch(doc.file_url);
+      if (!response.ok) throw new Error("Network response was not ok");
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      const urlExt = doc.file_url.split('.').pop().split('?')[0] || "pdf";
+      const cleanTitle = (doc.title || "document").endsWith("." + urlExt) 
+        ? (doc.title || "document") 
+        : `${doc.title || "document"}.${urlExt}`;
+      a.download = cleanTitle;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(blobUrl);
+    } catch (error) {
+      console.error("Direct download failed, falling back to new tab:", error);
+      window.open(doc.file_url, "_blank");
+    }
   };
 
   const handleCopy = (e) => {
@@ -507,7 +527,7 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
                       {/* Dynamic Simulated Content based on title */}
                       <div className="space-y-4 text-xs font-semibold leading-relaxed">
                         <div>
-                          <span className="font-extrabold uppercase text-[9px] text-purple-650 dark:text-purple-400 tracking-wider">TÓM TẮT TÀI LIỆU (OVERVIEW)</span>
+                          <span className="font-extrabold uppercase text-[9px] text-purple-600 dark:text-purple-400 tracking-wider">TÓM TẮT TÀI LIỆU (OVERVIEW)</span>
                           <p className="mt-1.5 text-slate-650 dark:text-slate-405 text-justify">
                             {doc?.description || `Tài liệu nghiên cứu khoa học chuyên sâu và hệ thống bài tập thực hành chất lượng cao dành cho học phần ${doc?.subject || "Công nghệ thông tin"}. Tài liệu cung cấp các định nghĩa rõ ràng, ví dụ cụ thể và lời giải chi tiết giúp người học nhanh chóng nắm vững kiến thức nền tảng và nâng cao.`}
                           </p>
@@ -572,7 +592,7 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
 
                       {/* Key Insights bullets */}
                       <div className="space-y-2">
-                        <span className="text-[8px] font-extrabold uppercase tracking-wider text-purple-655 dark:text-purple-450 block select-none">Điểm cốt lõi từ trợ lý học tập</span>
+                        <span className="text-[8px] font-extrabold uppercase tracking-wider text-purple-600 dark:text-purple-450 block select-none">Điểm cốt lõi từ trợ lý học tập</span>
                         <ul className="text-[10px] text-slate-600 dark:text-slate-400 space-y-1.5 font-bold list-none pl-0">
                           <li className="flex items-start gap-1.5 leading-snug">
                             <span className="text-purple-500 select-none shrink-0">✦</span>
