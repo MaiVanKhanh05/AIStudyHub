@@ -1,13 +1,21 @@
-import express from "express";
-import { handleChat } from "../controllers/chat.controller.js";
-import { authenticateToken } from "../middlewares/validation.middleware.js";
+import { Router } from "express";
+import multer from "multer";
+import * as chatController from "../controllers/chat.controller.js";
+import { optionalAuthenticateToken } from "../middlewares/validation.middleware.js";
 
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 10 * 1024 * 1024 // 10MB limit
+  }
+});
 
-const router = express.Router();
+const router = Router();
 
-// Tất cả các route chat đều yêu cầu đăng nhập
-router.use(authenticateToken);
+// POST /api/chat - Query chat assistant
+router.post("/", optionalAuthenticateToken, chatController.chatQuery);
 
-router.post("/", handleChat);
+// POST /api/chat/upload-temp - Temporary file parsing for chat context
+router.post("/upload-temp", optionalAuthenticateToken, upload.single("file"), chatController.uploadTempFile);
 
 export default router;
