@@ -9,6 +9,7 @@ import {
   parseZip,
   parseImageViaLLM
 } from "../services/ai/documentParser.service.js";
+import pool from "../../DB/db.js";
 
 // Endpoint: POST /api/chat/upload-temp
 export async function uploadTempFile(req, res) {
@@ -271,5 +272,215 @@ export async function chatQuery(req, res) {
   } catch (error) {
     console.error("Chat Query Error:", error);
     return res.status(500).json({ error: `Lỗi kết nối AI: ${error.message}` });
+  }
+}
+
+// Endpoint: GET /api/chat/history
+export async function getHistory(req, res) {
+  const userId = req.userId;
+  if (!userId) {
+    return res.status(401).json({ error: "Người dùng không được xác định." });
+  }
+
+  try {
+    const sessionsRes = await pool.query(
+      `SELECT id, title, is_pinned AS "isPinned", updated_at AS "updatedAt"
+       FROM chat_sessions
+       WHERE user_id = $1
+       ORDER BY is_pinned DESC, updated_at DESC`,
+      [userId]
+    );
+
+    if (sessionsRes.rows.length === 0) {
+      return res.json([]);
+    }
+
+    const sessionIds = sessionsRes.rows.map(s => s.id);
+    const messagesRes = await pool.query(
+      `SELECT id, session_id AS "sessionId", sender, text, files, created_at
+       FROM chat_messages
+       WHERE session_id = ANY($1)
+       ORDER BY created_at ASC`,
+      [sessionIds]
+    );
+
+    // Group messages by session_id
+    const messagesBySession = {};
+    for (const msg of messagesRes.rows) {
+      if (!messagesBySession[msg.sessionId]) {
+        messagesBySession[msg.sessionId] = [];
+      }
+      messagesBySession[msg.sessionId].push({
+        id: msg.id,
+        sender: msg.sender,
+        text: msg.text,
+        files: msg.files || []
+      });
+    }
+
+    const result = sessionsRes.rows.map(s => ({
+      id: s.id,
+      title: s.title,
+      isPinned: s.isPinned,
+      updatedAt: s.updatedAt,
+      messages: messagesBySession[s.id] || []
+    }));
+
+    return res.json(result);
+  } catch (error) {
+    console.error("Error fetching chat history:", error);
+    return res.status(500).json({ error: "Lỗi hệ thống khi tải lịch sử trò chuyện." });
+  }
+}
+
+// Endpoint: POST /api/chat/history/save
+export async function saveSession(req, res) {
+  const userId = req.userId;
+  if (!userId) {
+    return res.status(401).json({ error: "Người dùng không được xác định." });
+  }
+
+  const { id, title, messages } = req.body;
+  if (!id || !title || !messages) {
+    return res.status(400).json({ error: "Thiếu thông tin lưu cuộc trò chuyện." });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    // 1. Upsert chat session
+    const sessionRes = await client.query(
+      `INSERT INTO chat_sessions (id, user_id, title, is_pinned, updated_at)
+       VALUES ($1, $2, $3, FALSE, CURRENT_TIMESTAMP)
+       ON CONFLICT (id) 
+       DO UPDATE SET title = EXCLUDED.title, updated_at = CURRENT_TIMESTAMP
+       RETURNING *`,
+      [String(id), userId, title]
+    );
+
+    // 2. Insert new or update existing messages
+    const existingMsgsRes = await client.query(
+      "SELECT id FROM chat_messages WHERE session_id = $1",
+      [String(id)]
+    );
+    const existingMsgIds = new Set(existingMsgsRes.rows.map(r => String(r.id)));
+
+    for (const msg of messages) {
+      const msgId = String(msg.id);
+      const filesJson = msg.files ? JSON.stringify(msg.files) : '[]';
+      if (!existingMsgIds.has(msgId)) {
+        await client.query(
+          `INSERT INTO chat_messages (id, session_id, sender, text, files)
+           VALUES ($1, $2, $3, $4, $5)`,
+          [msgId, String(id), msg.sender, msg.text, filesJson]
+        );
+      } else {
+        await client.query(
+          `INSERT INTO chat_messages (id, session_id, sender, text, files)
+           VALUES ($1, $2, $3, $4, $5)
+           ON CONFLICT (id)
+           DO UPDATE SET text = EXCLUDED.text, files = EXCLUDED.files`,
+          [msgId, String(id), msg.sender, msg.text, filesJson]
+        );
+      }
+    }
+
+    await client.query("COMMIT");
+    return res.json({ success: true, message: "Lưu lịch sử trò chuyện thành công." });
+  } catch (error) {
+    await client.query("ROLLBACK");
+    console.error("Error saving chat session:", error);
+    return res.status(500).json({ error: "Lỗi hệ thống khi lưu cuộc trò chuyện." });
+  } finally {
+    client.release();
+  }
+}
+
+// Endpoint: PUT /api/chat/history/pin/:id
+export async function pinSession(req, res) {
+  const userId = req.userId;
+  const { id } = req.params;
+  const { isPinned } = req.body;
+
+  if (!userId) {
+    return res.status(401).json({ error: "Người dùng không được xác định." });
+  }
+
+  try {
+    const result = await pool.query(
+      `UPDATE chat_sessions
+       SET is_pinned = $1, updated_at = CURRENT_TIMESTAMP
+       WHERE id = $2 AND user_id = $3
+       RETURNING *`,
+      [isPinned, id, userId]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: "Không tìm thấy cuộc trò chuyện hoặc bạn không có quyền." });
+    }
+
+    return res.json({ success: true, session: result.rows[0] });
+  } catch (error) {
+    console.error("Error pinning session:", error);
+    return res.status(500).json({ error: "Lỗi hệ thống khi ghim cuộc trò chuyện." });
+  }
+}
+
+// Endpoint: PUT /api/chat/history/rename/:id
+export async function renameSession(req, res) {
+  const userId = req.userId;
+  const { id } = req.params;
+  const { title } = req.body;
+
+  if (!userId) {
+    return res.status(401).json({ error: "Người dùng không được xác định." });
+  }
+
+  try {
+    const result = await pool.query(
+      `UPDATE chat_sessions
+       SET title = $1, updated_at = CURRENT_TIMESTAMP
+       WHERE id = $2 AND user_id = $3
+       RETURNING *`,
+      [title, id, userId]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: "Không tìm thấy cuộc trò chuyện hoặc bạn không có quyền." });
+    }
+
+    return res.json({ success: true, session: result.rows[0] });
+  } catch (error) {
+    console.error("Error renaming session:", error);
+    return res.status(500).json({ error: "Lỗi hệ thống khi đổi tên cuộc trò chuyện." });
+  }
+}
+
+// Endpoint: DELETE /api/chat/history/:id
+export async function deleteSession(req, res) {
+  const userId = req.userId;
+  const { id } = req.params;
+
+  if (!userId) {
+    return res.status(401).json({ error: "Người dùng không được xác định." });
+  }
+
+  try {
+    const result = await pool.query(
+      `DELETE FROM chat_sessions
+       WHERE id = $1 AND user_id = $2
+       RETURNING *`,
+      [id, userId]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: "Không tìm thấy cuộc trò chuyện hoặc bạn không có quyền." });
+    }
+
+    return res.json({ success: true, message: "Xóa cuộc trò chuyện thành công." });
+  } catch (error) {
+    console.error("Error deleting session:", error);
+    return res.status(500).json({ error: "Lỗi hệ thống khi xóa cuộc trò chuyện." });
   }
 }

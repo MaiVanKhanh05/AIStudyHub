@@ -574,15 +574,38 @@ export default function Home() {
   const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   // AI Assistant Chatbot States
-  const [chats, setChats] = useState(() => {
-    const saved = localStorage.getItem("ai_chats");
-    return saved ? JSON.parse(saved) : [];
-  });
-  const [currentChatId, setCurrentChatId] = useState(() => {
-    const saved = localStorage.getItem("ai_chats");
-    const parsed = saved ? JSON.parse(saved) : [];
-    return parsed.length > 0 ? parsed[0].id : null;
-  });
+  const [chats, setChats] = useState([]);
+  const [currentChatId, setCurrentChatId] = useState(null);
+
+  useEffect(() => {
+    const fetchHistory = async () => {
+      if (!user) return;
+      try {
+        const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+        const res = await axios.get("http://localhost:5000/api/chat/history", {
+          headers: {
+            "Authorization": `Bearer ${token}`
+          }
+        });
+        const historyChats = res.data || [];
+        const formattedChats = historyChats.map(c => ({
+          ...c,
+          id: String(c.id),
+          messages: (c.messages || []).map(m => ({
+            ...m,
+            id: String(m.id)
+          }))
+        }));
+        setChats(formattedChats);
+        if (formattedChats.length > 0 && !currentChatId) {
+          setCurrentChatId(formattedChats[0].id);
+        }
+      } catch (err) {
+        console.error("Lỗi khi tải lịch sử chat:", err);
+      }
+    };
+    fetchHistory();
+  }, [user]);
   const [chatSearchQuery, setChatSearchQuery] = useState("");
   const [activeMatchIndex, setActiveMatchIndex] = useState(0);
   const [showChatSidebar, setShowChatSidebar] = useState(false);
@@ -723,25 +746,69 @@ export default function Home() {
     }
   };
 
-  const togglePinChat = (chatId, e) => {
+  const togglePinChat = async (chatId, e) => {
     e.stopPropagation();
+    const chatToPin = chats.find(c => c.id === chatId);
+    if (!chatToPin) return;
+    
+    const newPinState = !chatToPin.isPinned;
     const nextChats = chats.map(c => {
       if (c.id === chatId) {
-        return { ...c, isPinned: !c.isPinned };
+        return { ...c, isPinned: newPinState };
       }
       return c;
     });
-    setChats(nextChats);
-    localStorage.setItem("ai_chats", JSON.stringify(nextChats));
+    
+    const sortedChats = [...nextChats].sort((a, b) => {
+      if (a.isPinned && !b.isPinned) return -1;
+      if (!a.isPinned && b.isPinned) return 1;
+      return new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0);
+    });
+    
+    setChats(sortedChats);
+
+    try {
+      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+      await axios.put(`http://localhost:5000/api/chat/history/pin/${chatId}`, { isPinned: newPinState }, {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+    } catch (err) {
+      console.error("Lỗi khi ghim cuộc trò chuyện:", err);
+      toast.error("Không thể ghim cuộc trò chuyện.");
+      if (user) {
+        const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+        const res = await axios.get("http://localhost:5000/api/chat/history", {
+          headers: { "Authorization": `Bearer ${token}` }
+        });
+        setChats(res.data || []);
+      }
+    }
   };
 
-  const deleteChat = (chatId, e) => {
+  const deleteChat = async (chatId, e) => {
     e.stopPropagation();
     const nextChats = chats.filter(c => c.id !== chatId);
     setChats(nextChats);
-    localStorage.setItem("ai_chats", JSON.stringify(nextChats));
     if (currentChatId === chatId) {
       handleNewChat();
+    }
+
+    try {
+      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+      await axios.delete(`http://localhost:5000/api/chat/history/${chatId}`, {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      toast.success("Đã xóa cuộc trò chuyện.");
+    } catch (err) {
+      console.error("Lỗi khi xóa cuộc trò chuyện:", err);
+      toast.error("Không thể xóa cuộc trò chuyện.");
+      if (user) {
+        const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+        const res = await axios.get("http://localhost:5000/api/chat/history", {
+          headers: { "Authorization": `Bearer ${token}` }
+        });
+        setChats(res.data || []);
+      }
     }
   };
 
@@ -751,31 +818,58 @@ export default function Home() {
     setRenameChatTitle(chat.title);
   };
 
-  const saveRenameChat = (chatId) => {
+  const saveRenameChat = async (chatId) => {
+    const newTitle = renameChatTitle.trim();
+    if (!newTitle) {
+      setRenamingChatId(null);
+      return;
+    }
+
     const nextChats = chats.map(c => {
       if (c.id === chatId) {
-        return { ...c, title: renameChatTitle.trim() || c.title };
+        return { ...c, title: newTitle };
       }
       return c;
     });
     setChats(nextChats);
-    localStorage.setItem("ai_chats", JSON.stringify(nextChats));
     setRenamingChatId(null);
+
+    try {
+      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+      await axios.put(`http://localhost:5000/api/chat/history/rename/${chatId}`, { title: newTitle }, {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+    } catch (err) {
+      console.error("Lỗi khi đổi tên cuộc trò chuyện:", err);
+      toast.error("Không thể đổi tên cuộc trò chuyện.");
+      if (user) {
+        const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+        const res = await axios.get("http://localhost:5000/api/chat/history", {
+          headers: { "Authorization": `Bearer ${token}` }
+        });
+        setChats(res.data || []);
+      }
+    }
   };
 
-  const saveChatSession = (chatId, messages, initialTitleText, isNew) => {
+  const saveChatSession = async (chatId, messages, initialTitleText, isNew) => {
+    let nextChats;
+    let finalTitle = "";
+    
     setChats((prevChats) => {
-      let nextChats;
       if (isNew || !prevChats.some(c => c.id === chatId)) {
+        finalTitle = initialTitleText.substring(0, 40) || "Cuộc trò chuyện mới";
         const newChat = {
           id: chatId,
-          title: initialTitleText.substring(0, 40) || "Cuộc trò chuyện mới",
+          title: finalTitle,
           messages: messages,
           isPinned: false,
           updatedAt: new Date().toISOString()
         };
         nextChats = [newChat, ...prevChats];
       } else {
+        const existingChat = prevChats.find(c => c.id === chatId);
+        finalTitle = existingChat ? existingChat.title : (initialTitleText.substring(0, 40) || "Cuộc trò chuyện mới");
         nextChats = prevChats.map(c => {
           if (c.id === chatId) {
             return {
@@ -787,9 +881,21 @@ export default function Home() {
           return c;
         });
       }
-      localStorage.setItem("ai_chats", JSON.stringify(nextChats));
       return nextChats;
     });
+
+    try {
+      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+      await axios.post("http://localhost:5000/api/chat/history/save", {
+        id: chatId,
+        title: finalTitle || initialTitleText.substring(0, 40) || "Cuộc trò chuyện mới",
+        messages: messages
+      }, {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+    } catch (err) {
+      console.error("Lỗi khi lưu cuộc trò chuyện vào database:", err);
+    }
   };
 
   const renderSidebarChatItem = (chat) => {
@@ -1680,13 +1786,13 @@ export default function Home() {
     let activeId = currentChatId;
     let isNew = false;
     if (!activeId) {
-      activeId = Date.now();
+      activeId = String(Date.now());
       setCurrentChatId(activeId);
       isNew = true;
     }
     // Add user message
     const userMsg = {
-      id: Date.now(),
+      id: String(Date.now()),
       sender: "user",
       text: text.trim() ? finalQueryText : "",
       files: targetFiles
@@ -1722,7 +1828,7 @@ export default function Home() {
       });
 
       const aiMsg = {
-        id: Date.now() + 1,
+        id: String(Date.now() + 1),
         sender: "ai",
         text: res.data.response || "Không nhận được phản hồi từ AI."
       };
@@ -1736,7 +1842,7 @@ export default function Home() {
       console.error("AI assistant chat error:", err);
       const errMsg = err.response?.data?.error || err.message || "Lỗi kết nối đến máy chủ AI.";
       const errMsgObj = {
-        id: Date.now() + 1,
+        id: String(Date.now() + 1),
         sender: "ai",
         text: `❌ **Lỗi Kết Nối:** ${errMsg}`
       };
@@ -1789,7 +1895,7 @@ export default function Home() {
       });
 
       const aiMsg = {
-        id: Date.now() + 1,
+        id: String(Date.now() + 1),
         sender: "ai",
         text: res.data.response || "Không nhận được phản hồi từ AI."
       };
@@ -1803,7 +1909,7 @@ export default function Home() {
       console.error("AI assistant chat retry error:", err);
       const errMsg = err.response?.data?.error || err.message || "Lỗi kết nối đến máy chủ AI.";
       const errMsgObj = {
-        id: Date.now() + 1,
+        id: String(Date.now() + 1),
         sender: "ai",
         text: `❌ **Lỗi Kết Nối:** ${errMsg}`
       };
@@ -1865,7 +1971,7 @@ export default function Home() {
       });
 
       const aiMsg = {
-        id: Date.now() + 1,
+        id: String(Date.now() + 1),
         sender: "ai",
         text: res.data.response || "Không nhận được phản hồi từ AI."
       };
@@ -1879,7 +1985,7 @@ export default function Home() {
       console.error("AI assistant chat edit error:", err);
       const errMsg = err.response?.data?.error || err.message || "Lỗi kết nối đến máy chủ AI.";
       const errMsgObj = {
-        id: Date.now() + 1,
+        id: String(Date.now() + 1),
         sender: "ai",
         text: `❌ **Lỗi Kết Nối:** ${errMsg}`
       };
@@ -3364,26 +3470,7 @@ export default function Home() {
                                     <Pencil className="w-4 h-4 text-slate-400" />
                                     Chỉnh sửa
                                   </button>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setOpenMenuId(null);
-                                      setEditModalDoc(doc);
-                                      setEditTitle(doc.title || doc.document_name || "");
-                                      setEditSubject(doc.subject_code || "");
-                                      setEditSubjectSearch(doc.subject_code || "");
-                                      const docTagNames = Array.isArray(doc.tags)
-                                        ? doc.tags.map(t => typeof t === "string" ? t : t.tag_name)
-                                        : [];
-                                      setEditTags(docTagNames);
-                                      setEditTagInput("");
-                                      setEditTagSuggestions([]);
-                                    }}
-                                    className="w-full flex items-center gap-2 text-left px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60 rounded-md transition-colors"
-                                  >
-                                    <Pencil className="w-4 h-4 text-slate-400" />
-                                    Chỉnh sửa
-                                  </button>
+
                                   <div className="h-px bg-slate-100 dark:bg-slate-800/60 my-1" />
                                   <button
                                     onClick={(e) => {
@@ -3524,57 +3611,7 @@ export default function Home() {
                     <SquarePen className="w-4 h-4" />
                     <span className="truncate">Cuộc trò chuyện mới</span>
                   </button>
-        {/* ── NEW SCREEN: BOOKMARKS VIEW ── */}
-        {activeTab === "Bookmarks" && (
-          <div className="flex flex-col gap-6 max-w-5xl w-full mx-auto animate-spring-up">
-            <header className="flex flex-col gap-1 border-b border-slate-100 dark:border-slate-800/60 pb-5 select-none text-left">
-              <span className="text-xs font-bold text-red-500 uppercase tracking-widest">Bộ sưu tập của bạn</span>
-              <h1 className="text-2xl md:text-3xl font-black text-black dark:text-white tracking-tight mt-1 flex items-center gap-2">
-                Tài liệu Yêu thích
-                <Heart className="w-6 h-6 fill-red-500 text-red-500" />
-              </h1>
-              <span className="text-xs text-slate-500 font-medium mt-1">
-                Các tài liệu hay từ cộng đồng mà bạn đã đánh dấu.
-              </span>
-            </header>
 
-            <section className="flex flex-col gap-4 mt-2">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <h2 className="text-sm font-black text-black dark:text-white uppercase tracking-wider flex items-center gap-2">
-                  <span className="w-1 h-3.5 bg-red-500 rounded" />
-                  Danh mục yêu thích ({bookmarkedDocs.length})
-                </h2>
-              </div>
-
-              <div className="w-full flex flex-col space-y-6">
-                {bookmarkedDocs.length === 0 ? (
-                  <div className="text-center py-20 bg-white/30 dark:bg-[#0f111a]/30 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 p-8">
-                    <div className="text-5xl mb-4 text-slate-300 dark:text-slate-600">
-                      <Heart className="w-16 h-16 mx-auto opacity-50" />
-                    </div>
-                    <p className="text-sm font-bold text-slate-850 dark:text-slate-200 m-0">
-                      Bạn chưa yêu thích tài liệu nào
-                    </p>
-                    <p className="text-xs text-slate-450 mt-2 m-0">
-                      Hãy quay lại cộng đồng và thả tim những tài liệu hữu ích nhé.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 xl:grid-cols-3 w-full">
-                    {bookmarkedDocs.map((doc) => (
-                      <DocumentCard
-                        key={doc.document_id || doc.id}
-                        doc={{ ...doc, isBookmarked: true }}
-                        isPersonal={false}
-                        isMyShared={false}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-            </section>
-          </div>
-        )}
 
 
                   {/* Search Past Chats */}
@@ -4981,244 +5018,6 @@ export default function Home() {
         </div>
       )}
 
-      {/* Document Preview Modal */}
-      {previewDoc && (
-        <DocumentPreviewModal
-          doc={previewDoc}
-          onClose={() => setPreviewDoc(null)}
-        />
-      )}
-      {/* ────── EDIT DOCUMENT MODAL ────── */}
-      {editModalDoc && (
-        <div className="fixed inset-0 bg-slate-900/60 dark:bg-black/70 backdrop-blur-md flex items-center justify-center z-[9999] animate-in fade-in duration-200" onClick={() => !isSavingEdit && setEditModalDoc(null)}>
-          <div className="w-full max-w-md p-6 bg-white/95 dark:bg-[#0f111a]/95 border border-slate-200/50 dark:border-white/10 rounded-2xl shadow-2xl flex flex-col gap-4 animate-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 flex items-center justify-center border border-purple-500/10">
-                  <Pencil className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">Chỉnh sửa tài liệu</h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">Cập nhật thông tin tài liệu</p>
-                </div>
-              </div>
-              <button onClick={() => !isSavingEdit && setEditModalDoc(null)} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 transition-colors">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Title field */}
-            <div className="flex flex-col gap-1.5 mt-2">
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Tên tài liệu <span className="text-red-500">*</span></label>
-              <input
-                type="text"
-                value={editTitle}
-                onChange={(e) => setEditTitle(e.target.value)}
-                placeholder="Nhập tên tài liệu..."
-                className="w-full p-2.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-xl outline-none focus:ring-2 focus:ring-purple-500/50 text-sm text-slate-800 dark:text-slate-200"
-              />
-            </div>
-
-            {/* Subject field */}
-            <div className="flex flex-col gap-1.5 relative">
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Môn học (Tùy chọn)</label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <BookOpen className="w-4 h-4 text-slate-400" />
-                </div>
-                <input
-                  type="text"
-                  value={editSubjectSearch}
-                  onChange={(e) => {
-                    setEditSubjectSearch(e.target.value);
-                    setEditSubject("");
-                    setShowEditSubjectDropdown(true);
-                  }}
-                  onFocus={() => setShowEditSubjectDropdown(true)}
-                  placeholder="Chọn hoặc nhập mã môn..."
-                  className="w-full pl-9 pr-8 py-2.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-xl outline-none focus:ring-2 focus:ring-purple-500/50 text-sm text-slate-800 dark:text-slate-200 uppercase"
-                />
-                {editSubjectSearch && (
-                  <button
-                    onClick={() => {
-                      setEditSubjectSearch("");
-                      setEditSubject("");
-                      setShowEditSubjectDropdown(false);
-                    }}
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                )}
-                {showEditSubjectDropdown && (
-                  <div className="absolute z-50 w-full mt-1 bg-white dark:bg-[#151722] border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl max-h-48 overflow-y-auto">
-                    {subjectsList
-                      .filter(s => s.subject_code.toLowerCase().includes(editSubjectSearch.toLowerCase()) || s.subject_name.toLowerCase().includes(editSubjectSearch.toLowerCase()))
-                      .map(subj => (
-                        <div
-                          key={subj.subject_code}
-                          onClick={() => {
-                            setEditSubjectSearch(subj.subject_code);
-                            setEditSubject(subj.subject_code);
-                            setShowEditSubjectDropdown(false);
-                          }}
-                          className="px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer flex flex-col"
-                        >
-                          <span className="text-xs font-bold text-slate-800 dark:text-slate-200">{subj.subject_code}</span>
-                          <span className="text-[10px] text-slate-500 truncate">{subj.subject_name}</span>
-                        </div>
-                      ))}
-                    {editSubjectSearch.trim() && !subjectsList.some(s => s.subject_code.toLowerCase() === editSubjectSearch.toLowerCase()) && (
-                      <div
-                        onClick={() => {
-                          setEditSubject(editSubjectSearch.trim().toUpperCase());
-                          setEditSubjectSearch(editSubjectSearch.trim().toUpperCase());
-                          setShowEditSubjectDropdown(false);
-                        }}
-                        className="px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer text-xs font-bold text-purple-600 flex items-center gap-2"
-                      >
-                        <Plus className="w-3.5 h-3.5" /> Thêm mã "{editSubjectSearch.trim().toUpperCase()}"
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Tags field */}
-            <div className="flex flex-col gap-1.5 relative">
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Thẻ phân loại (Tags)</label>
-              <div className="w-full p-2 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-xl focus-within:ring-2 focus-within:ring-purple-500/50 flex flex-wrap gap-2 items-center min-h-[44px]">
-                {editTags.map(tag => (
-                  <span key={tag} className="px-2 py-1 bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-300 text-[10px] font-bold rounded-md flex items-center gap-1">
-                    <Tag className="w-3 h-3" />
-                    {tag}
-                    <button onClick={() => setEditTags(editTags.filter(t => t !== tag))} className="hover:text-purple-900 dark:hover:text-purple-100 ml-0.5">
-                      <X className="w-3 h-3" />
-                    </button>
-                  </span>
-                ))}
-                <input
-                  type="text"
-                  value={editTagInput}
-                  onChange={(e) => handleEditTagSearch(e.target.value)}
-                  onFocus={() => setShowEditTagSuggestions(true)}
-                  onBlur={() => setTimeout(() => setShowEditTagSuggestions(false), 250)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ',') {
-                      e.preventDefault();
-                      if (editTagInput.trim()) {
-                        handleAddEditTag(editTagInput);
-                      }
-                    }
-                  }}
-                  placeholder={editTags.length < 5 ? "Nhập tag hoặc chọn từ gợi ý..." : ""}
-                  className="flex-1 bg-transparent border-none outline-none text-xs text-slate-800 dark:text-slate-200 min-w-[120px]"
-                  disabled={editTags.length >= 5}
-                />
-              </div>
-
-              {/* Floating dropdown suggestions in Edit modal */}
-              {showEditTagSuggestions && (
-                <div className="absolute top-[100%] left-0 right-0 mt-1.5 max-h-40 overflow-y-auto bg-white dark:bg-[#0f111a] border border-slate-200 dark:border-slate-850 rounded-xl shadow-lg z-[99999] p-2 flex flex-col gap-1">
-                  {editTagInput.trim() ? (
-                    editTagSuggestions.filter(t => !editTags.includes(t)).length === 0 ? (
-                      <span className="text-[10px] text-slate-400 font-bold italic text-center py-2">
-                        Không tìm thấy tag phù hợp. Nhấn Enter để thêm mới.
-                      </span>
-                    ) : (
-                      editTagSuggestions.filter(t => !editTags.includes(t)).map(tag => (
-                        <button
-                          key={tag}
-                          type="button"
-                          onMouseDown={() => handleAddEditTag(tag)}
-                          className="w-full text-left px-3 py-2 text-[11px] font-bold text-slate-700 dark:text-slate-350 hover:bg-purple-600/10 hover:text-purple-600 dark:hover:text-purple-400 rounded-lg transition-colors"
-                        >
-                          {tag}
-                        </button>
-                      ))
-                    )
-                  ) : (
-                    editSuggestedTags.filter(t => !editTags.includes(t)).length === 0 ? (
-                      <span className="text-[10px] text-slate-400 font-bold italic text-center py-2">
-                        Không còn tag gợi ý môn học. Bạn có thể tự gõ tag mới.
-                      </span>
-                    ) : (
-                      <>
-                        <span className="text-[9px] font-bold text-slate-400 px-2 py-1 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800 pb-1 mb-1">Gợi ý cho môn {editSubject}</span>
-                        {editSuggestedTags.filter(t => !editTags.includes(t)).map(tag => (
-                          <button
-                            key={tag}
-                            type="button"
-                            onMouseDown={() => handleAddEditTag(tag)}
-                            className="w-full text-left px-2.5 py-1.5 text-[11px] font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg transition-colors flex items-center justify-between"
-                          >
-                            <span>{tag}</span>
-                            <span className="text-[9px] font-bold text-purple-600 bg-purple-50 dark:bg-purple-950/45 px-1.5 py-0.5 rounded border border-purple-500/10">+ Chọn</span>
-                          </button>
-                        ))}
-                      </>
-                    )
-                  )}
-                </div>
-              )}
-            </div>
-
-            <div className="flex gap-3 mt-4">
-              <button
-                type="button"
-                onClick={() => !isSavingEdit && setEditModalDoc(null)}
-                disabled={isSavingEdit}
-                className="flex-1 px-4 py-2.5 rounded-lg border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-350 hover:bg-slate-50 dark:hover:bg-slate-850 font-bold text-xs cursor-pointer select-none transition-colors"
-              >
-                Hủy bỏ
-              </button>
-              <button
-                type="button"
-                onClick={async () => {
-                  if (!editTitle.trim()) { toast.warning("Vui lòng nhập tiêu đề tài liệu!"); return; }
-                  setIsSavingEdit(true);
-                  try {
-                    const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-                    const targetId = editModalDoc.document_id || editModalDoc.id;
-                    const res = await fetch(`http://localhost:5000/api/documents/${targetId}/edit`, {
-                      method: "PUT",
-                      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-                      body: JSON.stringify({
-                        title: editTitle.trim(),
-                        subject: editSubject || editSubjectSearch || "OTHER",
-                        tags: editTags,
-                        description: editModalDoc.description || null,
-                      })
-                    });
-                    if (!res.ok) {
-                      const err = await res.json();
-                      throw new Error(err.error || "Cập nhật thất bại");
-                    }
-                    toast.success("Cập nhật tài liệu thành công!");
-                    setEditModalDoc(null);
-                    if (typeof fetchDashboard === "function") {
-                      await fetchDashboard();
-                    } else {
-                      window.location.reload();
-                    }
-                  } catch (err) {
-                    toast.error(`Lỗi: ${err.message}`);
-                  } finally {
-                    setIsSavingEdit(false);
-                  }
-                }}
-                disabled={isSavingEdit}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-purple-600 hover:bg-purple-700 text-white border border-transparent font-bold text-xs cursor-pointer select-none shadow-sm transition-all duration-300 disabled:opacity-70"
-              >
-                {isSavingEdit ? "Đang lưu..." : (
-                  <><Save className="w-4 h-4" /> Lưu thay đổi</>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

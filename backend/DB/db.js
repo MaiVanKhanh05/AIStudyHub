@@ -87,6 +87,38 @@ export const connectDB = async () => {
                 PRIMARY KEY (user_id, document_id)
             )
         `);
+        
+        // Create chat_sessions and chat_messages tables for AI Assistant Chat History
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS chat_sessions (
+                id VARCHAR(50) PRIMARY KEY,
+                user_id VARCHAR(50) REFERENCES users(user_id) ON DELETE CASCADE,
+                title VARCHAR(255) NOT NULL,
+                is_pinned BOOLEAN DEFAULT FALSE,
+                created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS chat_messages (
+                id VARCHAR(50) PRIMARY KEY,
+                session_id VARCHAR(50) REFERENCES chat_sessions(id) ON DELETE CASCADE,
+                sender VARCHAR(10) NOT NULL CHECK(sender IN ('ai','user')),
+                text TEXT NOT NULL,
+                files JSONB DEFAULT '[]'::jsonb,
+                created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        
+        await pool.query(`
+            CREATE INDEX IF NOT EXISTS idx_chatsess_user ON chat_sessions(user_id);
+        `);
+        
+        await pool.query(`
+            CREATE INDEX IF NOT EXISTS idx_chatmsg_session ON chat_messages(session_id);
+        `);
+
         console.log("Database schema columns and tables verified.");
     } catch (error) {
         console.error("Error connecting to the database:", error);
