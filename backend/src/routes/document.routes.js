@@ -26,6 +26,7 @@ router.put("/:id/edit", authenticateToken, requireEditorAccess, documentControll
 
 // PUT /api/documents/:id/share (Legacy community share endpoint)
 router.put("/:id/share", authenticateToken, requireOwnerAccess, documentController.shareDoc);
+router.put("/:id/unshare", authenticateToken, requireOwnerAccess, documentController.unshareDoc);
 
 // PUT /api/documents/:id/edit
 router.put("/:id/edit", authenticateToken, documentController.editDoc);

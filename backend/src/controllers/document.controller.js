@@ -140,6 +140,28 @@ export const shareDoc = async (req, res) => {
     }
 };
 
+// PUT /api/documents/:id/unshare
+export const unshareDoc = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const userId = req.userId;
+        
+        if (!id || !userId) {
+            return res.status(400).json({ error: "Missing document or user information" });
+        }
+        
+        const updatedDoc = await documentService.unshareDocument(Number(id), userId);
+        if (updatedDoc) {
+            return res.json({ message: "Document unshared successfully", document: updatedDoc });
+        } else {
+            return res.status(404).json({ error: "Document not found or permission denied" });
+        }
+    } catch (error) {
+        console.error("Error unsharing document:", error);
+        return res.status(500).json({ error: "Failed to unshare document" });
+    }
+};
+
 // GET /api/documents/:id
 export const getDocById = async (req, res) => {
     try {
