@@ -1,163 +1,257 @@
-import { createRequire } from 'module';
-const require = createRequire(import.meta.url);
+import fs from "fs";
+import path from "path";
+import { PDFParse } from "pdf-parse";
+import mammoth from "mammoth";
+import xlsx from "xlsx";
+import StreamZip from "node-stream-zip";
+import xml2js from "xml2js";
 
-const pdf = require('pdf-parse');
-const mammoth = require('mammoth');
-const StreamZip = require('node-stream-zip');
-const xml2js = require('xml2js');
+// Helper to check if file extension is a text/code file
+function isCodeOrTextFile(filename) {
+  const ext = path.extname(filename).toLowerCase();
+  const textExtensions = [
+    ".js", ".jsx", ".ts", ".tsx", ".html", ".css", ".json", ".py", ".java", 
+    ".cpp", ".c", ".h", ".hpp", ".cs", ".sh", ".xml", ".md", ".sql", ".txt", ".yml", ".yaml"
+  ];
+  return textExtensions.includes(ext);
+}
 
-import * as xlsx from 'xlsx';
-
-/**
- * Xóa các ký tự điều khiển, khoảng trắng thừa, và lọc các footer/header lặp lại.
- */
-export const cleanText = (text) => {
-  if (!text) return "";
-
-  // 1. Loại bỏ ký tự điều khiển (ngoại trừ xuống dòng và tab)
-  let cleaned = text.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "");
-
-  // 2. Chuẩn hóa khoảng trắng: gom nhiều dấu cách/tab thành 1 khoảng trắng duy nhất
-  cleaned = cleaned.replace(/[ \t]+/g, " ");
-
-  // 3. Xóa các dòng trống thừa mứa (gom từ 3 dòng trống liên tiếp trở lên thành 2 dòng)
-  cleaned = cleaned.replace(/\n{3,}/g, "\n\n");
-
-  // 4. Lọc bỏ phần chân trang (footer) hoặc đầu trang (header) theo quy luật
-  // Ví dụ: Bắt các cụm từ như "Page 1", "Trang 1/10" đứng đầu hoặc cuối dòng
-  cleaned = cleaned.replace(/^(Trang|Page)\s+\d+(\s*\/\s*\d+)?\s*$/gmi, "");
-
-  // 5. Cắt khoảng trắng dư thừa ở đầu và cuối mỗi dòng
-  cleaned = cleaned.split('\n').map(line => line.trim()).join('\n');
-
-  // Loại bỏ khoảng trắng ở 2 đầu văn bản lần cuối
-  return cleaned.trim();
-};
-
-/**
- * Phân tích tệp PDF và trích xuất văn bản, cố gắng giữ lại cấu trúc đoạn văn bản.
- */
-export const parsePDF = async (buffer) => {
-  try {
-    const data = await pdf(buffer);
-    return cleanText(data.text);
-  } catch (error) {
-    console.error("Error parsing PDF:", error);
-    throw new Error("Failed to parse PDF document.");
+// Recursive function to extract all text from xml2js object representation
+function extractTextFromXml(obj) {
+  let text = "";
+  if (typeof obj === "string") {
+    return obj;
   }
-};
-
-/**
- * Phân tích tệp DOCX (Word) bằng thư viện mammoth để trích xuất văn bản thô
- * kèm theo cấu trúc phân tách dòng hợp lý.
- */
-export const parseWord = async (buffer) => {
-  try {
-    const result = await mammoth.extractRawText({ buffer });
-    return cleanText(result.value);
-  } catch (error) {
-    console.error("Error parsing Word document:", error);
-    throw new Error("Failed to parse Word document.");
-  }
-};
-
-/**
- * Phân tích tệp Excel/CSV và tự động chuyển đổi dữ liệu của mỗi sheet thành bảng Markdown.
- */
-export const parseExcel = async (buffer) => {
-  try {
-    const workbook = xlsx.read(buffer, { type: 'buffer' });
-    let allMarkdown = "";
-
-    for (const sheetName of workbook.SheetNames) {
-      const worksheet = workbook.Sheets[sheetName];
-      // Chuyển sheet thành mảng 2 chiều (2D array)
-      const jsonData = xlsx.utils.sheet_to_json(worksheet, { header: 1 });
-
-      if (jsonData.length === 0) continue;
-
-      allMarkdown += `\n### Bảng (Sheet): ${sheetName}\n\n`;
-
-      // Chuyển đổi thành Bảng Markdown (Markdown Table)
-      const headers = jsonData[0];
-      allMarkdown += `| ${headers.map(h => String(h || "").replace(/\|/g, "\\|")).join(" | ")} |\n`;
-      allMarkdown += `| ${headers.map(() => "---").join(" | ")} |\n`;
-
-      for (let i = 1; i < jsonData.length; i++) {
-        const row = jsonData[i];
-        // Độn thêm cột rỗng nếu dòng đó có ít cột hơn dòng tiêu đề
-        const paddedRow = headers.map((_, colIndex) => row[colIndex] || "");
-        allMarkdown += `| ${paddedRow.map(cell => String(cell).replace(/\|/g, "\\|").replace(/\n/g, " ")).join(" | ")} |\n`;
-      }
-      allMarkdown += "\n";
+  if (Array.isArray(obj)) {
+    for (const item of obj) {
+      text += extractTextFromXml(item) + " ";
     }
-    return cleanText(allMarkdown);
-  } catch (error) {
-    console.error("Error parsing Excel document:", error);
-    throw new Error("Failed to parse Excel document.");
+  } else if (typeof obj === "object" && obj !== null) {
+    if (obj._) {
+      text += obj._ + " ";
+    }
+    for (const key in obj) {
+      if (key !== "$") { // skip attributes
+        text += extractTextFromXml(obj[key]) + " ";
+      }
+    }
   }
-};
+  return text;
+}
 
-/**
- * Phân tích tệp PPTX bằng cách đọc trực tiếp các file XML bên trong file zip.
- * Tách riêng văn bản theo từng slide và đính kèm Tiêu đề Slide vào trước nội dung.
- */
-export const parsePPTX = async (buffer) => {
-  return new Promise((resolve, reject) => {
-    // node-stream-zip yêu cầu đầu vào là file hoặc stream, nhưng buffer vẫn được hỗ trợ.
-    const zip = new StreamZip.async({ file: buffer });
-    let extractedText = "";
+// 1. Hàm dọn dẹp văn bản (Tính năng hay từ nhánh trên)
+export function cleanText(text) {
+  if (!text) return "";
+  let cleaned = text.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "");
+  cleaned = cleaned.replace(/[ \t]+/g, " ");
+  cleaned = cleaned.replace(/\n{3,}/g, "\n\n");
+  cleaned = cleaned.replace(/^(Trang|Page)\s+\d+(\s*\/\s*\d+)?\s*$/gmi, "");
+  cleaned = cleaned.split('\n').map(line => line.trim()).join('\n');
+  return cleaned.trim();
+}
 
-    zip.entries().then(async entries => {
-      const slideEntries = Object.keys(entries).filter(name => name.startsWith('ppt/slides/slide') && name.endsWith('.xml'));
+// 2. PDF Parser
+export async function parsePDF(buffer) {
+  const parser = new PDFParse({ data: buffer });
+  const data = await parser.getText();
+  return cleanText(data.text || "");
+}
 
-      // Sắp xếp các slide theo số thứ tự chuẩn xác (slide1.xml, slide2.xml, ...)
-      slideEntries.sort((a, b) => {
-        const numA = parseInt(a.match(/slide(\d+)\.xml/)[1]);
-        const numB = parseInt(b.match(/slide(\d+)\.xml/)[1]);
+// 3. Word Parser (DOCX)
+export async function parseWord(buffer) {
+  const data = await mammoth.extractRawText({ buffer });
+  return cleanText(data.value || "");
+}
+
+// 4. Excel Parser (XLSX) - Chuyển thành bảng Markdown (Từ nhánh trên)
+export async function parseExcel(buffer) {
+  const workbook = xlsx.read(buffer, { type: "buffer" });
+  let allMarkdown = "";
+
+  for (const sheetName of workbook.SheetNames) {
+    const worksheet = workbook.Sheets[sheetName];
+    const jsonData = xlsx.utils.sheet_to_json(worksheet, { header: 1 });
+
+    if (jsonData.length === 0) continue;
+
+    allMarkdown += `\n### Bảng (Sheet): ${sheetName}\n\n`;
+
+    const headers = jsonData[0];
+    allMarkdown += `| ${headers.map(h => String(h || "").replace(/\|/g, "\\|")).join(" | ")} |\n`;
+    allMarkdown += `| ${headers.map(() => "---").join(" | ")} |\n`;
+
+    for (let i = 1; i < jsonData.length; i++) {
+      const row = jsonData[i];
+      const paddedRow = headers.map((_, colIndex) => row[colIndex] || "");
+      allMarkdown += `| ${paddedRow.map(cell => String(cell).replace(/\|/g, "\\|").replace(/\n/g, " ")).join(" | ")} |\n`;
+    }
+    allMarkdown += "\n";
+  }
+  return cleanText(allMarkdown);
+}
+
+// 5. PPTX Parser (PowerPoint) - (Từ nhánh dưới)
+export async function parsePPTX(filePath) {
+  const zip = new StreamZip.async({ file: filePath });
+  try {
+    const entries = await zip.entries();
+    let text = "";
+    
+    const slideEntries = Object.keys(entries)
+      .filter(name => name.startsWith("ppt/slides/slide") && name.endsWith(".xml"))
+      .sort((a, b) => {
+        const numA = parseInt(a.replace(/[^0-9]/g, "")) || 0;
+        const numB = parseInt(b.replace(/[^0-9]/g, "")) || 0;
         return numA - numB;
       });
 
-      for (let i = 0; i < slideEntries.length; i++) {
-        const entryName = slideEntries[i];
-        const xmlData = await zip.entryData(entryName);
-        const parser = new xml2js.Parser();
-        const result = await parser.parseStringPromise(xmlData.toString('utf8'));
-
-        let slideText = "";
-        // Văn bản trong PowerPoint thường nằm sâu bên trong thẻ <a:t>
-        const extractTextRecursive = (obj) => {
-          if (!obj) return;
-          if (typeof obj === 'string') {
-            // Bỏ qua nếu là dữ liệu rỗng hoặc định dạng
-          } else if (Array.isArray(obj)) {
-            for (const item of obj) extractTextRecursive(item);
-          } else if (typeof obj === 'object') {
-            if (obj['a:t']) {
-              const texts = Array.isArray(obj['a:t']) ? obj['a:t'] : [obj['a:t']];
-              for (const t of texts) {
-                if (typeof t === 'string') slideText += t + " ";
-                else if (t._) slideText += t._ + " ";
-              }
-            }
-            for (const key in obj) {
-              if (key !== 'a:t') extractTextRecursive(obj[key]);
-            }
-          }
-        };
-
-        extractTextRecursive(result);
-        slideText = slideText.trim();
-        if (slideText) {
-          extractedText += `\n[Slide ${i + 1}]\n${slideText}\n`;
-        }
+    for (let i = 0; i < slideEntries.length; i++) {
+      const entryName = slideEntries[i];
+      const data = await zip.entryData(entryName);
+      const xmlString = data.toString("utf8");
+      
+      const parsedXml = await xml2js.parseStringPromise(xmlString);
+      const slideText = extractTextFromXml(parsedXml);
+      if (slideText.trim()) {
+        text += `--- Slide ${i + 1} ---\n${slideText.trim().replace(/\s+/g, " ")}\n\n`;
       }
-      await zip.close();
-      resolve(cleanText(extractedText));
-    }).catch(async err => {
-      console.error("Error parsing PPTX zip:", err);
-      await zip.close();
-      reject(new Error("Failed to parse PPTX document."));
-    });
-  });
-};
+    }
+    return cleanText(text);
+  } finally {
+    await zip.close();
+  }
+}
+
+// 6. ZIP Code Parser (Giữ mới từ nhánh dưới)
+export async function parseZip(filePath) {
+  const zip = new StreamZip.async({ file: filePath });
+  try {
+    const entries = await zip.entries();
+    let text = "Cấu trúc thư mục (File Tree):\n";
+    
+    const entryKeys = Object.keys(entries).sort();
+    
+    for (const key of entryKeys) {
+      const entry = entries[key];
+      const isDir = entry.isDirectory;
+      const depth = key.split("/").filter(Boolean).length - 1;
+      const indent = "  ".repeat(depth);
+      const name = path.basename(key);
+      text += `${indent}${isDir ? "📁" : "📄"} ${name}\n`;
+    }
+
+    text += "\n--- Nội dung chi tiết các tệp mã nguồn ---\n\n";
+
+    let totalLength = 0;
+    const MAX_LENGTH = 450000; 
+
+    for (const key of entryKeys) {
+      const entry = entries[key];
+      if (entry.isDirectory) continue;
+
+      const isIgnoredDir = key.includes("node_modules/") || key.includes(".git/") || key.includes("dist/") || key.includes("build/");
+      if (isIgnoredDir) continue;
+
+      if (!isCodeOrTextFile(key)) continue;
+
+      if (entry.size > 50000) continue;
+
+      try {
+        const data = await zip.entryData(key);
+        const fileContent = data.toString("utf8");
+        const fileBlock = `\n==================================================\nTỆP: ${key}\n==================================================\n${fileContent}\n`;
+        
+        if (totalLength + fileBlock.length > MAX_LENGTH) {
+          text += `\n[CẢNH BÁO: Đạt giới hạn kích thước trích xuất tài liệu mã nguồn]\n`;
+          break;
+        }
+        
+        text += fileBlock;
+        totalLength += fileBlock.length;
+      } catch (err) {
+        text += `\n[Lỗi khi đọc tệp ${key}: ${err.message}]\n`;
+      }
+    }
+    
+    return text;
+  } finally {
+    await zip.close();
+  }
+}
+
+// 7. Image vision helper via LLM (Giữ mới từ nhánh dưới)
+export async function parseImageViaLLM(base64Data, mimeType) {
+  const apiKey = process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    return "[Ảnh đính kèm: Vui lòng cấu hình GEMINI_API_KEY hoặc OPENAI_API_KEY ở tệp .env của backend để kích hoạt tính năng trích xuất công thức và phân tích ảnh học thuật]";
+  }
+
+  const prompt = "Hãy phân tích hình ảnh này chi tiết nhất có thể. Trích xuất toàn bộ văn bản tiếng Việt/tiếng Anh, công thức toán học (định dạng LaTeX nếu có), sơ đồ, bảng dữ liệu hoặc bất kỳ thông tin nào xuất hiện trong ảnh.";
+
+  try {
+    if (process.env.GEMINI_API_KEY) {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{
+            parts: [
+              { text: prompt },
+              {
+                inlineData: {
+                  mimeType: mimeType,
+                  data: base64Data
+                }
+              }
+            ]
+          }]
+        })
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`Gemini API error: ${errText}`);
+      }
+
+      const resJson = await response.json();
+      return resJson.candidates?.[0]?.content?.parts?.[0]?.text || "Không thể phân tích ảnh.";
+    } else {
+      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`
+        },
+        body: JSON.stringify({
+          model: "gpt-4o-mini",
+          messages: [
+            {
+              role: "user",
+              content: [
+                { type: "text", text: prompt },
+                {
+                  type: "image_url",
+                  image_url: {
+                    url: `data:${mimeType};base64,${base64Data}`
+                  }
+                }
+              ]
+            }
+          ]
+        })
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`OpenAI API error: ${errText}`);
+      }
+
+      const resJson = await response.json();
+      return resJson.choices?.[0]?.message?.content || "Không thể phân tích ảnh.";
+    }
+  } catch (error) {
+    console.error("Image analysis error:", error);
+    return `[Lỗi phân tích hình ảnh: ${error.message}]`;
+  }
+}
+
