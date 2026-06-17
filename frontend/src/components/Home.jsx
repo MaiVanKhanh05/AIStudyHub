@@ -241,6 +241,7 @@ export default function Home() {
   const calendarPopoverRef = useRef(null);
   const documentsSectionRef = useRef(null);
   const mainContentRef = useRef(null);
+  const seenNotificationsRef = useRef(new Set());
 
   const [currentCalDate, setCurrentCalDate] = useState(new Date());
   const [sidebarWidth, setSidebarWidth] = useState(230);
@@ -361,6 +362,10 @@ export default function Home() {
   // Active navigation tab
   const [activeTab, setActiveTab] = useState("Home");
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
+  const [notifFilter, setNotifFilter] = useState("ALL");
+  const [notificationsList, setNotificationsList] = useState([]);
+  const [notificationsLoading, setNotificationsLoading] = useState(false);
+  const unreadNotificationsCount = useMemo(() => notificationsList.filter(n => !n.is_read).length, [notificationsList]);
 
   // States for dynamic documents and storage usage
   const [documents, setDocuments] = useState([]);
@@ -1466,6 +1471,122 @@ export default function Home() {
     }
   }, [navigate, user?.user_id, activeTab]);
 
+  const fetchNotifications = async (isFirstLoad = false) => {
+    try {
+      if (isFirstLoad) {
+        setNotificationsLoading(true);
+      }
+      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+      if (!token) return;
+
+      const res = await axios.get("http://localhost:5000/api/notifications", {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      const newNotifs = res.data || [];
+      
+      if (isFirstLoad) {
+        const seenIds = new Set(newNotifs.map(n => n.notification_id));
+        seenNotificationsRef.current = seenIds;
+        setNotificationsList(newNotifs);
+      } else {
+        newNotifs.forEach(notif => {
+          if (!seenNotificationsRef.current.has(notif.notification_id)) {
+            seenNotificationsRef.current.add(notif.notification_id);
+            toast.info(notif.message, {
+              action: notif.document_id ? {
+                label: "Xem ngay",
+                onClick: () => navigate(`/preview/${notif.document_id}`)
+              } : undefined,
+              duration: 8000
+            });
+          }
+        });
+        setNotificationsList(newNotifs);
+      }
+    } catch (err) {
+      console.error("Error fetching notifications:", err);
+      if (isFirstLoad) {
+        toast.error("Không thể tải danh sách thông báo.");
+      }
+    } finally {
+      if (isFirstLoad) {
+        setNotificationsLoading(false);
+      }
+    }
+  };
+
+  const handleApproveAccess = async (notificationId) => {
+    try {
+      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+      const res = await axios.post(`http://localhost:5000/api/notifications/${notificationId}/approve`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      toast.success(res.data.message || "Đã phê duyệt yêu cầu truy cập!");
+      fetchNotifications(false);
+    } catch (err) {
+      console.error(err);
+      toast.error(err.response?.data?.error || "Không thể phê duyệt yêu cầu.");
+    }
+  };
+
+  const handleDenyAccess = async (notificationId) => {
+    try {
+      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+      const res = await axios.post(`http://localhost:5000/api/notifications/${notificationId}/deny`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      toast.success(res.data.message || "Đã từ chối yêu cầu truy cập.");
+      fetchNotifications(false);
+    } catch (err) {
+      console.error(err);
+      toast.error(err.response?.data?.error || "Không thể từ chối yêu cầu.");
+    }
+  };
+
+  const handleMarkAsRead = async (notificationId) => {
+    try {
+      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+      await axios.put(`http://localhost:5000/api/notifications/${notificationId}/read`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setNotificationsList(prev => prev.map(n => n.notification_id === notificationId ? { ...n, is_read: true } : n));
+    } catch (err) {
+      console.error("Error marking notification as read:", err);
+    }
+  };
+
+  const handleMarkAllAsRead = async () => {
+    try {
+      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+      await axios.put(`http://localhost:5000/api/notifications/read-all`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      toast.success("Đã đánh dấu tất cả thông báo là đã đọc.");
+      setNotificationsList(prev => prev.map(n => ({ ...n, is_read: true })));
+    } catch (err) {
+      console.error("Error marking all as read:", err);
+      toast.error("Không thể đánh dấu tất cả đã đọc.");
+    }
+  };
+
+  useEffect(() => {
+    if (!user) return;
+    fetchNotifications(true);
+    const interval = setInterval(() => {
+      if (document.visibilityState === "visible") {
+        fetchNotifications(false);
+      }
+    }, 20000);
+    return () => clearInterval(interval);
+  }, [user?.user_id]);
+
+  useEffect(() => {
+    if (activeTab === "Notifications") {
+      fetchNotifications(false);
+    }
+  }, [activeTab]);
+
   // Fetch all subjects from database on mount for searching and selecting
   useEffect(() => {
     if (!user) return;
@@ -2274,12 +2395,7 @@ export default function Home() {
     { id: 2, name: "Nhóm giải đề thi Toán Rời rạc MAS291", subject: "MAS291", members: 8, active: true }
   ];
 
-  // Mock Notifications
-  const notificationsList = [
-    { id: 1, text: "Giảng viên Nguyễn Thành Nam đã phê duyệt tài liệu học tập mới của bạn.", type: "success", time: "10 phút trước" },
-    { id: 2, text: "Đã trích xuất tóm tắt học thuật bằng AI cho tài liệu 'Đề cương ôn tập MAS291.pdf'.", type: "info", time: "1 giờ trước" },
-    { id: 3, text: "Xác thực đăng nhập tài khoản qua Google OAuth 2.0 thành công.", type: "success", time: "5 giờ trước" }
-  ];
+
 
   // Derived variables and format functions
   const recentDocs = documents.slice(0, 3);
@@ -2439,8 +2555,13 @@ export default function Home() {
                     }`}
                   style={{ transform: "translate3d(0,0,0)", backfaceVisibility: "hidden" }}
                 >
-                  <Icon className={`w-4 h-4 ${isActive ? "text-purple-600 dark:text-purple-400" : "text-slate-400 dark:text-slate-500"}`} />
-                  {item.label}
+                  <Icon className={`w-4 h-4 shrink-0 ${isActive ? "text-purple-600 dark:text-purple-400" : "text-slate-400 dark:text-slate-500"}`} />
+                  <span className="flex-1 text-left truncate">{item.label}</span>
+                  {item.name === "Notifications" && unreadNotificationsCount > 0 && (
+                    <span className="h-5 min-w-5 px-1.5 flex items-center justify-center rounded-full bg-red-500 dark:bg-red-600 text-[9px] font-black text-white shrink-0 shadow-sm">
+                      {unreadNotificationsCount}
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -2610,20 +2731,59 @@ export default function Home() {
 
 
               {/* Box 2: System notifications */}
-              <Card className="liquid-glass rounded-xl p-5 flex flex-col gap-3.5 shadow-sm">
-                <div className="flex items-center justify-between text-xs text-slate-400 dark:text-slate-500 uppercase tracking-widest font-bold">
-                  <span className="flex items-center gap-2"><Bell className="w-4 h-4 text-purple-500" /> Báo cáo trạng thái AI</span>
-                  <button onClick={() => setActiveTab("Notifications")} className="text-[10px] text-purple-600 font-bold hover:underline">Lịch sử hoạt động</button>
+              <Card className="liquid-glass rounded-xl p-5 flex flex-col gap-3.5 shadow-sm text-left">
+                <div className="flex items-center justify-between text-xs text-slate-400 dark:text-slate-500 uppercase tracking-widest font-bold select-none">
+                  <span className="flex items-center gap-2"><Bell className="w-4 h-4 text-purple-500" /> Thông báo học thuật</span>
+                  <button onClick={() => setActiveTab("Notifications")} className="text-[10px] text-purple-600 dark:text-purple-400 font-bold hover:underline cursor-pointer">Lịch sử hoạt động</button>
                 </div>
-                <div className="flex flex-col gap-2.5">
-                  <div className="flex items-start gap-2.5 text-xs text-slate-500 dark:text-slate-400 font-medium">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-2 shrink-0 animate-pulse" />
-                    <span className="truncate">AI đã xử lý trích xuất tóm tắt môn Toán Rời Rạc hoàn tất.</span>
-                  </div>
-                  <div className="flex items-start gap-2.5 text-xs text-slate-500 dark:text-slate-400 font-medium">
-                    <span className="w-1.5 h-1.5 rounded-full bg-purple-500 mt-2 shrink-0" />
-                    <span className="truncate">Giảng viên đã duyệt bộ học liệu WED202c cá nhân của bạn.</span>
-                  </div>
+                <div className="flex flex-col gap-3">
+                  {notificationsLoading && notificationsList.length === 0 ? (
+                    <div className="text-[11px] text-slate-450 dark:text-slate-550 font-bold py-2">
+                      Đang tải thông báo...
+                    </div>
+                  ) : notificationsList.length === 0 ? (
+                    <div className="text-[11px] text-slate-450 dark:text-slate-550 font-bold py-2">
+                      Không có thông báo học tập nào.
+                    </div>
+                  ) : (
+                    notificationsList.slice(0, 3).map((notif) => {
+                      let dotColor = "bg-purple-500";
+                      if (notif.type === "ACCESS_APPROVED" || notif.type === "SHARE_INVITE") {
+                        dotColor = "bg-emerald-500";
+                      } else if (notif.type === "ACCESS_REQUEST") {
+                        dotColor = "bg-amber-500 animate-pulse";
+                      } else if (notif.type === "ACCESS_DENIED") {
+                        dotColor = "bg-red-500";
+                      }
+
+                      return (
+                        <div 
+                          key={notif.notification_id} 
+                          onClick={async () => {
+                            // Mark as read if unread
+                            if (!notif.is_read) {
+                              try {
+                                const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+                                await axios.put(`http://localhost:5000/api/notifications/${notif.notification_id}/read`, {}, {
+                                  headers: { Authorization: `Bearer ${token}` }
+                                });
+                              } catch (e) {
+                                console.error(e);
+                              }
+                            }
+                            setActiveTab("Notifications");
+                          }}
+                          className="flex items-start gap-2.5 text-xs text-slate-650 hover:text-purple-650 dark:text-slate-350 dark:hover:text-purple-400 font-bold cursor-pointer transition-all duration-200 select-none group"
+                        >
+                          <span className={`w-1.5 h-1.5 rounded-full mt-2 shrink-0 ${dotColor}`} />
+                          <span className="truncate flex-1 group-hover:underline">{notif.message}</span>
+                          {!notif.is_read && (
+                            <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0 self-center" title="Chưa đọc" />
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
               </Card>
             </section>
@@ -3465,7 +3625,71 @@ export default function Home() {
                                       setEditTagInput("");
                                       setEditTagSuggestions([]);
                                     }}
-                                    className="w-full flex items-center gap-2 text-left px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-350 hover:bg-slate-50 dark:hover:bg-slate-800/60 rounded-md transition-colors"
+                                    className="w-full flex items-center gap-2 text-left px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60 rounded-md transition-colors"
+                                  >
+                                    <Pencil className="w-4 h-4 text-slate-400" />
+                                    Chỉnh sửa
+                                  </button>
+
+                                  {doc.is_community ? (
+                                    <button
+                                      onClick={async (e) => {
+                                        e.stopPropagation();
+                                        setOpenMenuId(null);
+                                        try {
+                                          const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+                                          await axios.put(`http://localhost:5000/api/documents/${doc.document_id || doc.id}/unshare`, {}, {
+                                            headers: { Authorization: `Bearer ${token}` }
+                                          });
+                                          toast.success("Đã hủy đăng tài liệu khỏi cộng đồng!");
+                                          fetchDashboard();
+                                        } catch (err) {
+                                          toast.error("Không thể hủy đăng tài liệu khỏi cộng đồng.");
+                                        }
+                                      }}
+                                      className="w-full flex items-center gap-2 text-left px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-md transition-colors"
+                                    >
+                                      <Globe className="w-4 h-4 text-red-500" />
+                                      Hủy đăng cộng đồng
+                                    </button>
+                                  ) : (
+                                    <button
+                                      onClick={async (e) => {
+                                        e.stopPropagation();
+                                        setOpenMenuId(null);
+                                        try {
+                                          const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+                                          await axios.put(`http://localhost:5000/api/documents/${doc.document_id || doc.id}/share`, {}, {
+                                            headers: { Authorization: `Bearer ${token}` }
+                                          });
+                                          toast.success("Đã đăng tài liệu lên cộng đồng thành công!");
+                                          fetchDashboard();
+                                        } catch (err) {
+                                          toast.error("Không thể đăng tài liệu lên cộng đồng.");
+                                        }
+                                      }}
+                                      className="w-full flex items-center gap-2 text-left px-3 py-2 text-xs font-medium text-purple-650 hover:bg-purple-50 dark:hover:bg-purple-950/20 rounded-md transition-colors"
+                                    >
+                                      <Globe className="w-4 h-4 text-purple-500" />
+                                      Đăng lên cộng đồng
+                                    </button>
+                                  )}
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setOpenMenuId(null);
+                                      setEditModalDoc(doc);
+                                      setEditTitle(doc.title || doc.document_name || "");
+                                      setEditSubject(doc.subject_code || "");
+                                      setEditSubjectSearch(doc.subject_code || "");
+                                      const docTagNames = Array.isArray(doc.tags)
+                                        ? doc.tags.map(t => typeof t === "string" ? t : t.tag_name)
+                                        : [];
+                                      setEditTags(docTagNames);
+                                      setEditTagInput("");
+                                      setEditTagSuggestions([]);
+                                    }}
+                                    className="w-full flex items-center gap-2 text-left px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60 rounded-md transition-colors"
                                   >
                                     <Pencil className="w-4 h-4 text-slate-400" />
                                     Chỉnh sửa
@@ -4395,56 +4619,231 @@ export default function Home() {
         })()}
 
         {/* ── SCREEN 5: NOTIFICATIONS TIMELINE ── */}
-        {activeTab === "Notifications" && (
-          <div className="flex flex-col gap-6 max-w-5xl w-full mx-auto animate-spring-up">
-            <header className="flex flex-col gap-1 border-b border-slate-100 dark:border-slate-800/60 pb-5 select-none text-left">
-              <span className="text-xs font-bold text-purple-600 dark:text-purple-400 uppercase tracking-widest">Nhật ký hệ thống</span>
-              <h1 className="text-2xl md:text-3xl font-black text-black dark:text-white tracking-tight mt-1">
-                Lịch sử & Thông báo học tập
-              </h1>
-              <span className="text-xs text-slate-500 font-medium mt-1">
-                Theo dõi quá trình cập nhật trạng thái học tập từ trợ lý AI và Giảng viên.
-              </span>
-            </header>
+        {activeTab === "Notifications" && (() => {
+          // Filtered list
+          const filteredNotifications = notificationsList.filter((notif) => {
+            if (notifFilter === "UNREAD") return !notif.is_read;
+            if (notifFilter === "REQUESTS") return notif.type === "ACCESS_REQUEST";
+            return true; // "ALL"
+          });
 
-            {/* Timeline Layout */}
-            <div className="liquid-glass rounded-xl p-6 shadow-sm flex flex-col gap-6">
-              {notificationsList.map((notif, idx) => {
-                const Icon = notif.type === "success"
-                  ? CheckCircle
-                  : notif.type === "warning"
-                    ? AlertTriangle
-                    : Info;
+          // Custom time formatting helper
+          const formatTimeAndDate = (dateString) => {
+            if (!dateString) return "Chưa rõ";
+            const d = new Date(dateString);
+            if (isNaN(d.getTime())) return "Chưa rõ";
+            const pad = (n) => String(n).padStart(2, '0');
+            return `${pad(d.getHours())}:${pad(d.getMinutes())} - ${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+          };
 
-                const iconColor = notif.type === "success"
-                  ? "text-emerald-500 bg-emerald-50 dark:bg-emerald-950/20"
-                  : notif.type === "warning"
-                    ? "text-amber-500 bg-amber-50 dark:bg-amber-950/20"
-                    : "text-blue-500 bg-blue-50 dark:bg-blue-950/20";
+          return (
+            <div className="flex flex-col gap-6 max-w-5xl w-full mx-auto animate-spring-up">
+              {/* Header section with count stats & Actions */}
+              <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-slate-100 dark:border-slate-800/60 pb-5 select-none text-left">
+                <div>
+                  <span className="text-xs font-bold text-purple-600 dark:text-purple-400 uppercase tracking-widest">Trung tâm thông báo</span>
+                  <h1 className="text-2xl md:text-3xl font-black text-black dark:text-white tracking-tight mt-1">
+                    Thông báo học thuật & Yêu cầu quyền
+                  </h1>
+                  <span className="text-xs text-slate-500 font-medium mt-1 block">
+                    Theo dõi và phê duyệt các yêu cầu chia sẻ tài liệu, quyền truy cập cũng như các hoạt động học thuật cá nhân.
+                  </span>
+                </div>
+                {unreadNotificationsCount > 0 && (
+                  <button
+                    onClick={handleMarkAllAsRead}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-purple-650 bg-purple-50 hover:bg-purple-100 dark:text-purple-350 dark:bg-purple-950/20 dark:hover:bg-purple-950/45 border border-purple-500/10 cursor-pointer select-none transition-all duration-200 shadow-sm shrink-0 self-start md:self-end"
+                  >
+                    <CheckCircle className="w-3.5 h-3.5" /> Đánh dấu tất cả đã đọc
+                  </button>
+                )}
+              </header>
 
-                return (
-                  <div key={notif.id} className="flex gap-4 relative">
-                    {/* Line connector */}
-                    {idx < notificationsList.length - 1 && (
-                      <span className="absolute left-4.5 top-9 bottom-0 w-0.5 bg-slate-100 dark:bg-slate-800" />
-                    )}
+              {/* Filters Block */}
+              <div className="flex items-center gap-2.5 overflow-x-auto pb-1 select-none scrollbar-none">
+                <button
+                  onClick={() => setNotifFilter("ALL")}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer whitespace-nowrap ${
+                    notifFilter === "ALL"
+                      ? "bg-purple-600 text-white shadow-sm border border-transparent"
+                      : "bg-white/50 dark:bg-[#0f111a]/50 text-slate-650 dark:text-slate-350 hover:bg-slate-50 dark:hover:bg-[#0f111a]/70 border border-slate-100 dark:border-white/5"
+                  }`}
+                >
+                  Tất cả ({notificationsList.length})
+                </button>
+                <button
+                  onClick={() => setNotifFilter("UNREAD")}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+                    notifFilter === "UNREAD"
+                      ? "bg-purple-600 text-white shadow-sm border border-transparent"
+                      : "bg-white/50 dark:bg-[#0f111a]/50 text-slate-650 dark:text-slate-350 hover:bg-slate-50 dark:hover:bg-[#0f111a]/70 border border-slate-100 dark:border-white/5"
+                  }`}
+                >
+                  Chưa đọc ({unreadNotificationsCount})
+                  {unreadNotificationsCount > 0 && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />
+                  )}
+                </button>
+                <button
+                  onClick={() => setNotifFilter("REQUESTS")}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer whitespace-nowrap ${
+                    notifFilter === "REQUESTS"
+                      ? "bg-purple-600 text-white shadow-sm border border-transparent"
+                      : "bg-white/50 dark:bg-[#0f111a]/50 text-slate-650 dark:text-slate-350 hover:bg-slate-50 dark:hover:bg-[#0f111a]/70 border border-slate-100 dark:border-white/5"
+                  }`}
+                >
+                  Yêu cầu quyền ({notificationsList.filter((n) => n.type === "ACCESS_REQUEST").length})
+                </button>
+              </div>
 
-                    {/* Left Icon Badge */}
-                    <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 border border-slate-200 dark:border-slate-800 ${iconColor}`}>
-                      <Icon className="w-5 h-5" />
-                    </div>
-
-                    {/* Right Context */}
-                    <div className="flex flex-col gap-1">
-                      <span className="text-xs font-bold text-slate-800 dark:text-slate-200 leading-tight">{notif.text}</span>
-                      <span className="text-[10px] text-slate-400 font-bold">{notif.time}</span>
-                    </div>
+              {/* Timeline Items List */}
+              <div className="flex flex-col gap-4">
+                {notificationsLoading ? (
+                  <div className="liquid-glass rounded-xl p-10 text-center text-xs font-bold text-slate-500 shadow-sm">
+                    Đang tải thông báo...
                   </div>
-                );
-              })}
+                ) : filteredNotifications.length === 0 ? (
+                  <div className="liquid-glass rounded-xl p-10 text-center text-xs text-slate-400 font-bold border border-dashed border-slate-200 dark:border-slate-800 shadow-sm">
+                    {notifFilter === "UNREAD"
+                      ? "Bạn đã đọc hết tất cả thông báo!"
+                      : notifFilter === "REQUESTS"
+                      ? "Không có yêu cầu quyền truy cập tài liệu nào."
+                      : "Danh sách thông báo trống."}
+                  </div>
+                ) : (
+                  filteredNotifications.map((notif) => {
+                    let Icon = Info;
+                    let iconColor = "text-blue-500 bg-blue-50 dark:bg-blue-950/20";
+                    let iconBorder = "border-blue-200 dark:border-blue-900/30";
+
+                    if (notif.type === "ACCESS_APPROVED" || notif.type === "SHARE_INVITE") {
+                      Icon = CheckCircle;
+                      iconColor = "text-emerald-500 bg-emerald-50 dark:bg-emerald-950/20";
+                      iconBorder = "border-emerald-200 dark:border-emerald-900/30";
+                    } else if (notif.type === "ACCESS_REQUEST") {
+                      Icon = AlertTriangle;
+                      iconColor = "text-amber-500 bg-amber-50 dark:bg-amber-950/20";
+                      iconBorder = "border-amber-200 dark:border-amber-900/30";
+                    } else if (notif.type === "ACCESS_DENIED") {
+                      Icon = X;
+                      iconColor = "text-red-500 bg-red-50 dark:bg-red-950/20";
+                      iconBorder = "border-red-200 dark:border-red-900/30";
+                    }
+
+                    // Render avatar details or initials
+                    const senderName = notif.sender_first_name 
+                      ? `${notif.sender_last_name} ${notif.sender_first_name}`.trim()
+                      : "Người dùng hệ thống";
+                    const senderInitials = senderName.split(" ").slice(-2).map(n => n[0]).join("").toUpperCase();
+
+                    return (
+                      <div
+                        key={notif.notification_id}
+                        onClick={() => {
+                          if (!notif.is_read) {
+                            handleMarkAsRead(notif.notification_id);
+                          }
+                        }}
+                        className={`liquid-glass rounded-2xl p-5 border shadow-sm transition-all duration-300 flex items-start gap-4 select-none ${
+                          !notif.is_read
+                            ? "bg-purple-650/5 hover:bg-purple-650/10 border-purple-500/15"
+                            : "bg-white/40 dark:bg-[#0f111a]/40 hover:bg-white/60 dark:hover:bg-[#0f111a]/60 border-slate-100 dark:border-white/5"
+                        }`}
+                      >
+                        {/* Custom Avatar with Floating Action Badge */}
+                        <div className="relative shrink-0 select-none">
+                          {notif.sender_avatar ? (
+                            <img
+                              src={notif.sender_avatar}
+                              alt={senderName}
+                              className="w-11 h-11 rounded-full object-cover border border-slate-200 dark:border-slate-800"
+                            />
+                          ) : (
+                            <div className="w-11 h-11 rounded-full bg-gradient-to-tr from-purple-100 to-purple-50 dark:from-purple-950/40 dark:to-purple-900/20 border border-purple-200/40 dark:border-purple-800/40 flex items-center justify-center text-xs font-black text-purple-700 dark:text-purple-300">
+                              {senderInitials || "SV"}
+                            </div>
+                          )}
+                          {/* Left Icon Badge overlayed on bottom right */}
+                          <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center border ${iconColor} ${iconBorder} shadow-sm`}>
+                            <Icon className="w-3 h-3" />
+                          </div>
+                        </div>
+
+                        {/* Right Content details */}
+                        <div className="flex-1 flex flex-col gap-1.5 text-left">
+                          <div className="flex items-start justify-between gap-3">
+                            <span className={`text-xs md:text-sm font-semibold leading-tight text-slate-850 dark:text-slate-150`}>
+                              {notif.message}
+                            </span>
+                            <span className="text-[10px] text-slate-400 font-bold whitespace-nowrap mt-0.5 select-none">
+                              {formatTimeAndDate(notif.created_at)}
+                            </span>
+                          </div>
+
+                          {/* document access and permission button action row */}
+                          <div className="flex flex-wrap items-center gap-3.5 mt-0.5">
+                            {notif.document_id && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (!notif.is_read) {
+                                    handleMarkAsRead(notif.notification_id);
+                                  }
+                                  navigate(`/preview/${notif.document_id}`);
+                                }}
+                                className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-purple-650 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 transition-colors cursor-pointer"
+                              >
+                                Xem tài liệu <ArrowUpRight className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+
+                            {notif.type === "ACCESS_REQUEST" && (
+                              <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                                {notif.action_status === "PENDING" ? (
+                                  <>
+                                    <button
+                                      onClick={() => handleApproveAccess(notif.notification_id)}
+                                      className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black rounded-lg transition-colors cursor-pointer shadow-sm select-none"
+                                    >
+                                      Cho phép
+                                    </button>
+                                    <button
+                                      onClick={() => handleDenyAccess(notif.notification_id)}
+                                      className="px-3 py-1 bg-red-500/10 text-red-500 hover:bg-red-500/20 text-[10px] font-black rounded-lg transition-colors cursor-pointer select-none"
+                                    >
+                                      Từ chối
+                                    </button>
+                                  </>
+                                ) : notif.action_status === "APPROVED" ? (
+                                  <span className="text-[9px] font-extrabold text-emerald-600 dark:text-emerald-450 bg-emerald-50 dark:bg-emerald-950/30 px-2 py-0.5 rounded uppercase tracking-wider select-none border border-emerald-500/10">
+                                    Đã phê duyệt
+                                  </span>
+                                ) : (
+                                  <span className="text-[9px] font-extrabold text-red-500 dark:text-red-400 bg-red-50 dark:bg-red-950/30 px-2 py-0.5 rounded uppercase tracking-wider select-none border border-red-500/10">
+                                    Đã từ chối
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Unread indicator / close buttons */}
+                        <div className="flex flex-col items-end gap-2 shrink-0 select-none">
+                          {!notif.is_read ? (
+                            <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0 self-center" title="Chưa đọc" />
+                          ) : (
+                            <span className="w-2 h-2 shrink-0 opacity-0" />
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* ── SCREEN 6: PROFILE & SETTINGS ── */}
         {activeTab === "Personal Profile" && (

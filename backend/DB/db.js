@@ -120,6 +120,12 @@ export const connectDB = async () => {
         `);
 
         console.log("Database schema columns and tables verified.");
+
+        // Ensure is_community column exists in document table
+        await pool.query(
+            "ALTER TABLE document ADD COLUMN IF NOT EXISTS is_community BOOLEAN DEFAULT FALSE"
+        );
+        console.log("Database schema column is_community verified.");
     } catch (error) {
         console.error("Error connecting to the database:", error);
         process.exit(1);

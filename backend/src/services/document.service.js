@@ -78,7 +78,18 @@ export const getCommunityDocs = async (userId = null) => {
 
 export const shareDocument = async (documentId, userId, description) => {
     try {
-        return await documentRepository.updateDocumentVisibility(documentId, 'PUBLIC', description);
+        if (description !== null && description !== undefined) {
+            await documentRepository.updateDocumentVisibility(documentId, 'PUBLIC', description);
+        }
+        return await documentRepository.updateDocumentCommunityStatus(documentId, true);
+    } catch (error) {
+        throw error;
+    }
+};
+
+export const unshareDocument = async (documentId, userId) => {
+    try {
+        return await documentRepository.updateDocumentCommunityStatus(documentId, false);
     } catch (error) {
         throw error;
     }

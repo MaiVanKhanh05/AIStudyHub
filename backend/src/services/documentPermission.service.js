@@ -1,6 +1,7 @@
 import * as documentPermissionRepository from "../repositories/documentPermission.repository.js";
 import * as documentRepository from "../repositories/document.repository.js";
 import * as userRepository from "../repositories/user.repository.js";
+import * as notificationRepository from "../repositories/notification.repository.js";
 
 export const getShareSettings = async (documentId) => {
     try {
@@ -57,7 +58,25 @@ export const addSharePermission = async (documentId, userId, role, grantedBy) =>
             throw new Error("Permission already exists for this user. Use update (PATCH) instead.");
         }
 
-        return await documentPermissionRepository.addPermission(documentId, userId, role, grantedBy);
+        const permission = await documentPermissionRepository.addPermission(documentId, userId, role, grantedBy);
+
+        // Trigger notification
+        try {
+            const sender = await userRepository.findUserById(grantedBy);
+            const senderName = sender ? `${sender.last_name} ${sender.first_name}`.trim() : "Ai đó";
+            const message = `${senderName} đã chia sẻ tài liệu "${document.title}" với bạn.`;
+            await notificationRepository.createNotification({
+                userId,
+                senderId: grantedBy,
+                type: "SHARE_INVITE",
+                documentId,
+                message
+            });
+        } catch (notifErr) {
+            console.error("Failed to trigger share invite notification:", notifErr);
+        }
+
+        return permission;
     } catch (error) {
         console.error("Error in addSharePermission service:", error);
         throw error;

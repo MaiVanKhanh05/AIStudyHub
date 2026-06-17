@@ -194,7 +194,7 @@ export default function ShareDocumentModal({ documentId, onClose }) {
             {/* Section 1: Invite User */}
             <div className="flex flex-col gap-2">
               <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
-                Mời người dùng
+                Chia sẻ với người khác
               </span>
               <div className="flex gap-2 relative">
                 <div className="relative flex-1">
@@ -202,7 +202,7 @@ export default function ShareDocumentModal({ documentId, onClose }) {
                   <input
                     type="text"
                     placeholder="Tìm theo Tên, MSSV, hoặc Email..."
-                    value={selectedUser ? `${selectedUser.last_name} ${selectedUser.first_name} (${selectedUser.email})` : searchQuery}
+                    value={selectedUser ? `${selectedUser.last_name} ${selectedUser.first_name} (${selectedUser.user_id})` : searchQuery}
                     onChange={(e) => {
                       setSearchQuery(e.target.value);
                       if (selectedUser) setSelectedUser(null);
@@ -235,7 +235,7 @@ export default function ShareDocumentModal({ documentId, onClose }) {
                               {user.last_name} {user.first_name}
                             </span>
                             <span className="text-[10px] text-slate-400 dark:text-slate-500 leading-none truncate">
-                              {user.email} ({user.user_id})
+                              {user.user_id}
                             </span>
                           </div>
                         </button>
@@ -250,23 +250,12 @@ export default function ShareDocumentModal({ documentId, onClose }) {
                   )}
                 </div>
 
-                {/* Role select */}
-                <select
-                  value={selectedRole}
-                  onChange={(e) => setSelectedRole(e.target.value)}
-                  disabled={submitting}
-                  className="h-9 text-xs font-bold bg-slate-50 dark:bg-slate-950 border border-slate-200/80 dark:border-slate-800 rounded-xl px-2.5 outline-none focus:ring-1 focus:ring-purple-500 dark:text-white cursor-pointer"
-                >
-                  <option value="VIEWER">Người xem</option>
-                  <option value="EDITOR">Người chỉnh sửa</option>
-                </select>
-
                 <button
                   onClick={handleAddPermission}
                   disabled={submitting || !selectedUser}
                   className="h-9 px-4 text-xs font-bold text-white bg-purple-600 hover:bg-purple-700 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shrink-0"
                 >
-                  Mời
+                  Chia sẻ
                 </button>
               </div>
             </div>
@@ -329,8 +318,8 @@ export default function ShareDocumentModal({ documentId, onClose }) {
                         <span className="text-xs font-bold text-slate-900 dark:text-white leading-tight">
                           {owner.last_name} {owner.first_name}
                         </span>
-                        <span className="text-[10px] text-slate-450 dark:text-slate-500 leading-none truncate mt-0.5">
-                          {owner.email}
+                        <span className="text-[10px] text-slate-455 dark:text-slate-500 leading-none truncate mt-0.5">
+                          {owner.user_id}
                         </span>
                       </div>
                     </div>
@@ -356,20 +345,15 @@ export default function ShareDocumentModal({ documentId, onClose }) {
                           {p.last_name} {p.first_name}
                         </span>
                         <span className="text-[10px] text-slate-455 dark:text-slate-500 leading-none truncate mt-0.5">
-                          {p.email}
+                          {p.user_id}
                         </span>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <select
-                        value={p.role}
-                        onChange={(e) => handleChangeRole(p.user_id, e.target.value)}
-                        className="h-7.5 text-[10px] font-bold bg-slate-50 dark:bg-slate-950 border border-slate-200/80 dark:border-slate-800 rounded-lg px-2 outline-none focus:ring-1 focus:ring-purple-500 dark:text-white cursor-pointer"
-                      >
-                        <option value="VIEWER">Người xem</option>
-                        <option value="EDITOR">Người chỉnh sửa</option>
-                      </select>
+                      <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded">
+                        Người xem
+                      </span>
 
                       <button
                         onClick={() => handleRemovePermission(p.user_id)}
@@ -388,6 +372,26 @@ export default function ShareDocumentModal({ documentId, onClose }) {
                   </span>
                 )}
               </div>
+            </div>
+
+            {/* Footer with Copy Link */}
+            <div className="flex items-center justify-between border-t border-slate-100 dark:border-slate-850 pt-4 mt-2">
+              <button
+                onClick={() => {
+                  const link = `${window.location.origin}/preview/${documentId}`;
+                  navigator.clipboard.writeText(link);
+                  toast.success("Đã sao chép liên kết vào bộ nhớ tạm!");
+                }}
+                className="flex items-center gap-2 px-4 py-2 text-xs font-bold text-purple-700 bg-purple-50 hover:bg-purple-100 dark:text-purple-300 dark:bg-purple-950/40 dark:hover:bg-purple-950/60 rounded-xl transition-colors cursor-pointer animate-in fade-in"
+              >
+                Sao chép liên kết
+              </button>
+              <button
+                onClick={onClose}
+                className="px-4 py-2 text-xs font-bold text-slate-700 dark:text-slate-350 hover:bg-slate-100 dark:hover:bg-slate-850 rounded-xl transition-colors cursor-pointer"
+              >
+                Xong
+              </button>
             </div>
           </>
         )}

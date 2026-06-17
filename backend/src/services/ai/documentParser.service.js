@@ -39,41 +39,64 @@ function extractTextFromXml(obj) {
   return text;
 }
 
-// 1. PDF Parser
+// 1. Hàm dọn dẹp văn bản (Tính năng hay từ nhánh trên)
+export function cleanText(text) {
+  if (!text) return "";
+  let cleaned = text.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "");
+  cleaned = cleaned.replace(/[ \t]+/g, " ");
+  cleaned = cleaned.replace(/\n{3,}/g, "\n\n");
+  cleaned = cleaned.replace(/^(Trang|Page)\s+\d+(\s*\/\s*\d+)?\s*$/gmi, "");
+  cleaned = cleaned.split('\n').map(line => line.trim()).join('\n');
+  return cleaned.trim();
+}
+
+// 2. PDF Parser
 export async function parsePDF(buffer) {
   const parser = new PDFParse({ data: buffer });
   const data = await parser.getText();
-  return data.text || "";
+  return cleanText(data.text || "");
 }
 
-// 2. Word Parser (DOCX)
+// 3. Word Parser (DOCX)
 export async function parseWord(buffer) {
   const data = await mammoth.extractRawText({ buffer });
-  return data.value || "";
+  return cleanText(data.value || "");
 }
 
-// 3. Excel Parser (XLSX)
+// 4. Excel Parser (XLSX) - Chuyển thành bảng Markdown (Từ nhánh trên)
 export async function parseExcel(buffer) {
   const workbook = xlsx.read(buffer, { type: "buffer" });
-  let text = "";
+  let allMarkdown = "";
+
   for (const sheetName of workbook.SheetNames) {
-    const sheet = workbook.Sheets[sheetName];
-    const sheetText = xlsx.utils.sheet_to_txt(sheet);
-    if (sheetText.trim()) {
-      text += `--- Trang tính: ${sheetName} ---\n${sheetText}\n\n`;
+    const worksheet = workbook.Sheets[sheetName];
+    const jsonData = xlsx.utils.sheet_to_json(worksheet, { header: 1 });
+
+    if (jsonData.length === 0) continue;
+
+    allMarkdown += `\n### Bảng (Sheet): ${sheetName}\n\n`;
+
+    const headers = jsonData[0];
+    allMarkdown += `| ${headers.map(h => String(h || "").replace(/\|/g, "\\|")).join(" | ")} |\n`;
+    allMarkdown += `| ${headers.map(() => "---").join(" | ")} |\n`;
+
+    for (let i = 1; i < jsonData.length; i++) {
+      const row = jsonData[i];
+      const paddedRow = headers.map((_, colIndex) => row[colIndex] || "");
+      allMarkdown += `| ${paddedRow.map(cell => String(cell).replace(/\|/g, "\\|").replace(/\n/g, " ")).join(" | ")} |\n`;
     }
+    allMarkdown += "\n";
   }
-  return text;
+  return cleanText(allMarkdown);
 }
 
-// 4. PPTX Parser (PowerPoint)
+// 5. PPTX Parser (PowerPoint) - (Từ nhánh dưới)
 export async function parsePPTX(filePath) {
   const zip = new StreamZip.async({ file: filePath });
   try {
     const entries = await zip.entries();
     let text = "";
     
-    // PPTX slides are typically stored as ppt/slides/slide1.xml, ppt/slides/slide2.xml, etc.
     const slideEntries = Object.keys(entries)
       .filter(name => name.startsWith("ppt/slides/slide") && name.endsWith(".xml"))
       .sort((a, b) => {
@@ -93,13 +116,13 @@ export async function parsePPTX(filePath) {
         text += `--- Slide ${i + 1} ---\n${slideText.trim().replace(/\s+/g, " ")}\n\n`;
       }
     }
-    return text;
+    return cleanText(text);
   } finally {
     await zip.close();
   }
 }
 
-// 5. ZIP Code Parser
+// 6. ZIP Code Parser (Giữ mới từ nhánh dưới)
 export async function parseZip(filePath) {
   const zip = new StreamZip.async({ file: filePath });
   try {
@@ -108,7 +131,6 @@ export async function parseZip(filePath) {
     
     const entryKeys = Object.keys(entries).sort();
     
-    // Build file tree representation
     for (const key of entryKeys) {
       const entry = entries[key];
       const isDir = entry.isDirectory;
@@ -121,19 +143,17 @@ export async function parseZip(filePath) {
     text += "\n--- Nội dung chi tiết các tệp mã nguồn ---\n\n";
 
     let totalLength = 0;
-    const MAX_LENGTH = 450000; // limit character extraction to avoid payload limits
+    const MAX_LENGTH = 450000; 
 
     for (const key of entryKeys) {
       const entry = entries[key];
       if (entry.isDirectory) continue;
 
-      // Skip non-code files or files in ignored directories (like node_modules, .git, dist, etc.)
       const isIgnoredDir = key.includes("node_modules/") || key.includes(".git/") || key.includes("dist/") || key.includes("build/");
       if (isIgnoredDir) continue;
 
       if (!isCodeOrTextFile(key)) continue;
 
-      // Read files under 50KB
       if (entry.size > 50000) continue;
 
       try {
@@ -159,7 +179,7 @@ export async function parseZip(filePath) {
   }
 }
 
-// 6. Image vision helper via LLM
+// 7. Image vision helper via LLM (Giữ mới từ nhánh dưới)
 export async function parseImageViaLLM(base64Data, mimeType) {
   const apiKey = process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY;
   if (!apiKey) {
@@ -170,7 +190,6 @@ export async function parseImageViaLLM(base64Data, mimeType) {
 
   try {
     if (process.env.GEMINI_API_KEY) {
-      // Use Gemini 1.5 Flash Vision
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -197,7 +216,6 @@ export async function parseImageViaLLM(base64Data, mimeType) {
       const resJson = await response.json();
       return resJson.candidates?.[0]?.content?.parts?.[0]?.text || "Không thể phân tích ảnh.";
     } else {
-      // Use OpenAI GPT-4o-mini Vision
       const response = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
         headers: {
@@ -236,3 +254,4 @@ export async function parseImageViaLLM(base64Data, mimeType) {
     return `[Lỗi phân tích hình ảnh: ${error.message}]`;
   }
 }
+

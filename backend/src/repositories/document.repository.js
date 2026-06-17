@@ -159,7 +159,7 @@ export const getCommunityDocuments = async (userId = null) => {
              FROM document d
              JOIN users u ON d.user_id = u.user_id
              LEFT JOIN subject s ON d.subject_code = s.subject_code
-             WHERE d.visibility = 'PUBLIC'
+             WHERE d.is_community = TRUE
              ORDER BY d.upload_date DESC`,
              queryParams
         );
@@ -176,12 +176,23 @@ export const getCommunityDocuments = async (userId = null) => {
 
 export const updateDocumentVisibility = async (documentId, visibility, description = null) => {
     try {
-        const queryStr = description !== null
-            ? "UPDATE document SET visibility = $1, description = $2 WHERE document_id = $3 RETURNING *"
-            : "UPDATE document SET visibility = $1 WHERE document_id = $2 RETURNING *";
-        const queryParams = description !== null
-            ? [visibility, description, documentId]
-            : [visibility, documentId];
+        let queryStr;
+        let queryParams;
+        if (visibility === 'RESTRICTED') {
+            queryStr = description !== null
+                ? "UPDATE document SET visibility = $1, description = $2, is_community = FALSE WHERE document_id = $3 RETURNING *"
+                : "UPDATE document SET visibility = $1, is_community = FALSE WHERE document_id = $2 RETURNING *";
+            queryParams = description !== null
+                ? [visibility, description, documentId]
+                : [visibility, documentId];
+        } else {
+            queryStr = description !== null
+                ? "UPDATE document SET visibility = $1, description = $2 WHERE document_id = $3 RETURNING *"
+                : "UPDATE document SET visibility = $1 WHERE document_id = $2 RETURNING *";
+            queryParams = description !== null
+                ? [visibility, description, documentId]
+                : [visibility, documentId];
+        }
         const { rows } = await pool.query(queryStr, queryParams);
         return rows[0] ? new Document(rows[0]) : null;
     } catch (error) {
@@ -317,6 +328,19 @@ export const getAllDocuments = async () => {
         return rows.map(row => new Document(row));
     } catch (error) {
         console.error("Error fetching all documents:", error);
+        throw error;
+    }
+};
+
+export const updateDocumentCommunityStatus = async (documentId, isCommunity) => {
+    try {
+        const queryStr = isCommunity 
+            ? "UPDATE document SET is_community = $1, visibility = 'PUBLIC' WHERE document_id = $2 RETURNING *"
+            : "UPDATE document SET is_community = $1 WHERE document_id = $2 RETURNING *";
+        const { rows } = await pool.query(queryStr, [isCommunity, documentId]);
+        return rows[0] ? new Document(rows[0]) : null;
+    } catch (error) {
+        console.error("Error updating document community status:", error);
         throw error;
     }
 };
