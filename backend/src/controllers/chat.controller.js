@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
-import { orchestrateSearch } from "../services/ai/search.service.js";
+import { getCommunityDocumentCatalog, searchCommunityDocsByKeyword } from "../repositories/document.repository.js";
+
 import {
   parsePDF,
   parseWord,
@@ -11,17 +12,24 @@ import {
 } from "../services/ai/documentParser.service.js";
 import pool from "../../DB/db.js";
 
-// Endpoint: POST /api/chat/upload-temp
+// Đường dẫn API: POST /api/chat/upload-temp
 export async function uploadTempFile(req, res) {
   if (!req.file) {
     return res.status(400).json({ error: "Không tìm thấy tệp tải lên." });
   }
 
-  const originalName = req.file.originalname;
+  // Sửa lỗi mã hóa latin1 của multer đối với tên tệp tiếng Việt
+  let originalName = req.file.originalname;
+  try {
+    originalName = Buffer.from(originalName, 'latin1').toString('utf8');
+  } catch (e) {
+    // quay lại sử dụng tên gốc nếu chuyển đổi thất bại
+  }
+
   const mimeType = req.file.mimetype;
   const ext = path.extname(originalName).toLowerCase();
   
-  // Ensure temp_uploads directory exists
+  // Đảm bảo thư mục temp_uploads tồn tại
   const tempDir = path.join(process.cwd(), "temp_uploads");
   if (!fs.existsSync(tempDir)) {
     fs.mkdirSync(tempDir, { recursive: true });
@@ -32,13 +40,13 @@ export async function uploadTempFile(req, res) {
   let extractedText = "";
 
   try {
-    // 1. Process files that require a file path
+    // 1. Xử lý các tệp yêu cầu đường dẫn tệp
     if (ext === ".pptx" || ext === ".zip") {
       fs.writeFileSync(tempFilePath, req.file.buffer);
       fileWritten = true;
     }
 
-    // 2. Route parsing based on extension
+    // 2. Định tuyến xử lý phân tách dựa trên phần mở rộng (đuôi file)
     if (ext === ".pdf") {
       extractedText = await parsePDF(req.file.buffer);
     } else if (ext === ".docx") {
@@ -55,12 +63,12 @@ export async function uploadTempFile(req, res) {
     } else if (ext === ".txt" || ext === ".json" || ext === ".js" || ext === ".py" || ext === ".md") {
       extractedText = req.file.buffer.toString("utf8");
     } else {
-      // Fallback for arbitrary code/text files: check if buffer contains NULL bytes in the first 512 bytes
+      // Dự phòng cho các tệp mã/văn bản tùy ý: kiểm tra xem bộ đệm có chứa byte NULL trong 512 byte đầu tiên không
       const hasNullBytes = req.file.buffer.slice(0, 512).includes(0);
       if (!hasNullBytes) {
         extractedText = req.file.buffer.toString("utf8");
       } else {
-        // Gracefully support other binary formats by acknowledging their upload in the context
+        // Hỗ trợ tốt các định dạng nhị phân khác bằng cách ghi nhận việc tải lên của chúng trong ngữ cảnh
         extractedText = `[Đã đính kèm tệp nhị phân: ${originalName} (Kích thước: ${(req.file.size / 1024).toFixed(1)} KB). Hệ thống đã ghi nhận tệp nhị phân này làm ngữ cảnh cuộc trò chuyện.]`;
       }
     }
@@ -75,7 +83,7 @@ export async function uploadTempFile(req, res) {
     console.error("Error parsing upload file:", error);
     return res.status(500).json({ error: `Lỗi xử lý tài liệu: ${error.message}` });
   } finally {
-    // Clean up temporary files
+    // Dọn dẹp các tệp tạm thời
     if (fileWritten && fs.existsSync(tempFilePath)) {
       try {
         fs.unlinkSync(tempFilePath);
@@ -86,23 +94,23 @@ export async function uploadTempFile(req, res) {
   }
 }
 
-// Helper: Call Gemini Generative AI API via HTTP fetch
+// Hàm hỗ trợ: Gọi API Google Gemini Generative AI qua HTTP fetch
 async function callGemini(messages, systemInstruction) {
   const apiKey = process.env.GEMINI_API_KEY;
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
-  // Re-format messages for Gemini
-  // Gemini accepts: contents: [{ role: "user"|"model", parts: [{ text: "..." }] }]
+  // Định dạng lại các tin nhắn cho Gemini
+  // Gemini chấp nhận định dạng: contents: [{ role: "user"|"model", parts: [{ text: "..." }] }]
   const contents = [];
   
-  // Compile history and instructions
+  // Tổng hợp lịch sử và các hướng dẫn
   for (const msg of messages) {
     let role = "user";
     if (msg.role === "assistant" || msg.role === "system") {
       role = "model";
     }
     
-    // Gemini roles must alternate user/model. If consecutive are same role, combine them.
+    // Các vai trò (role) của Gemini phải luân phiên giữa user/model. Nếu các vai trò liên tiếp giống nhau, hãy gộp chúng lại.
     const lastContent = contents[contents.length - 1];
     if (lastContent && lastContent.role === role) {
       lastContent.parts[0].text += "\n" + msg.content;
@@ -143,7 +151,7 @@ async function callGemini(messages, systemInstruction) {
   return data.candidates?.[0]?.content?.parts?.[0]?.text || "Không có câu trả lời nào được phản hồi.";
 }
 
-// Helper: Call OpenAI chat completions
+// Hàm hỗ trợ: Gọi API chat completions của OpenAI
 async function callOpenAI(messages, systemInstruction) {
   const apiKey = process.env.OPENAI_API_KEY;
   const url = "https://api.openai.com/v1/chat/completions";
@@ -176,9 +184,9 @@ async function callOpenAI(messages, systemInstruction) {
   return data.choices?.[0]?.message?.content || "Không có câu trả lời nào được phản hồi.";
 }
 
-// Endpoint: POST /api/chat
+// Đường dẫn API: POST /api/chat
 export async function chatQuery(req, res) {
-  const { message, history = [], aiMode = "General AI", useWeb = false, useScholar = false, deepResearch = false, documentContext = "" } = req.body;
+  const { message, history = [], aiMode = "General AI", documentContext = "" } = req.body;
 
   if (!message) {
     return res.status(400).json({ error: "Câu hỏi không được để trống." });
@@ -194,9 +202,8 @@ export async function chatQuery(req, res) {
   try {
     let systemInstruction = "";
     let additionalContext = "";
-    let searchCitations = [];
 
-    // 1. Establish mode instructions
+    // 1. Thiết lập các hướng dẫn theo chế độ (mode)
     const modeInstructions = {
       "Scholar": "Bạn là Học giả AI (Scholar Core). Hãy giải thích kiến thức theo phong cách sư phạm học thuật, bài bản, khoa học nhưng cực kỳ dễ hiểu, diễn giải chi tiết các định nghĩa khó và cung cấp ví dụ thực tiễn trực quan.",
       "Research": "Bạn là Nhà nghiên cứu AI (Research Expert). Hãy tìm kiếm, tổng hợp và đối chiếu thông tin từ các nguồn học thuật uy tín. Trình bày chặt chẽ, khách quan và trích dẫn trực tiếp nguồn tham khảo rõ ràng.",
@@ -208,32 +215,28 @@ export async function chatQuery(req, res) {
 
     systemInstruction = modeInstructions[aiMode] || modeInstructions["General AI"];
 
-    // 2. Check if chat is restricted to document context
+    // 2. Kiểm tra xem chat có bị giới hạn trong ngữ cảnh tài liệu hay không
     if (documentContext) {
       systemInstruction += "\n\nCRITICAL: Bạn phải TRẢ LỜI CÂU HỎI CHỈ DỰA TRÊN ngữ cảnh tài liệu đã tải lên dưới đây. Tuyệt đối không dùng thông tin hoặc kiến thức bên ngoài tài liệu. Nếu câu hỏi nằm ngoài tài liệu, hãy trả lời lịch sự rằng thông tin này không có trong tài liệu và khuyên người dùng tập trung vào chủ đề của file.";
       
       additionalContext = `[NGỮ CẢNH TÀI LIỆU ĐÃ UPLOAD]\n${documentContext}\n\n[HẾT NGỮ CẢNH TÀI LIỆU - Vui lòng trả lời câu hỏi dựa trên nội dung này]`;
     } else {
-      // Run search if enabled and no document context
-      if (useWeb || useScholar) {
-        const searchQuery = message;
-        const searchResult = await orchestrateSearch(searchQuery, { useWeb, useScholar, deepResearch });
-        
-        if (searchResult.results.length > 0) {
-          additionalContext = `[NGỮ CẢNH TÌM KIẾM HỌC THUẬT / WEB]\n${searchResult.contextString}\n\n`;
-          searchCitations = searchResult.results;
-
-          if (deepResearch) {
-            systemInstruction += "\n\nBạn đang ở chế độ Lập luận sâu (Deep Research). Hãy phân tích, đối chiếu và so sánh chéo thông tin từ các nguồn tìm kiếm được cung cấp. Phân tích điểm giống/khác nhau và đưa ra kết luận logic, có cấu trúc Markdown rất rõ ràng.";
-          }
-        }
+      // Luôn cung cấp toàn bộ danh mục tài liệu của cộng đồng và giảng viên để AI có thể gợi ý
+      const communityDocs = await getCommunityDocumentCatalog();
+      if (communityDocs && communityDocs.length > 0) {
+        const docList = communityDocs.map((d, index) => {
+          return `[${index + 1}] Tiêu đề: ${d.title} | Loại file: ${d.file_type || "N/A"} | Môn học: ${d.subject_name || "Khác"} | Tác giả: ${d.author} | Link: http://localhost:3000/preview/${d.document_id}`;
+        }).join("\n");
+        additionalContext = `[DANH MỤC TÀI LIỆU NỘI BỘ HỆ THỐNG AISTUDYHUB]\nDưới đây là TOÀN BỘ tài liệu cộng đồng và tài liệu của giảng viên hiện có trên hệ thống. Khi học viên hỏi về tài liệu, môn học, hoặc chủ đề nào, hãy tìm trong danh sách này và đưa ra kết quả phù hợp kèm link.\n${docList}\n\n`;
       }
+      
+      systemInstruction += "\n\nQUAN TRỌNG: Bạn là trợ lý AI của hệ thống AIStudyHub. Bạn có quyền truy cập vào danh mục tài liệu nội bộ được cung cấp bên dưới. Khi học viên yêu cầu tìm tài liệu, hỏi về môn học, hoặc cần tài liệu tham khảo, hãy TÌM TRONG DANH SÁCH TÀI LIỆU NỘI BỘ và liệt kê các tài liệu phù hợp kèm theo link để họ click vào xem. Nếu không tìm thấy tài liệu phù hợp trong danh sách, hãy nói rằng hệ thống hiện chưa có tài liệu về chủ đề này và gợi ý truy cập trang Cộng đồng.";
     }
 
-    // 3. Compile messages array
+    // 3. Xây dựng mảng tin nhắn
     const queryMessages = [];
     
-    // Convert request history into LLM format
+    // Chuyển đổi lịch sử yêu cầu sang định dạng của LLM
     for (const h of history) {
       queryMessages.push({
         role: h.sender === "ai" ? "assistant" : "user",
@@ -241,7 +244,7 @@ export async function chatQuery(req, res) {
       });
     }
 
-    // Append current query with context
+    // Nối thêm câu hỏi hiện tại cùng với ngữ cảnh
     const currentQueryWithContext = additionalContext 
       ? `${additionalContext}\n\nCâu hỏi của học viên: ${message}` 
       : message;
@@ -251,7 +254,7 @@ export async function chatQuery(req, res) {
       content: currentQueryWithContext
     });
 
-    // 4. Invoke Selected LLM
+    // 4. Gọi LLM đã được chọn
     let responseText = "";
     if (process.env.GEMINI_API_KEY) {
       responseText = await callGemini(queryMessages, systemInstruction);
@@ -259,14 +262,7 @@ export async function chatQuery(req, res) {
       responseText = await callOpenAI(queryMessages, systemInstruction);
     }
 
-    // 5. Enforce citations formatting if searches were performed
-    if (searchCitations.length > 0 && !documentContext) {
-      let citationSection = "\n\n📚 **Nguồn tham khảo**\n";
-      searchCitations.forEach((source, idx) => {
-        citationSection += `[${idx + 1}] ${source.title} - *${source.source}*${source.url ? ` (${source.url})` : ""}\n`;
-      });
-      responseText += citationSection;
-    }
+
 
     return res.json({ response: responseText });
   } catch (error) {
@@ -275,7 +271,7 @@ export async function chatQuery(req, res) {
   }
 }
 
-// Endpoint: GET /api/chat/history
+// Đường dẫn API: GET /api/chat/history
 export async function getHistory(req, res) {
   const userId = req.userId;
   if (!userId) {
@@ -304,7 +300,7 @@ export async function getHistory(req, res) {
       [sessionIds]
     );
 
-    // Group messages by session_id
+    // Nhóm các tin nhắn theo session_id (ID phiên)
     const messagesBySession = {};
     for (const msg of messagesRes.rows) {
       if (!messagesBySession[msg.sessionId]) {
@@ -333,7 +329,7 @@ export async function getHistory(req, res) {
   }
 }
 
-// Endpoint: POST /api/chat/history/save
+// Đường dẫn API: POST /api/chat/history/save
 export async function saveSession(req, res) {
   const userId = req.userId;
   if (!userId) {
@@ -349,7 +345,7 @@ export async function saveSession(req, res) {
   try {
     await client.query("BEGIN");
 
-    // 1. Upsert chat session
+    // 1. Cập nhật hoặc chèn mới phiên trò chuyện (Upsert)
     const sessionRes = await client.query(
       `INSERT INTO chat_sessions (id, user_id, title, is_pinned, updated_at)
        VALUES ($1, $2, $3, FALSE, CURRENT_TIMESTAMP)
@@ -359,7 +355,7 @@ export async function saveSession(req, res) {
       [String(id), userId, title]
     );
 
-    // 2. Insert new or update existing messages
+    // 2. Chèn tin nhắn mới hoặc cập nhật tin nhắn đã tồn tại
     const existingMsgsRes = await client.query(
       "SELECT id FROM chat_messages WHERE session_id = $1",
       [String(id)]
@@ -397,7 +393,7 @@ export async function saveSession(req, res) {
   }
 }
 
-// Endpoint: PUT /api/chat/history/pin/:id
+// Đường dẫn API: PUT /api/chat/history/pin/:id
 export async function pinSession(req, res) {
   const userId = req.userId;
   const { id } = req.params;
@@ -427,7 +423,7 @@ export async function pinSession(req, res) {
   }
 }
 
-// Endpoint: PUT /api/chat/history/rename/:id
+// Đường dẫn API: PUT /api/chat/history/rename/:id
 export async function renameSession(req, res) {
   const userId = req.userId;
   const { id } = req.params;
@@ -457,7 +453,7 @@ export async function renameSession(req, res) {
   }
 }
 
-// Endpoint: DELETE /api/chat/history/:id
+// Đường dẫn API: DELETE /api/chat/history/:id
 export async function deleteSession(req, res) {
   const userId = req.userId;
   const { id } = req.params;

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { X, Search, Globe, Lock, Shield, Trash2, Loader2 } from "lucide-react";
+import { X, Search, Globe, Lock, Shield, Trash2, Loader2, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import axios from "axios";
 
@@ -17,9 +17,16 @@ export default function ShareDocumentModal({ documentId, onClose }) {
   const [searching, setSearching] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [selectedRole, setSelectedRole] = useState("VIEWER");
+  const [showVisibilityDropdown, setShowVisibilityDropdown] = useState(false);
   
   const searchTimeoutRef = useRef(null);
 
+  useEffect(() => {
+    if (!showVisibilityDropdown) return;
+    const closeMenu = () => setShowVisibilityDropdown(false);
+    const timeoutId = setTimeout(() => window.addEventListener("click", closeMenu), 0);
+    return () => { clearTimeout(timeoutId); window.removeEventListener("click", closeMenu); };
+  }, [showVisibilityDropdown]);
   // Fetch share settings
   const fetchShareSettings = async () => {
     try {
@@ -286,14 +293,45 @@ export default function ShareDocumentModal({ documentId, onClose }) {
                   </div>
                 </div>
 
-                <select
-                  value={visibility}
-                  onChange={(e) => handleVisibilityChange(e.target.value)}
-                  className="h-8.5 text-xs font-bold bg-white dark:bg-slate-950 border border-slate-200/80 dark:border-slate-800 rounded-xl px-2 outline-none focus:ring-1 focus:ring-purple-500 dark:text-white cursor-pointer"
-                >
-                  <option value="RESTRICTED">Hạn chế</option>
-                  <option value="PUBLIC">Công khai</option>
-                </select>
+                <div className="relative shrink-0">
+                  <div
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowVisibilityDropdown(!showVisibilityDropdown);
+                    }}
+                    className="h-8.5 px-3 flex items-center justify-between gap-2 text-xs font-bold bg-white dark:bg-slate-950 border border-slate-200/80 dark:border-slate-800 rounded-xl outline-none hover:border-purple-300 dark:hover:border-purple-500/50 transition-colors cursor-pointer select-none min-w-[110px]"
+                  >
+                    <span className="text-slate-700 dark:text-slate-200">{visibility === "PUBLIC" ? "Công khai" : "Hạn chế"}</span>
+                    <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${showVisibilityDropdown ? "rotate-180" : ""}`} />
+                  </div>
+
+                  {showVisibilityDropdown && (
+                    <div className="absolute top-[100%] right-0 mt-1.5 w-36 bg-white dark:bg-[#0f111a] border border-slate-200 dark:border-slate-800 rounded-xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.1)] dark:shadow-none z-50 p-1.5 flex flex-col gap-0.5 animate-in fade-in zoom-in-95 duration-100">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (visibility !== "RESTRICTED") handleVisibilityChange("RESTRICTED");
+                          setShowVisibilityDropdown(false);
+                        }}
+                        className={`text-left px-2.5 py-2 text-xs font-bold rounded-lg transition-colors flex items-center justify-between ${visibility === "RESTRICTED" ? "bg-purple-600/10 text-purple-600 dark:text-purple-400" : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"}`}
+                      >
+                        <span>Hạn chế</span>
+                        {visibility === "RESTRICTED" && <div className="w-1.5 h-1.5 rounded-full bg-purple-600 dark:bg-purple-400" />}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (visibility !== "PUBLIC") handleVisibilityChange("PUBLIC");
+                          setShowVisibilityDropdown(false);
+                        }}
+                        className={`text-left px-2.5 py-2 text-xs font-bold rounded-lg transition-colors flex items-center justify-between ${visibility === "PUBLIC" ? "bg-purple-600/10 text-purple-600 dark:text-purple-400" : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"}`}
+                      >
+                        <span>Công khai</span>
+                        {visibility === "PUBLIC" && <div className="w-1.5 h-1.5 rounded-full bg-purple-600 dark:bg-purple-400" />}
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 

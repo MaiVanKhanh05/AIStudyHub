@@ -167,18 +167,18 @@ function getFileType(url = "") {
 
 function extractSources(text) {
   if (!text) return { cleanText: "", sources: [] };
-  
+
   const index = text.indexOf("📚 **Nguồn tham khảo**");
   const indexAlt = text.indexOf("📚 Nguồn tham khảo");
   const targetIndex = index !== -1 ? index : indexAlt;
-  
+
   if (targetIndex === -1) {
     return { cleanText: text, sources: [] };
   }
-  
+
   const mainText = text.substring(0, targetIndex).trim();
   const sourcesText = text.substring(targetIndex);
-  
+
   const sources = [];
   const lines = sourcesText.split("\n");
   for (const line of lines) {
@@ -192,7 +192,7 @@ function extractSources(text) {
       });
     }
   }
-  
+
   return { cleanText: mainText, sources };
 }
 
@@ -259,7 +259,7 @@ export default function Home() {
   // Fix page layout shift/cut-off by locking body scroll and resetting scroll position
   useEffect(() => {
     window.scrollTo(0, 0);
-    
+
     // Save original styles
     const originalBodyOverflow = document.body.style.overflow;
     const originalBodyHeight = document.body.style.height;
@@ -487,7 +487,7 @@ export default function Home() {
       const d2 = new Date(rangeEnd);
       const start = d1 < d2 ? d1 : d2;
       const end = d1 < d2 ? d2 : d1;
-      
+
       start.setHours(0, 0, 0, 0);
       end.setHours(23, 59, 59, 999);
 
@@ -522,7 +522,7 @@ export default function Home() {
 
   // Document Management Tab States
   const [uploadTitle, setUploadTitle] = useState("");
-  const [uploadSubject, setUploadSubject] = useState("Chọn môn học");
+  const [uploadSubject, setUploadSubject] = useState("OTHER");
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -681,12 +681,12 @@ export default function Home() {
       const elRect = el.getBoundingClientRect();
       const relativeTop = elRect.top - containerRect.top + container.scrollTop;
       const targetScrollTop = relativeTop - (containerRect.height / 2) + (elRect.height / 2);
-      
+
       container.scrollTo({
         top: targetScrollTop,
         behavior: "smooth"
       });
-      
+
       // Clear highlight from all other messages first
       const highlightedElements = container.querySelectorAll(".ring-purple-500\\/35");
       highlightedElements.forEach(item => {
@@ -737,7 +737,7 @@ export default function Home() {
       // Scroll to matched message if search query is active
       if (chatSearchQuery.trim() && chat.messages) {
         const query = chatSearchQuery.toLowerCase();
-        const matches = chat.messages.filter(m => 
+        const matches = chat.messages.filter(m =>
           (m.text && m.text.toLowerCase().includes(query)) ||
           (m.files && m.files.some(f => f.name && f.name.toLowerCase().includes(query)))
         );
@@ -755,7 +755,7 @@ export default function Home() {
     e.stopPropagation();
     const chatToPin = chats.find(c => c.id === chatId);
     if (!chatToPin) return;
-    
+
     const newPinState = !chatToPin.isPinned;
     const nextChats = chats.map(c => {
       if (c.id === chatId) {
@@ -763,13 +763,13 @@ export default function Home() {
       }
       return c;
     });
-    
+
     const sortedChats = [...nextChats].sort((a, b) => {
       if (a.isPinned && !b.isPinned) return -1;
       if (!a.isPinned && b.isPinned) return 1;
       return new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0);
     });
-    
+
     setChats(sortedChats);
 
     try {
@@ -860,7 +860,7 @@ export default function Home() {
   const saveChatSession = async (chatId, messages, initialTitleText, isNew) => {
     let nextChats;
     let finalTitle = "";
-    
+
     setChats((prevChats) => {
       if (isNew || !prevChats.some(c => c.id === chatId)) {
         finalTitle = initialTitleText.substring(0, 40) || "Cuộc trò chuyện mới";
@@ -911,11 +911,10 @@ export default function Home() {
       <div
         key={chat.id}
         onClick={() => handleSelectChat(chat.id)}
-        className={`group relative flex flex-col items-stretch px-2.5 ${chatSearchQuery.trim() ? "py-1.5" : "py-2"} rounded-lg text-xs transition-colors duration-100 cursor-pointer select-none border antialiased ${
-          isSelected
-            ? "bg-purple-600/10 dark:bg-purple-500/15 text-purple-700 dark:text-purple-300 border-purple-500/20 shadow-sm"
-            : "text-slate-650 dark:text-slate-350 border border-transparent hover:bg-white/40 dark:hover:bg-[#0f111a]/30"
-        }`}
+        className={`group relative flex flex-col items-stretch px-2.5 ${chatSearchQuery.trim() ? "py-1.5" : "py-2"} rounded-lg text-xs transition-colors duration-100 cursor-pointer select-none border antialiased ${isSelected
+          ? "bg-purple-600/10 dark:bg-purple-500/15 text-purple-700 dark:text-purple-300 border-purple-500/20 shadow-sm"
+          : "text-slate-650 dark:text-slate-350 border border-transparent hover:bg-white/40 dark:hover:bg-[#0f111a]/30"
+          }`}
         style={{ transform: "translate3d(0,0,0)", backfaceVisibility: "hidden" }}
       >
         <div className="flex items-center justify-between w-full">
@@ -975,7 +974,7 @@ export default function Home() {
 
         {chatSearchQuery.trim() && !isRenaming && (() => {
           const query = chatSearchQuery.toLowerCase();
-          
+
           // 1. Try to find matching text in messages
           const matchingMessage = chat.messages?.find(m =>
             m.text && m.text.toLowerCase().includes(query)
@@ -1040,9 +1039,8 @@ export default function Home() {
           e.preventDefault();
           handleSendChatMessage();
         }}
-        className={`relative flex flex-col bg-white dark:bg-[#131522] border border-slate-200/90 dark:border-slate-800 shadow-sm focus-within:shadow-md transition-all w-full select-none ${
-          attachedFiles.length > 0 ? "rounded-3xl gap-2.5 p-3" : "rounded-full gap-1.5 p-1.5 pl-3"
-        }`}
+        className={`relative flex flex-col bg-white dark:bg-[#131522] border border-slate-200/90 dark:border-slate-800 shadow-sm focus-within:shadow-md transition-all w-full select-none ${attachedFiles.length > 0 ? "rounded-3xl gap-2.5 p-3" : "rounded-full gap-1.5 p-1.5 pl-3"
+          }`}
       >
         {/* Attached Files List - Horizontal Cards Inside Search Bar */}
         {attachedFiles.length > 0 && (
@@ -1057,11 +1055,10 @@ export default function Home() {
                     setPreviewDoc({ ...file, hideChat: true });
                   }
                 }}
-                className={`w-[240px] h-[58px] border rounded-2xl flex items-center justify-between px-3 py-2 gap-3 relative shadow-sm cursor-pointer transition-all duration-200 shrink-0 ${
-                  file.isExceededLimit
-                    ? "opacity-50 blur-[0.3px] border-red-300 dark:border-red-950/80 bg-red-50/10 dark:bg-red-950/10 hover:bg-red-50/20"
-                    : "bg-slate-50/50 dark:bg-slate-900/40 border-slate-150 dark:border-slate-850 hover:bg-slate-100/60 dark:hover:bg-slate-800/60"
-                }`}
+                className={`w-[240px] h-[58px] border rounded-2xl flex items-center justify-between px-3 py-2 gap-3 relative shadow-sm cursor-pointer transition-all duration-200 shrink-0 ${file.isExceededLimit
+                  ? "opacity-50 blur-[0.3px] border-red-300 dark:border-red-950/80 bg-red-50/10 dark:bg-red-950/10 hover:bg-red-50/20"
+                  : "bg-slate-50/50 dark:bg-slate-900/40 border-slate-150 dark:border-slate-850 hover:bg-slate-100/60 dark:hover:bg-slate-800/60"
+                  }`}
               >
                 {/* Left Mini Icon Badge */}
                 <div className="shrink-0">
@@ -1070,8 +1067,8 @@ export default function Home() {
 
                 {/* Center text details */}
                 <div className="flex-1 min-w-0 flex flex-col justify-center text-left">
-                  <span 
-                    className="text-xs font-bold text-slate-855 dark:text-slate-200 leading-none truncate block" 
+                  <span
+                    className="text-xs font-bold text-slate-855 dark:text-slate-200 leading-none truncate block"
                     title={file.name}
                   >
                     {file.name}
@@ -1162,11 +1159,10 @@ export default function Home() {
             <button
               type="submit"
               disabled={isAiTyping || isParsingFile || (!chatInput.trim() && !attachedFiles.some(f => !f.isExceededLimit))}
-              className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 shadow-sm shrink-0 ${
-                (chatInput.trim().length > 0 || attachedFiles.some(f => !f.isExceededLimit)) && !isAiTyping && !isParsingFile
-                  ? "bg-purple-600 hover:bg-purple-700 text-white cursor-pointer hover:scale-105 active:scale-95"
-                  : "bg-purple-100 dark:bg-slate-800 text-purple-300 dark:text-slate-500 cursor-not-allowed opacity-60"
-              }`}
+              className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 shadow-sm shrink-0 ${(chatInput.trim().length > 0 || attachedFiles.some(f => !f.isExceededLimit)) && !isAiTyping && !isParsingFile
+                ? "bg-purple-600 hover:bg-purple-700 text-white cursor-pointer hover:scale-105 active:scale-95"
+                : "bg-purple-100 dark:bg-slate-800 text-purple-300 dark:text-slate-500 cursor-not-allowed opacity-60"
+                }`}
               title="Gửi câu hỏi"
             >
               <Send className="w-3.5 h-3.5 stroke-[2.5]" />
@@ -1195,38 +1191,6 @@ export default function Home() {
                   <div className="flex flex-col text-left">
                     <span className="font-bold text-slate-855 dark:text-slate-200 leading-snug">Tải lên tài liệu</span>
                     <span className="text-[9.5px] text-slate-400 dark:text-slate-500 font-medium">Tải lên tài liệu từ máy bạn</span>
-                  </div>
-                </button>
-              </div>
-
-              <div className="border-t border-slate-150 dark:border-slate-800/80 pt-2.5">
-                <span className="text-[9px] font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-widest block mb-2 px-1">Công cụ</span>
-                
-                <button
-                  type="button"
-                  onClick={() => setUseWeb(!useWeb)}
-                  className={`w-full flex items-center gap-2.5 p-2 rounded-xl text-xs transition-colors cursor-pointer ${useWeb ? 'bg-purple-50/50 dark:bg-purple-950/20' : ''}`}
-                >
-                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${useWeb ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30' : 'bg-slate-50 text-slate-500 dark:bg-slate-800'}`}>
-                    <Globe className="w-4 h-4" />
-                  </div>
-                  <div className="flex flex-col text-left">
-                    <span className="font-bold text-slate-855 dark:text-slate-200 leading-snug">Tìm kiếm Web</span>
-                    <span className="text-[9.5px] text-slate-400 dark:text-slate-500 font-medium">Tìm thông tin trên Internet</span>
-                  </div>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setUseScholar(!useScholar)}
-                  className={`w-full flex items-center gap-2.5 p-2 rounded-xl text-xs transition-colors cursor-pointer mt-1.5 ${useScholar ? 'bg-purple-50/50 dark:bg-purple-950/20' : ''}`}
-                >
-                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${useScholar ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30' : 'bg-slate-50 text-slate-500 dark:bg-slate-800'}`}>
-                    <BookOpen className="w-4 h-4" />
-                  </div>
-                  <div className="flex flex-col text-left">
-                    <span className="font-bold text-slate-855 dark:text-slate-200 leading-snug">Tìm kiếm học thuật</span>
-                    <span className="text-[9.5px] text-slate-400 dark:text-slate-500 font-medium">Tìm nguồn học thuật uy tín</span>
                   </div>
                 </button>
               </div>
@@ -1426,7 +1390,7 @@ export default function Home() {
     try {
       setLoading(true);
       const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-      
+
       const [dashRes, bookmarkRes] = await Promise.all([
         axios.get(`http://localhost:5000/api/documents/dashboard?userId=${user.user_id}`, {
           headers: { "Authorization": `Bearer ${token}` }
@@ -1464,7 +1428,7 @@ export default function Home() {
       navigate("/login");
       return;
     }
-    
+
     // Fetch when mounting or when active tab changes to these
     if (activeTab === "Home" || activeTab === "Document Management" || activeTab === "Bookmarks") {
       fetchDashboard();
@@ -1482,9 +1446,9 @@ export default function Home() {
       const res = await axios.get("http://localhost:5000/api/notifications", {
         headers: { Authorization: `Bearer ${token}` }
       });
-      
+
       const newNotifs = res.data || [];
-      
+
       if (isFirstLoad) {
         const seenIds = new Set(newNotifs.map(n => n.notification_id));
         seenNotificationsRef.current = seenIds;
@@ -1824,18 +1788,24 @@ export default function Home() {
 
     isUploadingRef.current = true;
     setIsUploading(true);
-    setUploadProgress(10);
+    setUploadProgress(1);
+
+    // Simulate smooth progress up to 90%
+    const progressInterval = setInterval(() => {
+      setUploadProgress((prev) => {
+        if (prev >= 90) return 90;
+        const increment = Math.max(1, Math.floor((90 - prev) / 10));
+        return prev + increment;
+      });
+    }, 300);
 
     try {
       // 1. Upload to Supabase Storage
-      setUploadProgress(40);
       const uploadResult = await uploadFileToSupabase(fileToUpload, "AIStudyHub", user.user_id);
 
       if (!uploadResult.success) {
         throw new Error(uploadResult.error || "Lỗi khi tải tệp lên Supabase Storage.");
       }
-
-      setUploadProgress(80);
 
       // 2. Save metadata to backend API
       const token = localStorage.getItem("token") || sessionStorage.getItem("token");
@@ -1858,14 +1828,15 @@ export default function Home() {
         }
       });
 
-      setUploadProgress(95);
+      clearInterval(progressInterval);
+      setUploadProgress(100);
 
       const savedData = response.data;
-      setUploadProgress(100);
 
       setTimeout(async () => {
         setIsUploading(false);
         isUploadingRef.current = false;
+        setUploadProgress(0);
         setUploadTitle("");
         setSelectedFile(null);
         setDocumentTags([]);
@@ -1881,8 +1852,9 @@ export default function Home() {
         } else {
           toast.success("Tải lên tài liệu thành công!");
         }
-      }, 300);
+      }, 500); // 500ms delay before hiding to let user see 100%
     } catch (err) {
+      clearInterval(progressInterval);
       setIsUploading(false);
       isUploadingRef.current = false;
       setUploadProgress(0);
@@ -1929,7 +1901,7 @@ export default function Home() {
 
     try {
       const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-      
+
       const payload = {
         message: finalQueryText,
         history: aiMessages,
@@ -1953,7 +1925,7 @@ export default function Home() {
         sender: "ai",
         text: res.data.response || "Không nhận được phản hồi từ AI."
       };
-      
+
       setAiMessages((prev) => {
         const next = [...prev, aiMsg];
         saveChatSession(activeId, next, finalQueryText, false);
@@ -1993,7 +1965,7 @@ export default function Home() {
 
     try {
       const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-      
+
       const payload = {
         message: targetQuery,
         history: historyUpToTarget,
@@ -2020,7 +1992,7 @@ export default function Home() {
         sender: "ai",
         text: res.data.response || "Không nhận được phản hồi từ AI."
       };
-      
+
       setAiMessages((prev) => {
         const next = [...prev, aiMsg];
         saveChatSession(activeId, next, targetQuery, false);
@@ -2069,7 +2041,7 @@ export default function Home() {
 
     try {
       const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-      
+
       const payload = {
         message: targetQuery,
         history: historyUpToTarget,
@@ -2096,7 +2068,7 @@ export default function Home() {
         sender: "ai",
         text: res.data.response || "Không nhận được phản hồi từ AI."
       };
-      
+
       setAiMessages((prev) => {
         const next = [...prev, aiMsg];
         saveChatSession(activeId, next, targetQuery, false);
@@ -2240,9 +2212,9 @@ export default function Home() {
   // Helper to render markdown and code blocks in AI responses
   const renderMessageText = (text) => {
     if (!text) return null;
-    
+
     const parts = text.split(/(```[\s\S]*?```)/g);
-    
+
     return parts.map((part, index) => {
       if (part.startsWith("```") && part.endsWith("```")) {
         const match = part.match(/```(\w*)\n([\s\S]*?)```/);
@@ -2255,14 +2227,14 @@ export default function Home() {
           </pre>
         );
       }
-      
+
       const lines = part.split("\n");
       return (
         <div key={index} className="w-full text-left font-medium select-text selection:bg-purple-500/20 whitespace-pre-wrap leading-relaxed break-words">
           {lines.map((line, lineIdx) => {
             const isBullet = line.trim().startsWith("- ") || line.trim().startsWith("* ");
             const cleanLine = isBullet ? line.trim().substring(2) : line;
-            
+
             const segments = cleanLine.split(/(\*\*.*?\*\*)/g);
             const formattedLine = segments.map((seg, segIdx) => {
               if (seg.startsWith("**") && seg.endsWith("**")) {
@@ -2270,7 +2242,7 @@ export default function Home() {
               }
               return seg;
             });
-            
+
             if (isBullet) {
               return (
                 <span key={lineIdx} className="block pl-5 select-text">
@@ -2279,7 +2251,7 @@ export default function Home() {
                 </span>
               );
             }
-            
+
             return (
               <span key={lineIdx} className="select-text">
                 {formattedLine}
@@ -2422,14 +2394,14 @@ export default function Home() {
       (doc.subject_code || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
       (doc.subject_name || "").toLowerCase().includes(searchQuery.toLowerCase());
     const matchesSubject = selectedSubjectFilter === "All" || doc.subject_code === selectedSubjectFilter;
-    
+
     let matchesDate = true;
     if (personalRangeStart) {
       const docDate = new Date(doc.upload_date);
       docDate.setHours(0, 0, 0, 0);
       const startTime = new Date(personalRangeStart);
       startTime.setHours(0, 0, 0, 0);
-      
+
       if (personalRangeEnd) {
         const endTime = new Date(personalRangeEnd);
         endTime.setHours(23, 59, 59, 999);
@@ -2438,11 +2410,11 @@ export default function Home() {
         matchesDate = docDate.getTime() >= minTime && docDate.getTime() <= maxTime;
       } else {
         matchesDate = docDate.getFullYear() === startTime.getFullYear() &&
-                      docDate.getMonth() === startTime.getMonth() &&
-                      docDate.getDate() === startTime.getDate();
+          docDate.getMonth() === startTime.getMonth() &&
+          docDate.getDate() === startTime.getDate();
       }
     }
-    
+
     return matchesSearch && matchesSubject && matchesDate;
   }).sort((a, b) => {
     if (sortConfig.key === "upload_date") {
@@ -2757,8 +2729,8 @@ export default function Home() {
                       }
 
                       return (
-                        <div 
-                          key={notif.notification_id} 
+                        <div
+                          key={notif.notification_id}
                           onClick={async () => {
                             // Mark as read if unread
                             if (!notif.is_read) {
@@ -2877,9 +2849,13 @@ export default function Home() {
                           className="bg-white dark:bg-[#0c0d13] border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2.5 text-xs text-slate-700 dark:text-slate-200 outline-none focus-within:ring-1 focus-within:ring-purple-500 font-bold cursor-pointer h-10 flex items-center justify-between select-none"
                         >
                           <span className="truncate pr-2">
-                            {uploadSubject
-                              ? `${uploadSubject} - ${subjectsList.find(s => s.subject_code === uploadSubject)?.subject_name || "Môn học"}`
-                              : "Không chọn học phần (Để trống)"}
+                            {uploadSubject === "OTHER"
+                              ? "Môn học khác (OTHER)"
+                              : uploadSubject === "Chọn môn học"
+                                ? "Chọn môn học"
+                                : uploadSubject
+                                  ? `${uploadSubject} - ${subjectsList.find(s => s.subject_code === uploadSubject)?.subject_name || "Môn học"}`
+                                  : "Không chọn học phần (Để trống)"}
                           </span>
                           <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                         </div>
@@ -3033,8 +3009,8 @@ export default function Home() {
                             type="button"
                             onClick={() => {
                               if (tagSearchInput.trim()) {
-                                  handleAddTag(tagSearchInput);
-                                }
+                                handleAddTag(tagSearchInput);
+                              }
                             }}
                             className="bg-purple-600 dark:bg-purple-500 hover:bg-purple-700 dark:hover:bg-purple-600 text-white text-xs font-bold px-3 h-9 shrink-0 cursor-pointer rounded-lg shadow-sm"
                           >
@@ -3372,7 +3348,7 @@ export default function Home() {
             {/* Documents filtering & Grid */}
             <section ref={documentsSectionRef} className="flex flex-col gap-4 mt-2">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                
+
                 <h2 className="text-sm font-black text-black dark:text-white uppercase tracking-wider flex items-center gap-2">
                   <span className="w-1 h-3.5 bg-purple-600 dark:bg-purple-500 rounded" />
                   Tài liệu đã tải lên ({personalRangeStart || searchQuery || selectedSubjectFilter !== "All" ? `${filteredDocuments.length}/${documents.length}` : documents.length})
@@ -3464,258 +3440,306 @@ export default function Home() {
               )}
 
               {/* Table List of documents */}
-              <div className="w-full border border-slate-200/30 dark:border-white/5 rounded-xl overflow-hidden bg-white/30 dark:bg-[#0f111a]/45 backdrop-blur-xl shadow-[inset_0_1px_1px_rgba(255,255,255,0.25)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] shadow-sm">
-                <div className="w-full overflow-x-auto">
-                  <table className="w-full text-left border-collapse text-xs select-none">
-                    <thead>
-                      <tr className="border-b border-slate-200/30 dark:border-white/5 bg-slate-100/30 dark:bg-white/5 text-slate-450 dark:text-slate-400 font-bold text-[9px] uppercase tracking-widest">
-                        <th className="px-5 py-3.5">Tiêu đề học liệu</th>
-                        <th className="px-5 py-3.5">Môn học</th>
-                        <th className="px-5 py-3.5">Tác giả</th>
-                        <th className="px-5 py-3.5">Ngày lưu trữ</th>
-                        <th className="px-5 py-3.5">Dung lượng</th>
-                        <th className="px-5 py-3.5 text-right">Tùy chọn</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80 font-medium text-slate-500 dark:text-slate-400">
-                      {loading ? (
-                        Array(3).fill(0).map((_, idx) => (
-                          <tr key={idx} className="animate-pulse">
-                            <td className="px-5 py-4"><div className="h-4 bg-slate-200 dark:bg-slate-800 rounded w-48" /></td>
-                            <td className="px-5 py-4"><div className="h-4 bg-slate-200 dark:bg-slate-800 rounded w-12" /></td>
-                            <td className="px-5 py-4"><div className="h-4 bg-slate-200 dark:bg-slate-800 rounded w-20" /></td>
-                            <td className="px-5 py-4"><div className="h-3 bg-slate-200 dark:bg-slate-800 rounded w-24" /></td>
-                            <td className="px-5 py-4"><div className="h-4 bg-slate-200 dark:bg-slate-800 rounded w-10" /></td>
-                            <td className="px-5 py-4"><div className="h-4 bg-slate-200 dark:bg-slate-800 rounded w-6 ml-auto" /></td>
-                          </tr>
-                        ))
-                      ) : filteredDocuments.length === 0 ? (
-                        <tr>
-                          <td colSpan="6" className="px-5 py-8 text-center text-xs font-bold text-slate-400">
-                            Thư mục trống. Hãy điền thông tin bên trên và nhấn "Lưu vào máy chủ" để tải tài liệu lên.
-                          </td>
+              <div className="w-full">
+                <table className="w-full text-left border-collapse text-xs select-none">
+                  <thead>
+                    <tr className="border-b border-slate-200/30 dark:border-white/5 bg-slate-100/30 dark:bg-white/5 text-slate-450 dark:text-slate-400 font-bold text-[9px] uppercase tracking-widest">
+                      <th className="px-5 py-3.5">Tiêu đề học liệu</th>
+                      <th className="px-5 py-3.5">Môn học</th>
+                      <th className="px-5 py-3.5">Tác giả</th>
+                      <th className="px-5 py-3.5">Ngày lưu trữ</th>
+                      <th className="px-5 py-3.5">Dung lượng</th>
+                      <th className="px-5 py-3.5 text-right">Tùy chọn</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80 font-medium text-slate-500 dark:text-slate-400">
+                    {loading ? (
+                      Array(3).fill(0).map((_, idx) => (
+                        <tr key={idx} className="animate-pulse">
+                          <td className="px-5 py-4"><div className="h-4 bg-slate-200 dark:bg-slate-800 rounded w-48" /></td>
+                          <td className="px-5 py-4"><div className="h-4 bg-slate-200 dark:bg-slate-800 rounded w-12" /></td>
+                          <td className="px-5 py-4"><div className="h-4 bg-slate-200 dark:bg-slate-800 rounded w-20" /></td>
+                          <td className="px-5 py-4"><div className="h-3 bg-slate-200 dark:bg-slate-800 rounded w-24" /></td>
+                          <td className="px-5 py-4"><div className="h-4 bg-slate-200 dark:bg-slate-800 rounded w-10" /></td>
+                          <td className="px-5 py-4"><div className="h-4 bg-slate-200 dark:bg-slate-800 rounded w-6 ml-auto" /></td>
                         </tr>
-                      ) : (
-                        filteredDocuments.slice((docManagePage - 1) * 9, docManagePage * 9).map((doc) => (
-                          <tr key={doc.document_id} onClick={() => handlePreviewClick(doc)} className="hover:bg-white/40 dark:hover:bg-white/5 transition-colors cursor-pointer group border-b border-slate-200/30 dark:border-white/5">
-                            <td className="px-5 py-3.5 flex items-center gap-2 text-slate-800 dark:text-slate-200 font-bold max-w-xs truncate">
-                              {getFileIcon(doc.file_type || getFileType(doc.file_url), "w-4 h-4 shrink-0")}
-                              <div className="flex flex-col min-w-0">
-                                <span className="truncate group-hover:text-purple-600 transition-colors">{doc.title}</span>
-                                {doc.tags && Array.isArray(doc.tags) && doc.tags.length > 0 && (
-                                  <div className="flex flex-wrap gap-1 mt-1">
-                                    {doc.tags.map(t => (
-                                      <span key={t.tag_id || t.tag_name} className="px-1.5 py-0.5 rounded bg-purple-100/60 dark:bg-purple-950/40 text-[9px] font-bold text-purple-700 dark:text-purple-300 border border-purple-500/10">
-                                        {t.tag_name}
-                                      </span>
-                                    ))}
-                                  </div>
-                                )}
+                      ))
+                    ) : filteredDocuments.length === 0 ? (
+                      <tr>
+                        <td colSpan="6" className="px-5 py-0">
+                          <div className="flex flex-col items-center justify-center py-16 gap-5 select-none">
+                            {/* Illustrated icon */}
+                            <div className="relative">
+                              <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-purple-100 to-purple-50 dark:from-purple-950/60 dark:to-purple-900/20 border border-purple-200/60 dark:border-purple-800/30 flex items-center justify-center shadow-sm">
+                                <svg className="w-10 h-10 text-purple-400 dark:text-purple-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                  <polyline points="14,2 14,8 20,8" />
+                                  <line x1="12" y1="18" x2="12" y2="12" />
+                                  <line x1="9" y1="15" x2="15" y2="15" />
+                                </svg>
                               </div>
-                            </td>
-                            <td className="px-5 py-3.5 text-[10px] font-extrabold text-purple-600 dark:text-purple-400">
-                              {doc.subject_code}
-                            </td>
-                            <td className="px-5 py-3.5 text-xs text-slate-500 dark:text-slate-400">
-                              <div className="flex items-center gap-1.5">
-                                <span className="w-4 h-4 rounded bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 flex items-center justify-center font-bold text-[9px] shrink-0">
-                                  {fullName.charAt(0)}
-                                </span>
-                                <span>{fullName}</span>
-                              </div>
-                            </td>
-                            <td className="px-5 py-3.5 font-bold">
-                              {new Date(doc.upload_date).toLocaleDateString("vi-VN", {
-                                month: "short",
-                                day: "numeric",
-                                year: "numeric"
-                              })}
-                            </td>
-                            <td className="px-5 py-3.5 font-bold text-slate-500 dark:text-slate-400">{formatFileSize(doc.file_size)}</td>
+                              {/* floating dot decorations */}
+                              <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-purple-400/30 dark:bg-purple-500/30 animate-pulse" />
+                              <div className="absolute -bottom-1 -left-1 w-2 h-2 rounded-full bg-violet-400/40 dark:bg-violet-500/30 animate-pulse delay-300" />
+                            </div>
 
-                            <td className="px-5 py-3.5 text-right relative">
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setOpenMenuId(openMenuId === doc.document_id ? null : doc.document_id);
+                            {/* Text */}
+                            <div className="flex flex-col items-center gap-1.5 text-center max-w-xs">
+                              <span className="text-sm font-bold text-slate-700 dark:text-slate-200">
+                                {searchQuery || selectedSubjectFilter !== "All"
+                                  ? "Không tìm thấy tài liệu phù hợp"
+                                  : "Kho học liệu của bạn đang trống"}
+                              </span>
+                              <span className="text-xs text-slate-400 dark:text-slate-500 leading-relaxed">
+                                {searchQuery || selectedSubjectFilter !== "All"
+                                  ? "Thử thay đổi từ khóa hoặc bộ lọc để tìm tài liệu khác."
+                                  : "Điền thông tin bên trên và nhấn \"Lưu vào máy chủ\" để tải tài liệu đầu tiên lên kho học liệu cá nhân."}
+                              </span>
+                            </div>
+
+                            {/* CTA – only shown when truly empty (no filters) */}
+                            {!searchQuery && selectedSubjectFilter === "All" && (
+                              <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-purple-600/10 dark:bg-purple-500/10 border border-purple-300/30 dark:border-purple-500/20 text-xs font-bold text-purple-600 dark:text-purple-400">
+                                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <polyline points="16 17 21 12 16 7" />
+                                  <line x1="21" y1="12" x2="9" y2="12" />
+                                  <polyline points="3 12 3 18" />
+                                </svg>
+                                Kéo lên phía trên để bắt đầu tải học liệu
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredDocuments.slice((docManagePage - 1) * 9, docManagePage * 9).map((doc) => (
+                        <tr key={doc.document_id} onClick={() => handlePreviewClick(doc)} className="hover:bg-white/40 dark:hover:bg-white/5 transition-colors cursor-pointer group border-b border-slate-200/30 dark:border-white/5">
+                          <td className="px-5 py-3.5 flex items-center gap-2 text-slate-800 dark:text-slate-200 font-bold max-w-xs truncate">
+                            {getFileIcon(doc.file_type || getFileType(doc.file_url), "w-4 h-4 shrink-0")}
+                            <div className="flex flex-col min-w-0">
+                              <span className="truncate group-hover:text-purple-600 transition-colors">{doc.title}</span>
+                              {doc.tags && Array.isArray(doc.tags) && doc.tags.length > 0 && (
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  {doc.tags.map(t => (
+                                    <span key={t.tag_id || t.tag_name} className="px-1.5 py-0.5 rounded bg-purple-100/60 dark:bg-purple-950/40 text-[9px] font-bold text-purple-700 dark:text-purple-300 border border-purple-500/10">
+                                      {t.tag_name}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-5 py-3.5 text-[10px] font-extrabold text-purple-600 dark:text-purple-400">
+                            {doc.subject_code}
+                          </td>
+                          <td className="px-5 py-3.5 text-xs text-slate-500 dark:text-slate-400">
+                            <div className="flex items-center gap-1.5">
+                              <span className="w-4 h-4 rounded bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 flex items-center justify-center font-bold text-[9px] shrink-0">
+                                {fullName.charAt(0)}
+                              </span>
+                              <span>{fullName}</span>
+                            </div>
+                          </td>
+                          <td className="px-5 py-3.5 font-bold">
+                            {new Date(doc.upload_date).toLocaleDateString("vi-VN", {
+                              month: "short",
+                              day: "numeric",
+                              year: "numeric"
+                            })}
+                          </td>
+                          <td className="px-5 py-3.5 font-bold text-slate-500 dark:text-slate-400">{formatFileSize(doc.file_size)}</td>
+
+                          <td className="px-5 py-3.5 text-right relative">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenMenuId(openMenuId === doc.document_id ? null : doc.document_id);
+                              }}
+                              className="w-7 h-7 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-purple-600 flex items-center justify-center transition-colors font-bold ml-auto relative"
+                            >
+                              ⋯
+                            </button>
+
+                            {openMenuId === doc.document_id && (
+                              <div
+                                ref={(el) => {
+                                  if (!el) return;
+                                  const rect = el.getBoundingClientRect();
+                                  const viewportH = window.innerHeight;
+                                  if (rect.bottom > viewportH - 10) {
+                                    el.style.top = "auto";
+                                    el.style.bottom = "2.5rem";
+                                  }
                                 }}
-                                className="w-7 h-7 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-purple-600 flex items-center justify-center transition-colors font-bold ml-auto relative"
+                                onClick={(e) => e.stopPropagation()}
+                                className="absolute right-5 top-10 w-48 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.08)] z-30 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150 p-1 text-left"
                               >
-                                ⋯
-                              </button>
 
-                              {openMenuId === doc.document_id && (
-                                <div
-                                  onClick={(e) => e.stopPropagation()}
-                                  className="absolute right-5 top-10 w-36 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.08)] z-30 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150 p-1 text-left"
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setOpenMenuId(null);
+                                    if (doc.file_url) {
+                                      (async () => {
+                                        try {
+                                          const response = await fetch(doc.file_url);
+                                          if (!response.ok) throw new Error("Network response was not ok");
+                                          const blob = await response.blob();
+                                          const blobUrl = URL.createObjectURL(blob);
+
+                                          const link = document.createElement("a");
+                                          link.href = blobUrl;
+                                          const urlExt = doc.file_url.split('.').pop().split('?')[0] || "pdf";
+                                          const cleanTitle = (doc.title || "download").endsWith("." + urlExt)
+                                            ? (doc.title || "download")
+                                            : `${doc.title || "download"}.${urlExt}`;
+                                          link.download = cleanTitle;
+                                          document.body.appendChild(link);
+                                          link.click();
+                                          document.body.removeChild(link);
+                                          URL.revokeObjectURL(blobUrl);
+                                        } catch (error) {
+                                          console.error("Direct download failed, falling back to new tab:", error);
+                                          window.open(doc.file_url, "_blank");
+                                        }
+                                      })();
+                                    } else {
+                                      toast.error("Không tìm thấy đường dẫn tải xuống!");
+                                    }
+                                  }}
+                                  className="w-full flex items-center gap-2 text-left px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60 rounded-md transition-colors"
                                 >
+                                  <Download className="w-4 h-4 text-slate-400" />
+                                  Tải xuống
+                                </button>
 
+                                {doc.visibility === "PUBLIC" ? (
+                                  <button
+                                    disabled
+                                    className="w-full flex items-center gap-2 text-left px-3 py-2 text-xs font-medium text-slate-400 dark:text-slate-600 cursor-not-allowed opacity-60 rounded-md select-none"
+                                  >
+                                    <CheckCircle className="w-4 h-4 text-emerald-500" />
+                                    Đã chia sẻ
+                                  </button>
+                                ) : (
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       setOpenMenuId(null);
-                                      if (doc.file_url) {
-                                        (async () => {
-                                          try {
-                                            const response = await fetch(doc.file_url);
-                                            if (!response.ok) throw new Error("Network response was not ok");
-                                            const blob = await response.blob();
-                                            const blobUrl = URL.createObjectURL(blob);
-                                            
-                                            const link = document.createElement("a");
-                                            link.href = blobUrl;
-                                            const urlExt = doc.file_url.split('.').pop().split('?')[0] || "pdf";
-                                            const cleanTitle = (doc.title || "download").endsWith("." + urlExt) 
-                                              ? (doc.title || "download") 
-                                              : `${doc.title || "download"}.${urlExt}`;
-                                            link.download = cleanTitle;
-                                            document.body.appendChild(link);
-                                            link.click();
-                                            document.body.removeChild(link);
-                                            URL.revokeObjectURL(blobUrl);
-                                          } catch (error) {
-                                            console.error("Direct download failed, falling back to new tab:", error);
-                                            window.open(doc.file_url, "_blank");
-                                          }
-                                        })();
-                                      } else {
-                                        toast.error("Không tìm thấy đường dẫn tải xuống!");
+                                      setShareModalDoc(doc);
+                                      setShareDescription(doc.description || "");
+                                    }}
+                                    className="w-full flex items-center gap-2 text-left px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60 rounded-md transition-colors"
+                                  >
+                                    <Share2 className="w-4 h-4 text-slate-400" />
+                                    Chia sẻ
+                                  </button>
+                                )}
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setOpenMenuId(null);
+                                    setEditModalDoc(doc);
+                                    setEditTitle(doc.title || doc.document_name || "");
+                                    setEditSubject(doc.subject_code || "");
+                                    setEditSubjectSearch(doc.subject_code || "");
+                                    const docTagNames = Array.isArray(doc.tags)
+                                      ? doc.tags.map(t => typeof t === "string" ? t : t.tag_name)
+                                      : [];
+                                    setEditTags(docTagNames);
+                                    setEditTagInput("");
+                                    setEditTagSuggestions([]);
+                                  }}
+                                  className="w-full flex items-center gap-2 text-left px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60 rounded-md transition-colors"
+                                >
+                                  <Pencil className="w-4 h-4 text-slate-400" />
+                                  Chỉnh sửa
+                                </button>
+
+                                {doc.is_community ? (
+                                  <button
+                                    onClick={async (e) => {
+                                      e.stopPropagation();
+                                      setOpenMenuId(null);
+                                      try {
+                                        const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+                                        await axios.put(`http://localhost:5000/api/documents/${doc.document_id || doc.id}/unshare`, {}, {
+                                          headers: { Authorization: `Bearer ${token}` }
+                                        });
+                                        toast.success("Đã hủy đăng tài liệu khỏi cộng đồng!");
+                                        fetchDashboard();
+                                      } catch (err) {
+                                        toast.error("Không thể hủy đăng tài liệu khỏi cộng đồng.");
                                       }
-                                    }}
-                                    className="w-full flex items-center gap-2 text-left px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60 rounded-md transition-colors"
-                                  >
-                                    <Download className="w-4 h-4 text-slate-400" />
-                                    Tải xuống
-                                  </button>
-                                  
-                                  {doc.visibility === "PUBLIC" ? (
-                                    <button
-                                      disabled
-                                      className="w-full flex items-center gap-2 text-left px-3 py-2 text-xs font-medium text-slate-400 dark:text-slate-600 cursor-not-allowed opacity-60 rounded-md select-none"
-                                    >
-                                      <CheckCircle className="w-4 h-4 text-emerald-500" />
-                                      Đã chia sẻ
-                                    </button>
-                                  ) : (
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setOpenMenuId(null);
-                                        setShareModalDoc(doc);
-                                        setShareDescription(doc.description || "");
-                                      }}
-                                      className="w-full flex items-center gap-2 text-left px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60 rounded-md transition-colors"
-                                    >
-                                      <Share2 className="w-4 h-4 text-slate-400" />
-                                      Chia sẻ
-                                    </button>
-                                  )}
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setOpenMenuId(null);
-                                      setEditModalDoc(doc);
-                                      setEditTitle(doc.title || doc.document_name || "");
-                                      setEditSubject(doc.subject_code || "");
-                                      setEditSubjectSearch(doc.subject_code || "");
-                                      const docTagNames = Array.isArray(doc.tags)
-                                        ? doc.tags.map(t => typeof t === "string" ? t : t.tag_name)
-                                        : [];
-                                      setEditTags(docTagNames);
-                                      setEditTagInput("");
-                                      setEditTagSuggestions([]);
-                                    }}
-                                    className="w-full flex items-center gap-2 text-left px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60 rounded-md transition-colors"
-                                  >
-                                    <Pencil className="w-4 h-4 text-slate-400" />
-                                    Chỉnh sửa
-                                  </button>
-
-                                  {doc.is_community ? (
-                                    <button
-                                      onClick={async (e) => {
-                                        e.stopPropagation();
-                                        setOpenMenuId(null);
-                                        try {
-                                          const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-                                          await axios.put(`http://localhost:5000/api/documents/${doc.document_id || doc.id}/unshare`, {}, {
-                                            headers: { Authorization: `Bearer ${token}` }
-                                          });
-                                          toast.success("Đã hủy đăng tài liệu khỏi cộng đồng!");
-                                          fetchDashboard();
-                                        } catch (err) {
-                                          toast.error("Không thể hủy đăng tài liệu khỏi cộng đồng.");
-                                        }
-                                      }}
-                                      className="w-full flex items-center gap-2 text-left px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-md transition-colors"
-                                    >
-                                      <Globe className="w-4 h-4 text-red-500" />
-                                      Hủy đăng cộng đồng
-                                    </button>
-                                  ) : (
-                                    <button
-                                      onClick={async (e) => {
-                                        e.stopPropagation();
-                                        setOpenMenuId(null);
-                                        try {
-                                          const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-                                          await axios.put(`http://localhost:5000/api/documents/${doc.document_id || doc.id}/share`, {}, {
-                                            headers: { Authorization: `Bearer ${token}` }
-                                          });
-                                          toast.success("Đã đăng tài liệu lên cộng đồng thành công!");
-                                          fetchDashboard();
-                                        } catch (err) {
-                                          toast.error("Không thể đăng tài liệu lên cộng đồng.");
-                                        }
-                                      }}
-                                      className="w-full flex items-center gap-2 text-left px-3 py-2 text-xs font-medium text-purple-650 hover:bg-purple-50 dark:hover:bg-purple-950/20 rounded-md transition-colors"
-                                    >
-                                      <Globe className="w-4 h-4 text-purple-500" />
-                                      Đăng lên cộng đồng
-                                    </button>
-                                  )}
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setOpenMenuId(null);
-                                      setEditModalDoc(doc);
-                                      setEditTitle(doc.title || doc.document_name || "");
-                                      setEditSubject(doc.subject_code || "");
-                                      setEditSubjectSearch(doc.subject_code || "");
-                                      const docTagNames = Array.isArray(doc.tags)
-                                        ? doc.tags.map(t => typeof t === "string" ? t : t.tag_name)
-                                        : [];
-                                      setEditTags(docTagNames);
-                                      setEditTagInput("");
-                                      setEditTagSuggestions([]);
-                                    }}
-                                    className="w-full flex items-center gap-2 text-left px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60 rounded-md transition-colors"
-                                  >
-                                    <Pencil className="w-4 h-4 text-slate-400" />
-                                    Chỉnh sửa
-                                  </button>
-
-                                  <div className="h-px bg-slate-100 dark:bg-slate-800/60 my-1" />
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setOpenMenuId(null);
-                                      handleDeleteDocument(doc.document_id, e);
                                     }}
                                     className="w-full flex items-center gap-2 text-left px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-md transition-colors"
                                   >
-                                    <Trash2 className="w-4 h-4" />
-                                    Gỡ bỏ
+                                    <Globe className="w-4 h-4 text-red-500" />
+                                    Hủy đăng cộng đồng
                                   </button>
-                                </div>
-                              )}
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+                                ) : (
+                                  <button
+                                    onClick={async (e) => {
+                                      e.stopPropagation();
+                                      setOpenMenuId(null);
+                                      try {
+                                        const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+                                        await axios.put(`http://localhost:5000/api/documents/${doc.document_id || doc.id}/share`, {}, {
+                                          headers: { Authorization: `Bearer ${token}` }
+                                        });
+                                        toast.success("Đã đăng tài liệu lên cộng đồng thành công!");
+                                        fetchDashboard();
+                                      } catch (err) {
+                                        toast.error("Không thể đăng tài liệu lên cộng đồng.");
+                                      }
+                                    }}
+                                    className="w-full flex items-center gap-2 text-left px-3 py-2 text-xs font-medium text-purple-650 hover:bg-purple-50 dark:hover:bg-purple-950/20 rounded-md transition-colors"
+                                  >
+                                    <Globe className="w-4 h-4 text-purple-500" />
+                                    Đăng lên cộng đồng
+                                  </button>
+                                )}
+                                {/* <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setOpenMenuId(null);
+                                    setEditModalDoc(doc);
+                                    setEditTitle(doc.title || doc.document_name || "");
+                                    setEditSubject(doc.subject_code || "");
+                                    setEditSubjectSearch(doc.subject_code || "");
+                                    const docTagNames = Array.isArray(doc.tags)
+                                      ? doc.tags.map(t => typeof t === "string" ? t : t.tag_name)
+                                      : [];
+                                    setEditTags(docTagNames);
+                                    setEditTagInput("");
+                                    setEditTagSuggestions([]);
+                                  }}
+                                  className="w-full flex items-center gap-2 text-left px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60 rounded-md transition-colors"
+                                >
+                                  <Pencil className="w-4 h-4 text-slate-400" />
+                                  Chỉnh sửa
+                                </button> */}
+
+                                <div className="h-px bg-slate-100 dark:bg-slate-800/60 my-1" />
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setOpenMenuId(null);
+                                    handleDeleteDocument(doc.document_id, e);
+                                  }}
+                                  className="w-full flex items-center gap-2 text-left px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-md transition-colors"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                  Gỡ bỏ
+                                </button>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
               </div>
               {Math.ceil(filteredDocuments.length / 9) > 1 && (
                 <div className="mt-4 flex justify-center">
@@ -3776,7 +3800,7 @@ export default function Home() {
                         />
                       ))}
                     </div>
-                    
+
                     {Math.ceil(bookmarkedDocs.length / 9) > 1 && (
                       <div className="mt-6 flex justify-center">
                         <Pagination
@@ -3798,11 +3822,9 @@ export default function Home() {
             {/* 1. SIDEBAR (Collapsible) */}
             <div
               id="ai-chat-sidebar"
-              className={`h-full bg-slate-50/40 dark:bg-[#07080c]/45 backdrop-blur-sm flex flex-col shrink-0 overflow-hidden relative ${
-                isResizing ? "" : "transition-all duration-300 ease-in-out"
-              } ${
-                showChatSidebar ? "border border-slate-200/40 dark:border-slate-850/60 rounded-2xl" : "border-0"
-              }`}
+              className={`h-full bg-slate-50/40 dark:bg-[#07080c]/45 backdrop-blur-sm flex flex-col shrink-0 overflow-hidden relative ${isResizing ? "" : "transition-all duration-300 ease-in-out"
+                } ${showChatSidebar ? "border border-slate-200/40 dark:border-slate-850/60 rounded-2xl" : "border-0"
+                }`}
               style={{ width: showChatSidebar ? `${sidebarWidth}px` : "0px" }}
             >
               <div
@@ -3825,7 +3847,7 @@ export default function Home() {
                       <Menu className="w-4 h-4" />
                     </button>
                   </div>
-                  
+
                   {/* New Chat Button Row */}
                   <button
                     type="button"
@@ -3873,7 +3895,7 @@ export default function Home() {
                       );
                       return matchesTitle || matchesMessages || matchesFiles;
                     });
-                    
+
                     const pinned = filtered.filter(c => c.isPinned);
                     const others = filtered.filter(c => !c.isPinned);
 
@@ -3940,7 +3962,7 @@ export default function Home() {
 
             {/* 2. MAIN WORKSPACE */}
             <div className="flex-1 flex flex-col min-w-0 h-full relative">
-              
+
               {/* If welcome screen (messages length is empty) */}
               {aiMessages.length === 0 ? (
                 <div className="flex-1 flex flex-col justify-center items-center max-w-2xl w-full mx-auto px-6 pb-20 animate-spring-up select-none">
@@ -4012,7 +4034,7 @@ export default function Home() {
                   <div ref={messagesContainerRef} className="flex-1 overflow-y-auto mb-4 bg-transparent flex flex-col gap-6 custom-scrollbar pr-2 scroll-smooth">
                     {aiMessages.map((msg) => {
                       const isAi = msg.sender === "ai";
-                      
+
                       if (isAi) {
                         const { cleanText, sources } = extractSources(msg.text);
                         return (
@@ -4194,8 +4216,8 @@ export default function Home() {
                                       </span>
 
                                       {/* Bottom file name */}
-                                      <span 
-                                        className="text-[10px] font-bold text-slate-800 dark:text-slate-200 leading-snug line-clamp-3 break-all" 
+                                      <span
+                                        className="text-[10px] font-bold text-slate-800 dark:text-slate-200 leading-snug line-clamp-3 break-all"
                                         title={file.name}
                                       >
                                         {file.name}
@@ -4663,21 +4685,19 @@ export default function Home() {
               <div className="flex items-center gap-2.5 overflow-x-auto pb-1 select-none scrollbar-none">
                 <button
                   onClick={() => setNotifFilter("ALL")}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer whitespace-nowrap ${
-                    notifFilter === "ALL"
-                      ? "bg-purple-600 text-white shadow-sm border border-transparent"
-                      : "bg-white/50 dark:bg-[#0f111a]/50 text-slate-650 dark:text-slate-350 hover:bg-slate-50 dark:hover:bg-[#0f111a]/70 border border-slate-100 dark:border-white/5"
-                  }`}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer whitespace-nowrap ${notifFilter === "ALL"
+                    ? "bg-purple-600 text-white shadow-sm border border-transparent"
+                    : "bg-white/50 dark:bg-[#0f111a]/50 text-slate-650 dark:text-slate-350 hover:bg-slate-50 dark:hover:bg-[#0f111a]/70 border border-slate-100 dark:border-white/5"
+                    }`}
                 >
                   Tất cả ({notificationsList.length})
                 </button>
                 <button
                   onClick={() => setNotifFilter("UNREAD")}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
-                    notifFilter === "UNREAD"
-                      ? "bg-purple-600 text-white shadow-sm border border-transparent"
-                      : "bg-white/50 dark:bg-[#0f111a]/50 text-slate-650 dark:text-slate-350 hover:bg-slate-50 dark:hover:bg-[#0f111a]/70 border border-slate-100 dark:border-white/5"
-                  }`}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${notifFilter === "UNREAD"
+                    ? "bg-purple-600 text-white shadow-sm border border-transparent"
+                    : "bg-white/50 dark:bg-[#0f111a]/50 text-slate-650 dark:text-slate-350 hover:bg-slate-50 dark:hover:bg-[#0f111a]/70 border border-slate-100 dark:border-white/5"
+                    }`}
                 >
                   Chưa đọc ({unreadNotificationsCount})
                   {unreadNotificationsCount > 0 && (
@@ -4686,11 +4706,10 @@ export default function Home() {
                 </button>
                 <button
                   onClick={() => setNotifFilter("REQUESTS")}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer whitespace-nowrap ${
-                    notifFilter === "REQUESTS"
-                      ? "bg-purple-600 text-white shadow-sm border border-transparent"
-                      : "bg-white/50 dark:bg-[#0f111a]/50 text-slate-650 dark:text-slate-350 hover:bg-slate-50 dark:hover:bg-[#0f111a]/70 border border-slate-100 dark:border-white/5"
-                  }`}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer whitespace-nowrap ${notifFilter === "REQUESTS"
+                    ? "bg-purple-600 text-white shadow-sm border border-transparent"
+                    : "bg-white/50 dark:bg-[#0f111a]/50 text-slate-650 dark:text-slate-350 hover:bg-slate-50 dark:hover:bg-[#0f111a]/70 border border-slate-100 dark:border-white/5"
+                    }`}
                 >
                   Yêu cầu quyền ({notificationsList.filter((n) => n.type === "ACCESS_REQUEST").length})
                 </button>
@@ -4707,8 +4726,8 @@ export default function Home() {
                     {notifFilter === "UNREAD"
                       ? "Bạn đã đọc hết tất cả thông báo!"
                       : notifFilter === "REQUESTS"
-                      ? "Không có yêu cầu quyền truy cập tài liệu nào."
-                      : "Danh sách thông báo trống."}
+                        ? "Không có yêu cầu quyền truy cập tài liệu nào."
+                        : "Danh sách thông báo trống."}
                   </div>
                 ) : (
                   filteredNotifications.map((notif) => {
@@ -4731,7 +4750,7 @@ export default function Home() {
                     }
 
                     // Render avatar details or initials
-                    const senderName = notif.sender_first_name 
+                    const senderName = notif.sender_first_name
                       ? `${notif.sender_last_name} ${notif.sender_first_name}`.trim()
                       : "Người dùng hệ thống";
                     const senderInitials = senderName.split(" ").slice(-2).map(n => n[0]).join("").toUpperCase();
@@ -4744,11 +4763,10 @@ export default function Home() {
                             handleMarkAsRead(notif.notification_id);
                           }
                         }}
-                        className={`liquid-glass rounded-2xl p-5 border shadow-sm transition-all duration-300 flex items-start gap-4 select-none ${
-                          !notif.is_read
-                            ? "bg-purple-650/5 hover:bg-purple-650/10 border-purple-500/15"
-                            : "bg-white/40 dark:bg-[#0f111a]/40 hover:bg-white/60 dark:hover:bg-[#0f111a]/60 border-slate-100 dark:border-white/5"
-                        }`}
+                        className={`liquid-glass rounded-2xl p-5 border shadow-sm transition-all duration-300 flex items-start gap-4 select-none ${!notif.is_read
+                          ? "bg-purple-650/5 hover:bg-purple-650/10 border-purple-500/15"
+                          : "bg-white/40 dark:bg-[#0f111a]/40 hover:bg-white/60 dark:hover:bg-[#0f111a]/60 border-slate-100 dark:border-white/5"
+                          }`}
                       >
                         {/* Custom Avatar with Floating Action Badge */}
                         <div className="relative shrink-0 select-none">
@@ -4930,6 +4948,7 @@ export default function Home() {
                 {!isEditingProfile ? (
                   <button onClick={handleEditProfileToggle} className="text-xs font-bold text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 transition-colors bg-purple-50 dark:bg-purple-900/30 px-3.5 py-1.5 rounded-lg">
                     Chỉnh sửa
+
                   </button>
                 ) : (
                   <div className="flex gap-2">

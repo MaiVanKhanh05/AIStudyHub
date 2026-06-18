@@ -1,104 +1,96 @@
-import { parsePDF, parseWord, parseExcel, parsePPTX } from "./documentParser.service.js";
-import { chunkText, generateEmbeddings } from "./embedding.service.js";
-import { insertChunks } from "../../repositories/chunk.repository.js";
-
+import * as documentRepository from "../../repositories/document.repository.js";
+import { parsePDF, parseWord, parseExcel, parsePPTX, parseZip, parseImageViaLLM, cleanText } from "./documentParser.service.js";
+import fs from "fs";
+import path from "path";
 
 /**
- * Tải file từ một URL public và chuyển thành dạng buffer.
- * Nếu file nằm trên Supabase và ở chế độ private, bạn có thể cần thêm header xác thực.
- * Giả định rằng URL truyền vào ở đây là public hoặc đã được cấp quyền (signed URL).
+ * Process a document in the background after upload:
+ * - Download file content from Supabase Storage URL
+ * - Parse text based on file type
+ * - Store extracted content for AI search (RAG pipeline)
  */
-const downloadFileToBuffer = async (url) => {
-    const response = await fetch(url);
-    if (!response.ok) {
-        throw new Error(`Failed to download file from ${url}: ${response.statusText}`);
+export const processDocumentInBackground = async (doc) => {
+    if (!doc || !doc.document_id || !doc.file_url) {
+        console.warn("[DocumentProcessor] Skipping: missing document_id or file_url");
+        return;
     }
-    const arrayBuffer = await response.arrayBuffer();
-    return Buffer.from(arrayBuffer);
-};
 
-/**
- * Luồng chính (pipeline) để xử lý một tài liệu mới được tải lên.
- * Hàm này nên được gọi bất đồng bộ (chạy ngầm) và không dùng `await` ở API chính.
- * 
- * @param {Object} document Bản ghi tài liệu trong CSDL (cần có document_id, file_url, file_type)
- */
-export const processDocumentInBackground = async (document) => {
-    console.log(`[AI RAG Pipeline] Starting processing for document ID: ${document.document_id}`);
-    
+    console.log(`[DocumentProcessor] Starting background processing for doc: ${doc.document_id} (${doc.title})`);
+
     try {
-        if (!document.file_url) {
-            console.log(`[AI RAG Pipeline] Skipped ID ${document.document_id} - No file URL`);
-            return;
+        const fileUrl = doc.file_url;
+        const urlPath = fileUrl.split("?")[0]; // strip query params (e.g. Supabase signed URLs)
+        const ext = path.extname(urlPath).toLowerCase().replace(".", "");
+        const fileType = (doc.file_type || ext || "").toLowerCase();
+
+        let extractedText = "";
+
+        // Fetch file as buffer from URL
+        const response = await fetch(fileUrl);
+        if (!response.ok) {
+            throw new Error(`Failed to fetch file: ${response.status} ${response.statusText}`);
         }
 
-        // 1. Tải file về máy chủ
-        console.log(`[AI RAG Pipeline] Downloading file for ID: ${document.document_id}`);
-        const buffer = await downloadFileToBuffer(document.file_url);
-        
-        let parsedText = "";
-        
-        // Cải thiện nhận diện loại file từ MIME type, tên file hoặc đuôi file
-        const rawType = (document.file_type || "").toUpperCase();
-        const urlStr = (document.file_url || "").toUpperCase();
-        const titleStr = (document.title || "").toUpperCase();
-        
-        let fileType = "UNKNOWN";
-        if (rawType.includes("PDF") || urlStr.includes(".PDF") || titleStr.includes(".PDF")) {
-            fileType = "PDF";
-        } else if (rawType.includes("WORD") || rawType.includes("DOC") || urlStr.includes(".DOC") || titleStr.includes(".DOC")) {
-            fileType = "DOCX";
-        } else if (rawType.includes("EXCEL") || rawType.includes("SPREADSHEET") || rawType.includes("XLS") || rawType.includes("CSV") || urlStr.includes(".XLS") || urlStr.includes(".CSV") || titleStr.includes(".XLS") || titleStr.includes(".CSV")) {
-            fileType = "XLSX";
-        } else if (rawType.includes("POWERPOINT") || rawType.includes("PRESENTATION") || rawType.includes("PPT") || urlStr.includes(".PPT") || titleStr.includes(".PPT")) {
-            fileType = "PPTX";
-        }
+        if (["pdf"].includes(fileType)) {
+            const buffer = Buffer.from(await response.arrayBuffer());
+            extractedText = await parsePDF(buffer);
 
-        // 2. Phân tích tệp và làm sạch văn bản
-        console.log(`[AI RAG Pipeline] Parsing document type: ${fileType}`);
-        if (fileType === "PDF") {
-            parsedText = await parsePDF(buffer);
-        } else if (fileType === "DOCX" || fileType === "DOC") {
-            parsedText = await parseWord(buffer);
-        } else if (fileType === "XLSX" || fileType === "XLS" || fileType === "CSV") {
-            parsedText = await parseExcel(buffer);
-        } else if (fileType === "PPTX" || fileType === "PPT") {
-            parsedText = await parsePPTX(buffer);
+        } else if (["doc", "docx"].includes(fileType)) {
+            const buffer = Buffer.from(await response.arrayBuffer());
+            extractedText = await parseWord(buffer);
+
+        } else if (["xls", "xlsx"].includes(fileType)) {
+            const buffer = Buffer.from(await response.arrayBuffer());
+            extractedText = await parseExcel(buffer);
+
+        } else if (["ppt", "pptx"].includes(fileType)) {
+            // PPTX parser needs a temp file path (StreamZip requires file path)
+            const buffer = Buffer.from(await response.arrayBuffer());
+            const tempPath = path.join(process.cwd(), `temp_${doc.document_id}.pptx`);
+            fs.writeFileSync(tempPath, buffer);
+            try {
+                extractedText = await parsePPTX(tempPath);
+            } finally {
+                if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
+            }
+
+        } else if (["zip", "rar"].includes(fileType)) {
+            const buffer = Buffer.from(await response.arrayBuffer());
+            const tempPath = path.join(process.cwd(), `temp_${doc.document_id}.${fileType}`);
+            fs.writeFileSync(tempPath, buffer);
+            try {
+                extractedText = await parseZip(tempPath);
+            } finally {
+                if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
+            }
+
+        } else if (["jpg", "jpeg", "png", "webp", "gif", "bmp"].includes(fileType)) {
+            const buffer = Buffer.from(await response.arrayBuffer());
+            const base64 = buffer.toString("base64");
+            const mimeType = `image/${fileType === "jpg" ? "jpeg" : fileType}`;
+            extractedText = await parseImageViaLLM(base64, mimeType);
+
         } else {
-            console.log(`[AI RAG Pipeline] Unsupported file type: ${fileType} for ID: ${document.document_id}`);
-            return;
+            // Plain text / code files
+            const text = await response.text();
+            extractedText = cleanText(text);
         }
 
-        if (!parsedText || parsedText.trim() === "") {
-            console.log(`[AI RAG Pipeline] No text extracted for ID: ${document.document_id}`);
-            return;
+        if (extractedText && extractedText.trim().length > 0) {
+            // Truncate to safe size for DB storage
+            const MAX_CONTENT_LENGTH = 500000;
+            const truncated = extractedText.length > MAX_CONTENT_LENGTH
+                ? extractedText.substring(0, MAX_CONTENT_LENGTH) + "\n\n[Nội dung bị cắt ngắn do vượt giới hạn lưu trữ]"
+                : extractedText;
+
+            await documentRepository.updateExtractedContent(doc.document_id, truncated);
+            console.log(`[DocumentProcessor] Done: doc ${doc.document_id} — ${truncated.length} chars extracted`);
+        } else {
+            console.warn(`[DocumentProcessor] No text extracted from doc: ${doc.document_id}`);
         }
-
-        // 3. Cắt văn bản thành các đoạn nhỏ (Chunking)
-        console.log(`[AI RAG Pipeline] Chunking text...`);
-        const chunks = chunkText(parsedText);
-        console.log(`[AI RAG Pipeline] Created ${chunks.length} chunks.`);
-
-        if (chunks.length === 0) return;
-
-        // 4. Gọi OpenAI để tạo Vector Embeddings
-        console.log(`[AI RAG Pipeline] Requesting embeddings from OpenAI...`);
-        // Gửi cùng lúc tất cả các đoạn (chunks) lên OpenAI (giới hạn một lần gửi thường là 2048)
-        const embeddings = await generateEmbeddings(chunks);
-        
-        // 5. Lưu kết quả vào CSDL PostgreSQL (bảng document_chunks)
-        console.log(`[AI RAG Pipeline] Saving chunks to database...`);
-        const chunkDataArray = chunks.map((text, index) => ({
-            chunk_index: index,
-            chunk_text: text,
-            embedding: embeddings[index]
-        }));
-
-        await insertChunks(document.document_id, chunkDataArray);
-        
-        console.log(`[AI RAG Pipeline] SUCCESS! Document ID: ${document.document_id} is now vector searchable.`);
 
     } catch (error) {
-        console.error(`[AI RAG Pipeline] ERROR processing document ID ${document.document_id}:`, error);
+        // Background process — never throw, just log
+        console.error(`[DocumentProcessor] Error processing doc ${doc.document_id}:`, error.message);
     }
 };

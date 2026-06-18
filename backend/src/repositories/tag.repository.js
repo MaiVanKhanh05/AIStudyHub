@@ -1,13 +1,79 @@
 import pool from "../../DB/db.js";
 
-// Get all tags associated with a subject
+/**
+ * Find a tag by name, or create it if it doesn't exist.
+ * Returns the tag object { tag_id, tag_name }.
+ */
+export const getOrCreateTag = async (tagName) => {
+    if (!tagName || !tagName.trim()) return null;
+    const name = tagName.trim().toLowerCase();
+    try {
+        // Try to find existing tag
+        const { rows: existing } = await pool.query(
+            "SELECT tag_id, tag_name FROM tags WHERE LOWER(tag_name) = $1",
+            [name]
+        );
+        if (existing.length > 0) return existing[0];
+
+        // Create new tag
+        const { rows: created } = await pool.query(
+            "INSERT INTO tags (tag_name) VALUES ($1) ON CONFLICT (tag_name) DO UPDATE SET tag_name = EXCLUDED.tag_name RETURNING tag_id, tag_name",
+            [name]
+        );
+        return created[0];
+    } catch (error) {
+        console.error("Error in getOrCreateTag:", error);
+        throw error;
+    }
+};
+
+/**
+ * Get all tags for a given document.
+ */
+export const getTagsByDocumentId = async (documentId) => {
+    try {
+        const { rows } = await pool.query(
+            `SELECT t.tag_id, t.tag_name
+             FROM tags t
+             JOIN document_tags dt ON t.tag_id = dt.tag_id
+             WHERE dt.document_id = $1`,
+            [documentId]
+        );
+        return rows;
+    } catch (error) {
+        console.error("Error in getTagsByDocumentId:", error);
+        throw error;
+    }
+};
+
+/**
+ * Associate a list of tag IDs with a document (bulk insert).
+ */
+export const associateTagsWithDocument = async (documentId, tagIds) => {
+    if (!tagIds || tagIds.length === 0) return;
+    try {
+        const values = tagIds.map((_, i) => `($1, $${i + 2})`).join(", ");
+        await pool.query(
+            `INSERT INTO document_tags (document_id, tag_id) VALUES ${values} ON CONFLICT DO NOTHING`,
+            [documentId, ...tagIds]
+        );
+    } catch (error) {
+        console.error("Error in associateTagsWithDocument:", error);
+        throw error;
+    }
+};
+
+/**
+ * Get all tags associated with documents of a specific subject
+ */
 export const getTagsBySubject = async (subjectCode) => {
     try {
         const { rows } = await pool.query(
-            `SELECT t.tag_id, t.tag_name 
+            `SELECT DISTINCT t.tag_id, t.tag_name
              FROM tags t
-             JOIN subject_tags st ON t.tag_id = st.tag_id
-             WHERE st.subject_code = $1
+             JOIN document_tags dt ON t.tag_id = dt.tag_id
+             JOIN document d ON dt.document_id = d.document_id
+             WHERE d.subject_code = $1
              ORDER BY t.tag_name ASC`,
             [subjectCode]
         );
@@ -18,88 +84,22 @@ export const getTagsBySubject = async (subjectCode) => {
     }
 };
 
-// Search all tags in the database
-export const searchTags = async (query = "") => {
+/**
+ * Search tags by name
+ */
+export const searchTags = async (query) => {
     try {
-        const sqlQuery = query ? `%${query}%` : "%";
         const { rows } = await pool.query(
-            `SELECT tag_id, tag_name FROM tags 
-             WHERE tag_name ILIKE $1 
-             ORDER BY tag_name ASC 
-             LIMIT 30`,
-            [sqlQuery]
+            `SELECT tag_id, tag_name
+             FROM tags
+             WHERE tag_name ILIKE $1
+             ORDER BY tag_name ASC
+             LIMIT 10`,
+            [`%${query}%`]
         );
         return rows;
     } catch (error) {
         console.error("Error in searchTags:", error);
-        throw error;
-    }
-};
-
-// Get or create tag by name
-export const getOrCreateTag = async (tagName) => {
-    try {
-        const name = tagName.trim();
-        if (!name) return null;
-
-        // Check if tag already exists
-        const { rows } = await pool.query(
-            "SELECT tag_id, tag_name FROM tags WHERE tag_name = $1",
-            [name]
-        );
-        if (rows.length > 0) {
-            return rows[0];
-        }
-
-        // Insert new tag
-        const insertRes = await pool.query(
-            "INSERT INTO tags (tag_name) VALUES ($1) RETURNING tag_id, tag_name",
-            [name]
-        );
-        return insertRes.rows[0];
-    } catch (error) {
-        // Handle race conditions
-        console.warn("Conflict or error creating tag, retrying fetch:", error.message);
-        const { rows } = await pool.query(
-            "SELECT tag_id, tag_name FROM tags WHERE tag_name = $1",
-            [tagName.trim()]
-        );
-        return rows[0] || null;
-    }
-};
-
-// Associate tags with a document
-export const associateTagsWithDocument = async (documentId, tagIds) => {
-    try {
-        if (!tagIds || tagIds.length === 0) return;
-        for (const tagId of tagIds) {
-            await pool.query(
-                `INSERT INTO document_tags (document_id, tag_id) 
-                 VALUES ($1, $2) 
-                 ON CONFLICT DO NOTHING`,
-                [documentId, tagId]
-            );
-        }
-    } catch (error) {
-        console.error("Error in associateTagsWithDocument:", error);
-        throw error;
-    }
-};
-
-// Get tags associated with a document
-export const getDocumentTags = async (documentId) => {
-    try {
-        const { rows } = await pool.query(
-            `SELECT t.tag_id, t.tag_name 
-             FROM tags t
-             JOIN document_tags dt ON t.tag_id = dt.tag_id
-             WHERE dt.document_id = $1
-             ORDER BY t.tag_name ASC`,
-            [documentId]
-        );
-        return rows;
-    } catch (error) {
-        console.error("Error in getDocumentTags:", error);
         throw error;
     }
 };

@@ -1,4 +1,5 @@
 import * as documentService from "../services/document.service.js";
+import * as documentPermissionRepository from "../repositories/documentPermission.repository.js";
 
 // GET /api/documents/dashboard
 export const getDashboard = async (req, res) => {
@@ -163,21 +164,45 @@ export const unshareDoc = async (req, res) => {
 };
 
 // GET /api/documents/:id
+// Access control:
+//   PUBLIC  → anyone can view (logged in or not)
+//   RESTRICTED → owner or users with explicit permission in document_permissions
+//   PRIVATE → owner only
 export const getDocById = async (req, res) => {
     try {
         const { id } = req.params;
-        const userId = req.userId; // from optionalAuthenticateToken
+        const userId = req.userId; // may be undefined if not logged in (optionalAuthenticateToken)
         
         const doc = await documentService.getDocumentById(id);
         if (!doc) {
             return res.status(404).json({ error: "Document not found" });
         }
-        
-        if (doc.visibility === "PRIVATE" && doc.user_id !== userId) {
-            return res.status(403).json({ error: "Access denied. This document is private." });
+
+        // PUBLIC or community documents → anyone can view
+        if (doc.visibility === "PUBLIC" || doc.is_community === true) {
+            return res.json({ document: doc });
         }
         
-        return res.json({ document: doc });
+        // From here, document is RESTRICTED or PRIVATE — require authentication
+        if (!userId) {
+            return res.status(403).json({ error: "Tài liệu này yêu cầu đăng nhập để xem." });
+        }
+
+        // Owner always has access
+        if (doc.user_id === userId) {
+            return res.json({ document: doc });
+        }
+
+        // RESTRICTED: check if user has explicit permission
+        if (doc.visibility === "RESTRICTED") {
+            const permission = await documentPermissionRepository.getPermission(Number(id), userId);
+            if (permission && ["EDITOR", "VIEWER"].includes(permission.role)) {
+                return res.json({ document: doc });
+            }
+        }
+
+        // No access
+        return res.status(403).json({ error: "Access denied. You do not have permission to view this document." });
     } catch (error) {
         console.error("Error fetching document by ID:", error);
         return res.status(500).json({ error: "Failed to fetch document" });

@@ -140,11 +140,60 @@ export const incrementDownloadCount = async (id) => {
     }
 };
 
+// Retrieve lightweight catalog of community documents for AI context
+export const getCommunityDocumentCatalog = async () => {
+    try {
+        const { rows } = await pool.query(
+            `SELECT d.document_id, d.title, d.description, d.file_type, s.subject_name, 
+                    (u.last_name || ' ' || u.first_name) as author, u.role as user_role
+             FROM document d
+             JOIN users u ON d.user_id = u.user_id
+             LEFT JOIN subject s ON d.subject_code = s.subject_code
+             WHERE d.is_community = TRUE OR d.visibility = 'PUBLIC' OR u.role = 'LECTURE'
+             ORDER BY d.view_count DESC, d.upload_date DESC
+             LIMIT 50`
+        );
+        return rows;
+    } catch (error) {
+        console.error("Error fetching community catalog:", error);
+        return [];
+    }
+};
+
+// Search community + LECTURE documents by keyword, return with extracted_content for AI RAG
+export const searchCommunityDocsByKeyword = async (keyword) => {
+    try {
+        const searchPattern = `%${keyword}%`;
+        const { rows } = await pool.query(
+            `SELECT d.document_id, d.title, d.description, d.file_type, d.extracted_content,
+                    s.subject_name, (u.last_name || ' ' || u.first_name) as author
+             FROM document d
+             JOIN users u ON d.user_id = u.user_id
+             LEFT JOIN subject s ON d.subject_code = s.subject_code
+             WHERE (d.is_community = TRUE OR d.visibility = 'PUBLIC' OR u.role = 'LECTURE')
+               AND d.extracted_content IS NOT NULL
+               AND d.extracted_content != ''
+               AND (LOWER(d.title) LIKE LOWER($1) OR LOWER(d.description) LIKE LOWER($1) OR LOWER(s.subject_name) LIKE LOWER($1))
+             ORDER BY d.view_count DESC
+             LIMIT 5`,
+            [searchPattern]
+        );
+        return rows;
+    } catch (error) {
+        console.error("Error searching community docs by keyword:", error);
+        return [];
+    }
+};
+
 // Retrieve all community/public documents
 export const getCommunityDocuments = async (userId = null) => {
     try {
         const queryParams = userId ? [userId] : [];
         const isBookmarkedSelect = userId ? `, EXISTS (SELECT 1 FROM document_bookmarks db WHERE db.document_id = d.document_id AND db.user_id = $1) as "isBookmarked"` : `, false as "isBookmarked"`;
+
+        const whereClause = userId 
+            ? `WHERE d.is_community = TRUE OR d.visibility = 'PUBLIC' OR EXISTS (SELECT 1 FROM document_permissions dp WHERE dp.document_id = d.document_id AND dp.user_id = $1)`
+            : `WHERE d.is_community = TRUE OR d.visibility = 'PUBLIC'`;
 
         const { rows } = await pool.query(
             `SELECT d.*, (u.last_name || ' ' || u.first_name) as author, s.subject_name,
@@ -159,7 +208,7 @@ export const getCommunityDocuments = async (userId = null) => {
              FROM document d
              JOIN users u ON d.user_id = u.user_id
              LEFT JOIN subject s ON d.subject_code = s.subject_code
-             WHERE d.is_community = TRUE
+             ${whereClause}
              ORDER BY d.upload_date DESC`,
              queryParams
         );
@@ -342,6 +391,21 @@ export const updateDocumentCommunityStatus = async (documentId, isCommunity) => 
     } catch (error) {
         console.error("Error updating document community status:", error);
         throw error;
+    }
+};
+
+// Store AI-extracted text content for RAG/search pipeline
+export const updateExtractedContent = async (documentId, extractedContent) => {
+    try {
+        const { rows } = await pool.query(
+            "UPDATE document SET extracted_content = $1 WHERE document_id = $2 RETURNING document_id",
+            [extractedContent, documentId]
+        );
+        return rows[0] || null;
+    } catch (error) {
+        // Column might not exist yet – log but don't crash the app
+        console.warn("Could not update extracted_content (column may not exist yet):", error.message);
+        return null;
     }
 };
 

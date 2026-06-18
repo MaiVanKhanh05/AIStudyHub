@@ -1,7 +1,7 @@
 import { Router } from "express";
 import * as documentController from "../controllers/document.controller.js";
 import * as documentPermissionController from "../controllers/documentPermission.controller.js";
-import { authenticateToken } from "../middlewares/validation.middleware.js";
+import { authenticateToken, optionalAuthenticateToken } from "../middlewares/validation.middleware.js";
 import { requireDocumentAccess, requireEditorAccess, requireOwnerAccess } from "../middlewares/documentAccess.middleware.js";
 
 const router = Router();
@@ -31,8 +31,8 @@ router.put("/:id/unshare", authenticateToken, requireOwnerAccess, documentContro
 // PUT /api/documents/:id/edit
 router.put("/:id/edit", authenticateToken, documentController.editDoc);
 
-// GET /api/documents/:id
-router.get("/:id", authenticateToken, requireDocumentAccess, documentController.getDocById);
+// GET /api/documents/:id — uses optional auth so PUBLIC docs work without login
+router.get("/:id", optionalAuthenticateToken, documentController.getDocById);
 
 // PUT /api/documents/:id/view
 router.put("/:id/view", authenticateToken, requireDocumentAccess, documentController.increaseView);

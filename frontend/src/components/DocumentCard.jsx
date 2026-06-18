@@ -238,7 +238,7 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
         const data = await res.json();
         setBookmarked(data.bookmarked);
         if (data.bookmarked) {
-          toast.success("Đã thả tim lưu tài liệu vào Kho Yêu Thích! ❤️");
+          toast.success("Đã lưu tài liệu vào Kho Yêu Thích!");
         } else {
           toast.info("Đã bỏ lưu tài liệu khỏi Kho Yêu Thích.");
         }

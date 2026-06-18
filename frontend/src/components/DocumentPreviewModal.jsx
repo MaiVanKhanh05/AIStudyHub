@@ -75,17 +75,18 @@ export default function DocumentPreviewModal({ doc, onClose, currentUserId, onSh
           "Authorization": `Bearer ${token}`
         },
         body: JSON.stringify({
-          message: `Tôi đang xem tài liệu "${doc?.document_name || doc?.file_name || doc?.title || 'chưa rõ'}". Hãy trả lời câu hỏi sau đây liên quan đến tài liệu này: ${text}`
+          message: `Tôi đang xem tài liệu "${doc?.document_name || doc?.file_name || doc?.title || 'chưa rõ'}". Hãy trả lời câu hỏi sau đây liên quan đến tài liệu này: ${text}`,
+          documentContext: doc?.extracted_content || doc?.content || doc?.simulated_content || ""
         })
       });
-      
+
       if (!response.ok) {
         throw new Error("API call failed");
       }
-      
+
       const data = await response.json();
       const aiText = data.response || "Xin lỗi, tôi không nhận được phản hồi từ hệ thống AI.";
-      
+
       setMessages((prev) => [
         ...prev,
         {
@@ -111,7 +112,7 @@ export default function DocumentPreviewModal({ doc, onClose, currentUserId, onSh
 
   const handleSummarize = async () => {
     if (isTyping) return;
-    
+
     const userMsg = {
       id: Date.now(),
       sender: "user",
@@ -129,17 +130,18 @@ export default function DocumentPreviewModal({ doc, onClose, currentUserId, onSh
           "Authorization": `Bearer ${token}`
         },
         body: JSON.stringify({
-          message: `Tôi đang xem tài liệu "${doc?.document_name || doc?.file_name || doc?.title || 'chưa rõ'}". Hãy viết một bản tóm tắt học thuật thật chi tiết, rõ ràng và đầy đủ về nội dung của tài liệu này.`
+          message: `Tôi đang xem tài liệu "${doc?.document_name || doc?.file_name || doc?.title || 'chưa rõ'}". Hãy viết một bản tóm tắt học thuật thật chi tiết, rõ ràng và đầy đủ về nội dung của tài liệu này.`,
+          documentContext: doc?.extracted_content || doc?.content || doc?.simulated_content || ""
         })
       });
-      
+
       if (!response.ok) {
         throw new Error("API call failed");
       }
-      
+
       const data = await response.json();
       const aiText = data.response || "Không thể tạo bản tóm tắt.";
-      
+
       setMessages((prev) => [
         ...prev,
         {
@@ -183,17 +185,18 @@ export default function DocumentPreviewModal({ doc, onClose, currentUserId, onSh
           "Authorization": `Bearer ${token}`
         },
         body: JSON.stringify({
-          message: `Tôi đang xem tài liệu "${doc?.document_name || doc?.file_name || doc?.title || 'chưa rõ'}". Hãy tạo một bộ câu hỏi trắc nghiệm ôn tập (khoảng 3-5 câu hỏi) liên quan đến kiến thức trong tài liệu, đi kèm các phương án lựa chọn A, B, C, D và đáp án giải thích chi tiết.`
+          message: `Tôi đang xem tài liệu "${doc?.document_name || doc?.file_name || doc?.title || 'chưa rõ'}". Hãy tạo một bộ câu hỏi trắc nghiệm ôn tập (khoảng 3-5 câu hỏi) liên quan đến kiến thức trong tài liệu, đi kèm các phương án lựa chọn A, B, C, D và đáp án giải thích chi tiết.`,
+          documentContext: doc?.extracted_content || doc?.content || doc?.simulated_content || ""
         })
       });
-      
+
       if (!response.ok) {
         throw new Error("API call failed");
       }
-      
+
       const data = await response.json();
       const aiText = data.response || "Không thể tạo bộ câu hỏi.";
-      
+
       setMessages((prev) => [
         ...prev,
         {
@@ -229,7 +232,7 @@ export default function DocumentPreviewModal({ doc, onClose, currentUserId, onSh
   const handleCopyUrl = async () => {
     const docId = doc?.document_id || doc?.id;
     const previewUrl = docId ? `${window.location.origin}/preview/${docId}` : fileUrl;
-    
+
     if (!previewUrl) {
       toast.error("Không tìm thấy URL");
       return;
@@ -252,7 +255,7 @@ export default function DocumentPreviewModal({ doc, onClose, currentUserId, onSh
       if (!response.ok) throw new Error("Network response was not ok");
       const blob = await response.blob();
       const blobUrl = URL.createObjectURL(blob);
-      
+
       const element = document.createElement("a");
       element.href = blobUrl;
       const urlExt = fileUrl.split('.').pop().split('?')[0] || "pdf";
@@ -367,11 +370,10 @@ export default function DocumentPreviewModal({ doc, onClose, currentUserId, onSh
                 {messages.map((msg) => (
                   <div
                     key={msg.id}
-                    className={`flex flex-col max-w-[85%] rounded-2xl p-3.5 text-[11px] leading-relaxed border transition-all duration-300 shadow-sm text-left ${
-                      msg.sender === "ai"
-                        ? "bg-white dark:bg-[#131520] border-slate-200/50 dark:border-slate-800/80 border-l-2 border-l-purple-500 text-slate-800 dark:text-slate-200 self-start rounded-tl-none"
-                        : "bg-gradient-to-br from-purple-600/10 to-indigo-600/10 dark:from-purple-500/15 dark:to-indigo-500/15 border-purple-500/25 dark:border-purple-400/25 text-purple-950 dark:text-purple-200 self-end rounded-tr-none"
-                    }`}
+                    className={`flex flex-col max-w-[85%] rounded-2xl p-3.5 text-[11px] leading-relaxed border transition-all duration-300 shadow-sm text-left ${msg.sender === "ai"
+                      ? "bg-white dark:bg-[#131520] border-slate-200/50 dark:border-slate-800/80 border-l-2 border-l-purple-500 text-slate-800 dark:text-slate-200 self-start rounded-tl-none"
+                      : "bg-gradient-to-br from-purple-600/10 to-indigo-600/10 dark:from-purple-500/15 dark:to-indigo-500/15 border-purple-500/25 dark:border-purple-400/25 text-purple-950 dark:text-purple-200 self-end rounded-tr-none"
+                      }`}
                   >
                     <span className="text-[8px] font-extrabold uppercase tracking-widest opacity-60 mb-1.5 block">
                       {msg.sender === "ai" ? "🤖 AI ACADEMIC CORE" : "👤 BẠN"}
@@ -396,7 +398,7 @@ export default function DocumentPreviewModal({ doc, onClose, currentUserId, onSh
                   disabled={isTyping}
                   className="flex-1 py-2 px-2.5 rounded-xl border border-purple-500/25 dark:border-purple-450/25 bg-purple-600/5 hover:bg-purple-600/10 dark:hover:bg-purple-500/10 text-purple-750 dark:text-purple-300 font-black text-[9px] uppercase tracking-wider transition-all duration-200 cursor-pointer flex items-center justify-center gap-1.5 active:scale-[0.97] disabled:opacity-50 hover:scale-[1.02] shadow-sm"
                 >
-                  📝 Tóm tắt
+                  Tóm tắt
                 </button>
                 <button
                   type="button"
@@ -404,7 +406,7 @@ export default function DocumentPreviewModal({ doc, onClose, currentUserId, onSh
                   disabled={isTyping}
                   className="flex-1 py-2 px-2.5 rounded-xl border border-blue-500/25 dark:border-blue-450/25 bg-blue-600/5 hover:bg-blue-655/10 dark:hover:bg-blue-500/10 text-blue-750 dark:text-blue-300 font-black text-[9px] uppercase tracking-wider transition-all duration-200 cursor-pointer flex items-center justify-center gap-1.5 active:scale-[0.97] disabled:opacity-50 hover:scale-[1.02] shadow-sm"
                 >
-                  🧠 Tạo Quiz
+                  Tạo Quiz
                 </button>
               </div>
 

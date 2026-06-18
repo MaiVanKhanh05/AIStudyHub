@@ -14,48 +14,8 @@ export const getDashboardData = async (userId) => {
             documents = await documentRepository.getUserDocuments(userId);
             storageUsage = await documentRepository.getStorageUsage(userId);
         } catch (dbError) {
-            console.error("Database query error, using fallback mock documents:", dbError);
-            // Fallback to empty documents if database fails
+            console.error("Database query error:", dbError);
             documents = [];
-        }
-
-        // Fallback mock documents to keep the workspace visually complete if the DB is empty
-        if (documents.length === 0) {
-            documents = [
-                {
-                    document_id: "demo1",
-                    title: "Web Design_Thiết kế web nâng cao",
-                    subject_code: "WED202c",
-                    subject_name: "Web Design",
-                    owner_name: "ThongNT",
-                    upload_date: new Date(Date.now() - 24 * 60 * 60 * 1000 * 60), // 2 months ago
-                    file_size: 10240, // 10KB
-                    file_type: "PDF",
-                    visibility: "PUBLIC",
-                },
-                {
-                    document_id: "demo2",
-                    title: "WED202c - Web design tutorial & layouts",
-                    subject_code: "WED202c",
-                    subject_name: "Web Design",
-                    owner_name: "ThongNT",
-                    upload_date: new Date(Date.now() - 24 * 60 * 60 * 1000 * 45), // 1.5 months ago
-                    file_size: 10240,
-                    file_type: "PDF",
-                    visibility: "PUBLIC",
-                },
-                {
-                    document_id: "demo3",
-                    title: "Web Design Principles and UI UX Guidelines",
-                    subject_code: "WED202c",
-                    subject_name: "Web Design",
-                    owner_name: "ThongNT",
-                    upload_date: new Date(Date.now() - 24 * 60 * 60 * 1000 * 30), // 1 month ago
-                    file_size: 10240,
-                    file_type: "PDF",
-                    visibility: "PRIVATE",
-                }
-            ];
         }
 
         return {

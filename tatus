@@ -1,0 +1,27 @@
+* [33m255ca66[m[33m ([m[1;31morigin/feature/upload-document-v2[m[33m, [m[1;32mfeature/upload-document-v2[m[33m)[m update upload page: processbar, dropwdown, empty document upload
+[31m|[m * [33m4bd005e[m[33m ([m[1;32mmain[m[33m)[m update upload page: processbar, dropwdown, empty document upload, remove apikey
+[31m|[m * [33md360d15[m update upload page: processbar, dropwdown, empty document upload
+[31m|[m *   [33ma93e942[m Merge branch 'main' of https://github.com/MaiVanKhanh05/AIStudyHub
+[31m|[m [33m|[m[34m\[m  
+[31m|[m [33m|[m *   [33m02656d3[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m Merge pull request #36 from MaiVanKhanh05/feature/permission-share-document
+[31m|[m [33m|[m [35m|[m[36m\[m  
+[31m|[m [33m|[m [35m|[m *   [33m98dd231[m Merge branch 'main' into feature/permission-share-document
+[31m|[m [33m|[m [35m|[m [1;31m|[m[35m\[m  
+[31m|[m [33m|[m [35m|[m [1;31m|[m[35m/[m  
+[31m|[m [33m|[m [35m|[m[35m/[m[1;31m|[m   
+[31m|[m [33m|[m [35m|[m * [33ma7312b3[m fix layout permission, remove upload, apiKey
+[31m|[m [33m|[m [35m|[m * [33m649698e[m fix layout permission
+[31m|[m [33m|[m [35m|[m *   [33m229b56e[m[33m ([m[1;31morigin/feature/permission-share-document[m[33m)[m Merge pull request #31 from MaiVanKhanh05/main
+[31m|[m [33m|[m [35m|[m [1;33m|[m[1;34m\[m  
+[31m|[m [33m|[m [35m|[m [1;33m|[m [1;34m|[m * [33mf451768[m[33m ([m[1;35mrefs/stash[m[33m)[m WIP on main: 260ec5d Resolve merge conflicts and finish pull
+[31m|[m [33m|[m [35m|[m[33m_[m[1;33m|[m[33m_[m[1;34m|[m[33m/[m[1;36m|[m 
+[31m|[m [33m|[m[33m/[m[35m|[m [1;33m|[m [1;34m|[m [1;36m|[m 
+[31m|[m [33m|[m [35m|[m [1;33m|[m [1;34m|[m * [33m7db4e0c[m index on main: 260ec5d Resolve merge conflicts and finish pull
+[31m|[m [33m|[m [35m|[m[33m_[m[1;33m|[m[33m_[m[1;34m|[m[33m/[m  
+[31m|[m [33m|[m[33m/[m[35m|[m [1;33m|[m [1;34m|[m   
+[31m|[m * [35m|[m [1;33m|[m [1;34m|[m [33m260ec5d[m Resolve merge conflicts and finish pull
+[31m|[m [31m|[m[35m\[m[35m|[m [1;33m|[m [1;34m|[m 
+[31m|[m [31m|[m * [1;33m|[m [1;34m|[m [33mf25271c[m Remove OpenAI API key from .env file
+[31m|[m [31m|[m * [1;33m|[m [1;34m|[m   [33m1ccfa6e[m Merge pull request #35 from MaiVanKhanh05/feature/AI-Chatbot-chat-with-AI
+[31m|[m [31m|[m [33m|[m[34m\[m [1;33m\[m [1;34m\[m  
+[31m|[m [31m|[m [33m|[m * [1;33m|[m [1;34m|[m [33m366c9d8[m[33m ([m[1;31morigin/feature/AI-Chatbot-chat-with-AI[m[33m)[m chat with AI - backend

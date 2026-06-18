@@ -35,7 +35,7 @@ export default function PreviewPage() {
       });
 
       if (!res.ok) {
-        if (res.status === 403) {
+        if (res.status === 403 || res.status === 401) {
           setIsRestricted(true);
           setLoading(false);
           return;
@@ -47,7 +47,8 @@ export default function PreviewPage() {
       }
 
       const data = await res.json();
-      setDoc(data);
+      // Backend returns { document: {...} } — unwrap it
+      setDoc(data.document || data);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -175,7 +176,7 @@ export default function PreviewPage() {
     <div className="min-h-screen bg-slate-900/10">
       {doc && (
         <DocumentPreviewModal 
-          doc={doc} 
+          doc={{ ...doc, hideChat: true }} 
           currentUserId={currentUserId}
           onShare={() => setShowShareModal(true)}
           onClose={() => navigate("/")} 

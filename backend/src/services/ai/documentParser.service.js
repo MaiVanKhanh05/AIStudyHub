@@ -10,7 +10,7 @@ import xml2js from "xml2js";
 function isCodeOrTextFile(filename) {
   const ext = path.extname(filename).toLowerCase();
   const textExtensions = [
-    ".js", ".jsx", ".ts", ".tsx", ".html", ".css", ".json", ".py", ".java", 
+    ".js", ".jsx", ".ts", ".tsx", ".html", ".css", ".json", ".py", ".java",
     ".cpp", ".c", ".h", ".hpp", ".cs", ".sh", ".xml", ".md", ".sql", ".txt", ".yml", ".yaml"
   ];
   return textExtensions.includes(ext);
@@ -96,7 +96,7 @@ export async function parsePPTX(filePath) {
   try {
     const entries = await zip.entries();
     let text = "";
-    
+    // PPTX slides are typically stored as ppt/slides/slide1.xml, ppt/slides/slide2.xml, etc.
     const slideEntries = Object.keys(entries)
       .filter(name => name.startsWith("ppt/slides/slide") && name.endsWith(".xml"))
       .sort((a, b) => {
@@ -109,7 +109,7 @@ export async function parsePPTX(filePath) {
       const entryName = slideEntries[i];
       const data = await zip.entryData(entryName);
       const xmlString = data.toString("utf8");
-      
+
       const parsedXml = await xml2js.parseStringPromise(xmlString);
       const slideText = extractTextFromXml(parsedXml);
       if (slideText.trim()) {
@@ -128,9 +128,9 @@ export async function parseZip(filePath) {
   try {
     const entries = await zip.entries();
     let text = "Cấu trúc thư mục (File Tree):\n";
-    
+
     const entryKeys = Object.keys(entries).sort();
-    
+    // Build file tree representation
     for (const key of entryKeys) {
       const entry = entries[key];
       const isDir = entry.isDirectory;
@@ -160,19 +160,19 @@ export async function parseZip(filePath) {
         const data = await zip.entryData(key);
         const fileContent = data.toString("utf8");
         const fileBlock = `\n==================================================\nTỆP: ${key}\n==================================================\n${fileContent}\n`;
-        
+
         if (totalLength + fileBlock.length > MAX_LENGTH) {
           text += `\n[CẢNH BÁO: Đạt giới hạn kích thước trích xuất tài liệu mã nguồn]\n`;
           break;
         }
-        
+
         text += fileBlock;
         totalLength += fileBlock.length;
       } catch (err) {
         text += `\n[Lỗi khi đọc tệp ${key}: ${err.message}]\n`;
       }
     }
-    
+
     return text;
   } finally {
     await zip.close();
