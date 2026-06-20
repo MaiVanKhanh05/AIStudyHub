@@ -518,6 +518,27 @@ export default function Home() {
   const [communityDocs, setCommunityDocs] = useState([]);
   const [communityLoading, setCommunityLoading] = useState(false);
   const [communityFilterMode, setCommunityFilterMode] = useState("ALL");
+  const [communityRoleFilter, setCommunityRoleFilter] = useState("ALL"); // "STUDENT", "LECTURER", or "ALL"
+
+  useEffect(() => {
+    setCommunityPage(1);
+  }, [communityRoleFilter]);
+
+  const [isScrolledDown, setIsScrolledDown] = useState(false);
+
+  useEffect(() => {
+    const mainElement = mainContentRef.current;
+    if (!mainElement) return;
+
+    const handleScroll = () => {
+      setIsScrolledDown(mainElement.scrollTop > 200);
+    };
+
+    mainElement.addEventListener("scroll", handleScroll);
+    return () => {
+      mainElement.removeEventListener("scroll", handleScroll);
+    };
+  }, []);
 
   useEffect(() => {
     setCommunityPage(1);
@@ -603,6 +624,15 @@ export default function Home() {
   const sourceCommunityDocs = communityFilterMode === "ALL" ? communityDocs : mySharedCommunityDocs;
 
   const filteredCommunityDocs = sourceCommunityDocs.filter((doc) => {
+    let matchesRole = true;
+    if (communityFilterMode === "ALL") {
+      if (communityRoleFilter === "LECTURER") {
+        matchesRole = doc.uploader_role === "LECTURER";
+      } else if (communityRoleFilter === "STUDENT") {
+        matchesRole = doc.uploader_role !== "LECTURER";
+      }
+    }
+
     let matchesSearch = true;
     if (communitySearch) {
       const keyword = communitySearch.toLowerCase().trim();
@@ -638,7 +668,7 @@ export default function Home() {
       );
     }
 
-    return matchesSearch && matchesDate;
+    return matchesSearch && matchesDate && matchesRole;
   });
 
   const sortedCommunityDocs = [
@@ -656,7 +686,16 @@ export default function Home() {
   const pinnedCommunityDocs = currentCommunityDocs.filter((doc) => doc.isPinned);
   const regularCommunityDocs = currentCommunityDocs.filter((doc) => !doc.isPinned);
 
-  // Document Management Tab States
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => localStorage.getItem("sidebar_collapsed") === "true");
+
+  const toggleSidebar = () => {
+    setIsSidebarCollapsed((prev) => {
+      const newVal = !prev;
+      localStorage.setItem("sidebar_collapsed", String(newVal));
+      return newVal;
+    });
+  };
+
   const [uploadTitle, setUploadTitle] = useState("");
   const [uploadSubject, setUploadSubject] = useState("OTHER");
   const [uploadVisibility, setUploadVisibility] = useState("PRIVATE");
@@ -2705,65 +2744,139 @@ export default function Home() {
       <div className="absolute top-[35%] right-[5%] w-[40%] h-[40%] rounded-full bg-purple-500/5 dark:bg-purple-500/4 blur-[130px] pointer-events-none z-0" />
       <div className="absolute bottom-[-15%] left-[20%] w-[45%] h-[45%] rounded-full bg-purple-500/6 dark:bg-purple-950/15 blur-[150px] pointer-events-none z-0" />
 
-      {/* ── LEFT SIDEBAR (Notion/Perplexity Academic Vibe) ── */}
-      <aside className="w-68 h-full bg-white/35 dark:bg-[#0f111a]/40 backdrop-blur-xl border-r border-slate-200/40 dark:border-white/5 flex flex-col p-5 shrink-0 justify-between select-none z-10 shadow-[inset_-1px_0_0_rgba(255,255,255,0.25)] dark:shadow-none">
+      {/* Floating Role Filter Sidebar strictly on the right side next to the scrollbar */}
+      {activeTab === "Community" && communityFilterMode === "ALL" && (
+        <div className={`fixed right-0 z-[9999] flex flex-col items-end gap-2.5 bg-transparent select-none transition-all duration-500 ease-in-out ${
+          isScrolledDown ? "top-[110px] translate-y-0" : "top-1/2 -translate-y-1/2"
+        }`}>
+          <button
+            onClick={() => setCommunityRoleFilter(prev => prev === "STUDENT" ? "ALL" : "STUDENT")}
+            className={`px-3 py-3 rounded-l-[16px] text-xs font-black tracking-widest uppercase transition-all duration-300 cursor-pointer flex items-center justify-center text-center h-[48px] border border-r-0 shadow-[0_4px_12px_rgba(0,0,0,0.1)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.4)] whitespace-nowrap ${
+              communityRoleFilter === "STUDENT"
+                ? "bg-gradient-to-br from-purple-600 to-indigo-600 border-purple-500 text-white scale-105 w-[160px]"
+                : "bg-white/95 dark:bg-[#090b16]/95 border-slate-200/50 dark:border-white/10 text-slate-650 dark:text-slate-355 hover:text-purple-600 dark:hover:text-purple-400 hover:bg-white/60 dark:hover:bg-[#090b16]/60 w-[130px]"
+            }`}
+          >
+            Sinh viên
+          </button>
+          <button
+            onClick={() => setCommunityRoleFilter(prev => prev === "LECTURER" ? "ALL" : "LECTURER")}
+            className={`px-3 py-3 rounded-l-[16px] text-xs font-black tracking-widest uppercase transition-all duration-300 cursor-pointer flex items-center justify-center text-center h-[48px] border border-r-0 shadow-[0_4px_12px_rgba(0,0,0,0.1)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.4)] whitespace-nowrap ${
+              communityRoleFilter === "LECTURER"
+                ? "bg-gradient-to-br from-purple-600 to-indigo-600 border-purple-500 text-white scale-105 w-[160px]"
+                : "bg-white/95 dark:bg-[#090b16]/95 border-slate-200/50 dark:border-white/10 text-slate-655 dark:text-slate-355 hover:text-purple-600 dark:hover:text-purple-400 hover:bg-white/60 dark:hover:bg-[#090b16]/60 w-[130px]"
+            }`}
+          >
+            Giảng viên
+          </button>
+        </div>
+      )}
+      <aside className={`h-full bg-white/35 dark:bg-[#0f111a]/40 backdrop-blur-xl border-r border-slate-200/40 dark:border-white/5 flex flex-col p-5 shrink-0 justify-between select-none z-10 shadow-[inset_-1px_0_0_rgba(255,255,255,0.25)] dark:shadow-none rounded-r-2xl transition-all duration-300 ease-in-out ${
+        isSidebarCollapsed ? "w-[76px] px-3.5" : "w-68"
+      }`}>
         <div className="flex flex-col gap-6 overflow-y-auto custom-scrollbar">
 
-          {/* Logo Brand Header */}
-          <div className="flex items-center gap-2.5 px-1.5 py-0.5">
-            <div className="w-7.5 h-7.5 rounded-lg bg-purple-600 dark:bg-purple-500 flex items-center justify-center font-bold text-white shadow-sm">
-              <BookOpen className="w-4 h-4" />
+          {/* Logo Brand Header & Toggle Button */}
+          <div className={`flex items-center py-0.5 min-w-0 ${isSidebarCollapsed ? "justify-center w-full" : "justify-between px-1.5"}`}>
+            <div className={`flex items-center min-w-0 ${isSidebarCollapsed ? "justify-center w-full" : "gap-2.5"}`}>
+              {isSidebarCollapsed ? (
+                <button
+                  onClick={toggleSidebar}
+                  title="Mở rộng menu"
+                  className="w-11 h-11 rounded-xl flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-800/60 text-slate-500 hover:text-slate-900 dark:text-slate-450 dark:hover:text-white transition-colors cursor-pointer shrink-0 mx-auto"
+                >
+                  <Menu className="w-4.5 h-4.5" />
+                </button>
+              ) : (
+                <div className="w-7.5 h-7.5 rounded-xl bg-purple-600 dark:bg-purple-500 flex items-center justify-center font-bold text-white shadow-sm shrink-0">
+                  <BookOpen className="w-4 h-4" />
+                </div>
+              )}
+              <div className={`flex flex-col transition-all duration-300 ease-in-out origin-left truncate ${
+                isSidebarCollapsed ? "opacity-0 max-w-0 scale-90 pointer-events-none overflow-hidden" : "opacity-100 max-w-[180px] scale-100"
+              }`}>
+                <span className="text-xs font-black tracking-widest text-slate-900 dark:text-white uppercase leading-none">AIStudyHub</span>
+                <span className="text-[9px] text-purple-600 dark:text-purple-400 font-bold uppercase tracking-wider mt-0.5">Academic Portal</span>
+              </div>
             </div>
-            <div className="flex flex-col">
-              <span className="text-xs font-black tracking-widest text-slate-900 dark:text-white uppercase leading-none">AIStudyHub</span>
-              <span className="text-[9px] text-purple-600 dark:text-purple-400 font-bold uppercase tracking-wider mt-0.5">Academic Portal</span>
-            </div>
+            {!isSidebarCollapsed && (
+              <button
+                onClick={toggleSidebar}
+                title="Thu gọn menu"
+                className="w-7.5 h-7.5 rounded-xl flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-800/60 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors cursor-pointer shrink-0"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+            )}
           </div>
 
           {/* User mini profile card */}
-          <div className="relative">
+          <div className="relative flex justify-center w-full">
             <button
               onClick={() => setShowProfileDropdown(!showProfileDropdown)}
-              className="w-full flex items-center justify-between p-2.5 rounded-xl border border-slate-200/40 dark:border-white/5 bg-white/40 dark:bg-[#0f111a]/45 backdrop-blur-md hover:bg-white/65 dark:hover:bg-[#0f111a]/60 shadow-[inset_0_1px_1px_rgba(255,255,255,0.2)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition-colors duration-100 text-left focus:outline-none cursor-pointer antialiased"
-              style={{ transform: "translate3d(0,0,0)", backfaceVisibility: "hidden" }}
+              className={`flex items-center rounded-xl border transition-all duration-300 ease-in-out focus:outline-none cursor-pointer w-full h-12 ${
+                isSidebarCollapsed
+                  ? "px-[7px] py-[7px] bg-transparent border-transparent shadow-none hover:bg-slate-100 dark:hover:bg-slate-800/40"
+                  : "border-slate-200/40 dark:border-white/5 bg-white/40 dark:bg-[#0f111a]/45 backdrop-blur-md hover:bg-white/65 dark:hover:bg-[#0f111a]/60 shadow-[inset_0_1px_1px_rgba(255,255,255,0.2)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] p-2.5 justify-between text-left"
+              }`}
             >
-              <div className="flex items-center gap-2.5 min-w-0">
+              <div className="flex items-center min-w-0">
                 <div className="relative w-8.5 h-8.5 shrink-0">
-                  <div className="w-full h-full rounded-lg bg-purple-100 dark:bg-purple-950/50 flex items-center justify-center font-extrabold text-purple-700 dark:text-purple-300 overflow-hidden">
+                  <div className={`w-full h-full rounded-xl flex items-center justify-center font-extrabold text-purple-700 dark:text-purple-300 overflow-hidden shadow-sm transition-all duration-300 ${
+                    user?.avatar_url ? "bg-transparent" : "bg-purple-100 dark:bg-purple-950/50"
+                  }`}>
                     {user?.avatar_url ? (
-                      <img src={user.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+                      <img src={user.avatar_url} alt="Avatar" className="w-full h-full object-cover rounded-xl" />
                     ) : (
                       fullName.charAt(0)
                     )}
                   </div>
-                  <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-500 border border-white dark:border-[#151722] z-10" />
+                  <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 border border-white dark:border-[#151722] z-10" />
                 </div>
-                <div className="flex flex-col truncate">
-                  <span className="text-xs font-bold text-slate-900 dark:text-slate-100 leading-tight truncate">{fullName}</span>
-                  <span className="text-[9px] text-slate-400 dark:text-slate-500 font-bold leading-none mt-1">
+                <div className={`flex flex-col transition-all duration-300 ease-in-out origin-left ${
+                  isSidebarCollapsed
+                    ? "opacity-0 max-w-0 scale-90 pointer-events-none overflow-hidden ml-0"
+                    : "opacity-100 max-w-[150px] scale-100 ml-2.5"
+                }`}>
+                  <span className="text-xs font-bold text-slate-900 dark:text-slate-100 leading-tight truncate whitespace-nowrap">{fullName}</span>
+                  <span className="text-[9px] text-slate-400 dark:text-slate-500 font-bold leading-none mt-1 whitespace-nowrap">
                     {user?.role === "ADMIN" ? "Quản trị viên" : user?.role === "LECTURER" ? "Giảng viên" : "Học viên"}
                   </span>
                 </div>
               </div>
-              <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+              <ChevronDown className={`text-slate-400 transition-all duration-300 shrink-0 ${
+                isSidebarCollapsed
+                  ? "opacity-0 w-0 h-0 scale-90 pointer-events-none overflow-hidden"
+                  : "opacity-100 w-3.5 h-3.5 scale-100 ml-auto"
+              }`} />
             </button>
 
             {showProfileDropdown && (
-              <div className="absolute top-full left-0 right-0 mt-1.5 p-1 bg-white/85 dark:bg-[#0f111a]/90 backdrop-blur-lg border border-slate-200/40 dark:border-white/10 rounded-xl shadow-lg z-50 animate-in fade-in-50 slide-in-from-top-1 duration-150">
+              <div className={`absolute p-1 bg-white/85 dark:bg-[#0f111a]/90 backdrop-blur-lg border border-slate-200/40 dark:border-white/10 rounded-xl shadow-lg z-50 animate-in fade-in-50 slide-in-from-top-1 duration-150 ${
+                isSidebarCollapsed ? "bottom-12 left-12 w-48" : "top-full left-0 right-0 mt-1.5"
+              }`}>
+                {isSidebarCollapsed && (
+                  <div className="px-3 py-2 border-b border-slate-100 dark:border-white/5 select-none">
+                    <div className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">{fullName}</div>
+                    <div className="text-[9px] text-slate-400 dark:text-slate-500 font-bold uppercase mt-0.5">
+                      {user?.role === "ADMIN" ? "Quản trị viên" : user?.role === "LECTURER" ? "Giảng viên" : "Học viên"}
+                    </div>
+                  </div>
+                )}
                 <button
                   onClick={() => {
                     setActiveTab("Personal Profile");
                     setShowProfileDropdown(false);
                   }}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-slate-600 dark:text-slate-300 hover:text-purple-600 dark:hover:text-purple-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-lg transition-colors cursor-pointer"
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-slate-655 dark:text-slate-355 hover:text-[#10B981] hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-lg transition-colors cursor-pointer mt-0.5"
                 >
-                  <UserIcon className="w-4 h-4" />
+                  <UserIcon className="w-4 h-4 text-slate-400" />
                   Hồ sơ cá nhân
                 </button>
                 <div className="h-px bg-slate-100 dark:bg-slate-800 my-1" />
                 <button
                   onClick={handleLogout}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-lg cursor-pointer transition-colors"
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-red-650 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-lg cursor-pointer transition-colors"
                 >
                   <LogOut className="w-4 h-4" />
                   Đăng xuất
@@ -2790,60 +2903,67 @@ export default function Home() {
                       setChatSearchQuery("");
                     }
                   }}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-bold transition-colors duration-100 cursor-pointer select-none focus:outline-none antialiased ${isActive
+                  title={isSidebarCollapsed ? item.label : undefined}
+                  className={`flex items-center rounded-xl text-xs font-bold transition-all duration-300 ease-in-out cursor-pointer select-none focus:outline-none w-full h-11 px-3.5 justify-start ${isActive
                     ? "bg-purple-600/10 dark:bg-purple-500/15 text-purple-700 dark:text-purple-300 shadow-[inset_0_1px_1px_rgba(255,255,255,0.15)] border border-purple-500/20"
-                    : "text-slate-650 dark:text-slate-350 border border-transparent hover:bg-white/40 dark:hover:bg-[#0f111a]/30"
-                    }`}
-                  style={{ transform: "translate3d(0,0,0)", backfaceVisibility: "hidden" }}
+                    : "text-slate-500 dark:text-slate-450 border border-transparent hover:bg-white/40 dark:hover:bg-[#0f111a]/30 hover:text-slate-800 dark:hover:text-slate-200"
+                  }`}
                 >
-                  <Icon className={`w-4 h-4 shrink-0 ${isActive ? "text-purple-600 dark:text-purple-400" : "text-slate-400 dark:text-slate-500"}`} />
-                  <span className="flex-1 text-left truncate">{item.label}</span>
-                  {item.name === "Notifications" && unreadNotificationsCount > 0 && (
-                    <span className="h-5 min-w-5 px-1.5 flex items-center justify-center rounded-full bg-red-500 dark:bg-red-600 text-[9px] font-black text-white shrink-0 shadow-sm">
-                      {unreadNotificationsCount}
-                    </span>
-                  )}
+                  <Icon className={`w-4.5 h-4.5 shrink-0 transition-all duration-300 ease-in-out ${isActive ? "text-purple-600 dark:text-purple-400" : "text-slate-450 dark:text-slate-500"}`} />
+                  <span className={`inline-block transition-all duration-300 ease-in-out origin-left truncate ${
+                    isSidebarCollapsed ? "opacity-0 max-w-0 ml-0 scale-90 pointer-events-none overflow-hidden" : "opacity-100 max-w-[180px] ml-3 scale-100"
+                  }`}>{item.label}</span>
                 </button>
               );
             })}
           </nav>
-
-
-
-
         </div>
 
         {/* Sidebar Footer with Clean Storage Overview */}
         <div className="flex flex-col gap-4">
           {user?.role !== "ADMIN" && (
-            <div className="p-3.5 bg-white/30 dark:bg-[#0f111a]/35 border border-slate-200/40 dark:border-white/5 rounded-xl shadow-[inset_0_1px_1px_rgba(255,255,255,0.2)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
-              <div className="flex flex-col gap-2.5">
-                <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400">
-                  <span className="font-bold flex items-center gap-1.5"><Cloud className="w-3.5 h-3.5" /> Không gian học thuật</span>
-                  <span className="text-[10px] font-bold">{percentage.toFixed(0)}%</span>
-                </div>
+            isSidebarCollapsed ? (
+              <div
+                className="relative group flex items-center justify-center w-11 h-11 rounded-xl text-slate-550 hover:text-[#10B981] dark:text-slate-450 dark:hover:text-purple-400 transition-all duration-305 ease-in-out cursor-pointer mx-auto"
+                title={`Không gian học thuật: ${percentage.toFixed(0)}% (${usageInGB} GB / ${limitInGB} GB)`}
+              >
+                <Cloud className="w-5 h-5 shrink-0" />
+                <span className="absolute -bottom-1 -right-1 text-[8px] font-black bg-white dark:bg-slate-800 text-[#10B981] px-1 rounded-md border border-slate-200/40 dark:border-white/5 shadow-sm">
+                  {percentage.toFixed(0)}%
+                </span>
+              </div>
+            ) : (
+              <div className="p-3.5 bg-white/30 dark:bg-[#0f111a]/35 border border-slate-200/40 dark:border-white/5 rounded-xl shadow-[inset_0_1px_1px_rgba(255,255,255,0.2)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition-all duration-300 ease-in-out overflow-hidden">
+                <div className="flex flex-col gap-2.5">
+                  <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400">
+                    <span className="font-bold flex items-center gap-1.5"><Cloud className="w-3.5 h-3.5" /> Không gian học thuật</span>
+                    <span className="text-[10px] font-bold">{percentage.toFixed(0)}%</span>
+                  </div>
 
-                <div className="w-full h-1.5 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-purple-600 dark:bg-purple-500 rounded-full transition-all duration-500"
-                    style={{ width: `${percentage}%` }}
-                  />
-                </div>
+                  <div className="w-full h-1.5 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-purple-600 dark:bg-purple-500 rounded-full transition-all duration-500"
+                      style={{ width: `${percentage}%` }}
+                    />
+                  </div>
 
-                <div className="text-[10px] text-slate-400 dark:text-slate-500 font-bold text-right">
-                  {usageInGB} GB / {limitInGB} GB
+                  <div className="text-[10px] text-slate-400 dark:text-slate-500 font-bold text-right">
+                    {usageInGB} GB / {limitInGB} GB
+                  </div>
                 </div>
               </div>
-            </div>
+            )
           )}
 
           <button
             onClick={() => setActiveTab("Personal Profile")}
-            className="w-full flex items-center gap-3 px-3 py-2 text-xs font-bold text-slate-650 dark:text-slate-350 hover:bg-white/40 dark:hover:bg-[#0f111a]/30 rounded-lg cursor-pointer border border-transparent hover:border-slate-200/20 dark:hover:border-white/5 transition-colors duration-100 focus:outline-none antialiased"
-            style={{ transform: "translate3d(0,0,0)", backfaceVisibility: "hidden" }}
+            title={isSidebarCollapsed ? "Cài đặt & Bảo mật" : undefined}
+            className={`flex items-center rounded-xl text-xs font-bold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-white/40 dark:hover:bg-[#0f111a]/30 border border-transparent hover:border-slate-200/20 dark:hover:border-white/5 transition-all duration-300 ease-in-out focus:outline-none w-full h-11 px-3.5 justify-start`}
           >
-            <Settings className="w-4 h-4 text-slate-400" />
-            Cài đặt & Bảo mật
+            <Settings className="w-4.5 h-4.5 text-slate-400 shrink-0" />
+            <span className={`inline-block transition-all duration-300 ease-in-out origin-left truncate ${
+              isSidebarCollapsed ? "opacity-0 max-w-0 ml-0 scale-90 pointer-events-none overflow-hidden" : "opacity-100 max-w-[180px] ml-3 scale-100"
+            }`}>Cài đặt & Bảo mật</span>
           </button>
         </div>
       </aside>

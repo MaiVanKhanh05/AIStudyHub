@@ -202,13 +202,13 @@ export const getCommunityDocuments = async (userId = null) => {
             : `WHERE d.is_community = TRUE OR d.visibility = 'PUBLIC'`;
 
         const { rows } = await pool.query(
-            `SELECT d.*, (u.last_name || ' ' || u.first_name) as author, s.subject_name,
+            `SELECT d.*, (u.last_name || ' ' || u.first_name) as author, u.role as uploader_role, s.subject_name,
                     COALESCE(
                         (SELECT json_agg(json_build_object('tag_id', t.tag_id, 'tag_name', t.tag_name))
                          FROM tags t
                          JOIN document_tags dt ON t.tag_id = dt.tag_id
                          WHERE dt.document_id = d.document_id),
-                        '[]'::json
+                         '[]'::json
                     ) as tags
                     ${isBookmarkedSelect}
              FROM document d
