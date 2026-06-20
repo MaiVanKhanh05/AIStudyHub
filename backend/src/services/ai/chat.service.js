@@ -3,7 +3,7 @@ import pool from "../../../DB/db.js";
 
 
 let openai = null;
-const initOpenAI = () => {
+export const initOpenAI = () => {
     if (!openai && process.env.OPENAI_API_KEY) {
         openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     }
@@ -16,7 +16,7 @@ const initOpenAI = () => {
  * @param {number} topK 
  * @returns {Array<Object>} List of relevant chunks
  */
-const searchVectorDB = async (queryEmbedding, topK = 5) => {
+export const searchVectorDB = async (queryEmbedding, topK = 5) => {
     try {
         const embeddingString = `[${queryEmbedding.join(',')}]`;
         
@@ -25,6 +25,7 @@ const searchVectorDB = async (queryEmbedding, topK = 5) => {
         const query = `
             SELECT document_id, chunk_text, 1 - (embedding <=> $1::vector) AS similarity
             FROM document_chunks
+            WHERE 1 - (embedding <=> $1::vector) > 0.35
             ORDER BY embedding <=> $1::vector
             LIMIT $2;
         `;

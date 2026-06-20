@@ -59,7 +59,9 @@ import {
   ThumbsDown,
   Mic,
   RotateCcw,
-  Camera
+  Camera,
+  Flame,
+  Loader
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -194,6 +196,135 @@ function extractSources(text) {
   }
 
   return { cleanText: mainText, sources };
+}
+
+// Parse document preview links from AI response text
+// Returns array of segments: { type: 'text'|'doclink', content: string, docId: string }
+function extractDocumentLinks(text) {
+  if (!text) return [{ type: 'text', content: '' }];
+  // Match http://localhost:3000/preview/{id} or /preview/{id}
+  const LINK_REGEX = /https?:\/\/localhost:\d+\/preview\/([a-zA-Z0-9\-_]+)/g;
+  const segments = [];
+  let lastIndex = 0;
+  let match;
+  while ((match = LINK_REGEX.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      segments.push({ type: 'text', content: text.slice(lastIndex, match.index) });
+    }
+    segments.push({ type: 'doclink', content: match[0], docId: match[1] });
+    lastIndex = match.index + match[0].length;
+  }
+  if (lastIndex < text.length) {
+    segments.push({ type: 'text', content: text.slice(lastIndex) });
+  }
+  return segments.length > 0 ? segments : [{ type: 'text', content: text }];
+}
+
+// Inline Document Card shown inside AI chat responses
+function InlinedDocumentCard({ docId, onPreview }) {
+  const [doc, setDoc] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    const fetchDoc = async () => {
+      try {
+        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+        const res = await fetch(`http://localhost:5000/api/documents/${docId}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!res.ok) throw new Error('Not found');
+        const data = await res.json();
+        // Handle both { document: doc } and direct doc object
+        const docData = data?.document || data;
+        if (!cancelled) setDoc(docData);
+      } catch {
+        if (!cancelled) setFailed(true);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    fetchDoc();
+    return () => { cancelled = true; };
+  }, [docId]);
+
+  if (loading) {
+    return (
+      <div className="inline-flex items-center gap-2 px-3 py-2 bg-slate-100/60 dark:bg-slate-800/40 rounded-xl border border-slate-200/60 dark:border-slate-700/40 animate-pulse my-1">
+        <div className="w-7 h-7 rounded-lg bg-slate-200 dark:bg-slate-700 shrink-0" />
+        <div className="flex flex-col gap-1">
+          <div className="h-2.5 w-28 bg-slate-200 dark:bg-slate-700 rounded" />
+          <div className="h-2 w-16 bg-slate-200 dark:bg-slate-700 rounded" />
+        </div>
+      </div>
+    );
+  }
+
+  if (failed || !doc) {
+    // Fallback: just show a plain link
+    return (
+      <a
+        href={`http://localhost:3000/preview/${docId}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-purple-600 dark:text-purple-400 underline text-xs font-semibold"
+      >
+        Xem tài liệu
+      </a>
+    );
+  }
+
+  const fileType = (doc.file_type || '').toLowerCase();
+  const subject = doc.subject_name || doc.subject_code || doc.subject || 'Khác';
+  const author = doc.author || doc.owner_name || 'Ẩn danh';
+  const isLecturer = (doc.user_role || '').toUpperCase() === 'LECTURER' || (doc.user_role || '').toUpperCase() === 'LECTURE';
+
+  // File type badge colors
+  const typeColors = {
+    pdf: 'bg-red-100 text-red-600 dark:bg-red-950/40 dark:text-red-400',
+    docx: 'bg-blue-100 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400',
+    doc: 'bg-blue-100 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400',
+    xlsx: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400',
+    xls: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400',
+    pptx: 'bg-orange-100 text-orange-600 dark:bg-orange-950/40 dark:text-orange-400',
+    ppt: 'bg-orange-100 text-orange-600 dark:bg-orange-950/40 dark:text-orange-400',
+  };
+  const typeBadge = typeColors[fileType] || 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400';
+
+  return (
+    <div
+      className="my-2 flex items-center gap-3 px-3.5 py-3 bg-white/70 dark:bg-[#0f111a]/70 border border-slate-200/70 dark:border-slate-700/50 rounded-2xl shadow-sm hover:shadow-md hover:border-purple-400/30 dark:hover:border-purple-500/30 transition-all duration-200 group max-w-sm w-full cursor-pointer"
+      onClick={() => onPreview && onPreview(doc)}
+      title="Nhấn để xem tài liệu"
+    >
+      {/* File type badge */}
+      <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-[9px] uppercase tracking-wider shrink-0 select-none ${typeBadge} border border-current/10`}>
+        {fileType || 'FILE'}
+      </div>
+
+      {/* Info */}
+      <div className="flex-1 min-w-0 text-left">
+        <p className="text-[11px] font-bold text-slate-850 dark:text-slate-100 truncate leading-snug group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors" title={doc.title}>
+          {doc.title}
+        </p>
+        <p className="text-[9.5px] font-semibold text-slate-400 dark:text-slate-500 mt-0.5 truncate">
+          {subject}
+        </p>
+        <div className="flex items-center gap-1.5 mt-1">
+          <span className="text-[9.5px] font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1 truncate">
+            <span className="text-slate-400">👤</span>
+            <span className="truncate">{author}</span>
+          </span>
+          {isLecturer && (
+            <span className="shrink-0 text-[8px] font-black px-1.5 py-0.5 rounded-full bg-indigo-100 text-indigo-600 dark:bg-indigo-950/50 dark:text-indigo-400 uppercase tracking-wide border border-indigo-200/40 dark:border-indigo-500/20">
+              Giảng viên
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 const getSourceIcon = (sourceName) => {
@@ -367,6 +498,10 @@ export default function Home() {
   const [notificationsLoading, setNotificationsLoading] = useState(false);
   const unreadNotificationsCount = useMemo(() => notificationsList.filter(n => !n.is_read).length, [notificationsList]);
 
+  // Lecturer Hot Docs
+  const [pendingHotDocs, setPendingHotDocs] = useState([]);
+  const [pendingHotDocsLoading, setPendingHotDocsLoading] = useState(false);
+
   // States for dynamic documents and storage usage
   const [documents, setDocuments] = useState([]);
   const [bookmarkedDocs, setBookmarkedDocs] = useState([]);
@@ -375,6 +510,7 @@ export default function Home() {
   const [storageUsage, setStorageUsage] = useState(0);
   const [loading, setLoading] = useState(true);
   const [currentDate, setCurrentDate] = useState("");
+  const [processingDocId, setProcessingDocId] = useState(null);
 
   // Community Tab States & Dynamic Data Loader
   const [communitySearch, setCommunitySearch] = useState("");
@@ -523,6 +659,7 @@ export default function Home() {
   // Document Management Tab States
   const [uploadTitle, setUploadTitle] = useState("");
   const [uploadSubject, setUploadSubject] = useState("OTHER");
+  const [uploadVisibility, setUploadVisibility] = useState("PRIVATE");
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -1435,6 +1572,41 @@ export default function Home() {
     }
   }, [navigate, user?.user_id, activeTab]);
 
+  const fetchPendingHotDocs = async () => {
+    if (user?.role !== "LECTURER") return;
+    try {
+      setPendingHotDocsLoading(true);
+      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+      const res = await axios.get("http://localhost:5000/api/lecturer/hot-docs/pending", {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setPendingHotDocs(res.data);
+    } catch (error) {
+      console.error("Error fetching pending hot docs:", error);
+    } finally {
+      setPendingHotDocsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "Hot Docs Review") {
+      fetchPendingHotDocs();
+    }
+  }, [activeTab]);
+
+  const handleReviewHotDoc = async (reviewId, status) => {
+    try {
+      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+      await axios.patch(`http://localhost:5000/api/lecturer/hot-docs/${reviewId}/review`, { status }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      toast.success(status === "APPROVED" ? "Đã duyệt tài liệu Hot" : "Đã từ chối tài liệu Hot");
+      fetchPendingHotDocs();
+    } catch (error) {
+      toast.error("Có lỗi xảy ra khi xử lý yêu cầu.");
+    }
+  };
+
   const fetchNotifications = async (isFirstLoad = false) => {
     try {
       if (isFirstLoad) {
@@ -1819,7 +1991,7 @@ export default function Home() {
         file_url: uploadResult.fileUrl,
         file_size: fileToUpload.size,
         file_type: fileToUpload.name.split(".").pop().toUpperCase(),
-        visibility: "PRIVATE",
+        visibility: user.role === "LECTURER" ? uploadVisibility : "PRIVATE",
         tags: documentTags // Pass selected tags array!
       }, {
         headers: {
@@ -2209,59 +2381,147 @@ export default function Home() {
     ];
   };
 
-  // Helper to render markdown and code blocks in AI responses
-  const renderMessageText = (text) => {
+  // Helper to render a single text segment with markdown (bold, bullets, headings, inline links)
+  const renderTextSegment = (text, key) => {
     if (!text) return null;
+    const lines = text.split("\n");
+    return (
+      <div key={key} className="w-full text-left font-medium select-text selection:bg-purple-500/20 whitespace-pre-wrap leading-relaxed break-words">
+        {lines.map((line, lineIdx) => {
+          const trimmed = line.trim();
+          let isHeader = false;
+          let headerLevel = 0;
+          let cleanLine = line;
 
-    const parts = text.split(/(```[\s\S]*?```)/g);
+          const headerMatch = trimmed.match(/^(#{1,6})\s+(.*)$/);
+          const isBullet = trimmed.startsWith("- ") || trimmed.startsWith("* ");
 
-    return parts.map((part, index) => {
-      if (part.startsWith("```") && part.endsWith("```")) {
-        const match = part.match(/```(\w*)\n([\s\S]*?)```/);
-        const language = match ? match[1] : "";
-        const code = match ? match[2] : part.slice(3, -3);
-        return (
-          <pre key={index} className="bg-slate-950 text-slate-100 font-mono text-[11px] p-3 rounded-lg overflow-x-auto my-2 border border-slate-800 text-left w-full select-text selection:bg-purple-500/30">
-            {language && <div className="text-[9px] uppercase text-purple-400 font-extrabold tracking-wider border-b border-white/5 pb-1 mb-1.5">{language}</div>}
-            <code>{code.trim()}</code>
-          </pre>
-        );
-      }
+          if (headerMatch) {
+            isHeader = true;
+            headerLevel = headerMatch[1].length;
+            cleanLine = headerMatch[2];
+          } else if (isBullet) {
+            cleanLine = trimmed.substring(2);
+          }
 
-      const lines = part.split("\n");
-      return (
-        <div key={index} className="w-full text-left font-medium select-text selection:bg-purple-500/20 whitespace-pre-wrap leading-relaxed break-words">
-          {lines.map((line, lineIdx) => {
-            const isBullet = line.trim().startsWith("- ") || line.trim().startsWith("* ");
-            const cleanLine = isBullet ? line.trim().substring(2) : line;
-
-            const segments = cleanLine.split(/(\*\*.*?\*\*)/g);
-            const formattedLine = segments.map((seg, segIdx) => {
-              if (seg.startsWith("**") && seg.endsWith("**")) {
-                return <strong key={segIdx} className="font-extrabold text-black dark:text-white">{seg.slice(2, -2)}</strong>;
-              }
-              return seg;
-            });
-
-            if (isBullet) {
-              return (
-                <span key={lineIdx} className="block pl-5 select-text">
-                  • {formattedLine}
-                  {lineIdx < lines.length - 1 ? "\n" : ""}
-                </span>
-              );
+          const segments = cleanLine.split(/(\*\*.*?\*\*)/g);
+          const formattedLine = segments.map((seg, segIdx) => {
+            if (seg.startsWith("**") && seg.endsWith("**")) {
+              return <strong key={segIdx} className="font-extrabold text-black dark:text-white">{seg.slice(2, -2)}</strong>;
             }
+            return seg;
+          });
 
+          if (isHeader) {
+            const headerClasses = 
+              headerLevel === 1 ? "block text-sm font-black text-slate-900 dark:text-white mt-3 mb-1" :
+              headerLevel === 2 ? "block text-[13px] font-extrabold text-slate-900 dark:text-white mt-2.5 mb-1" :
+              headerLevel === 3 ? "block text-xs font-extrabold text-slate-850 dark:text-slate-100 mt-2 mb-1" :
+              "block text-xs font-bold text-slate-800 dark:text-slate-200 mt-1.5 mb-0.5";
             return (
-              <span key={lineIdx} className="select-text">
+              <span key={lineIdx} className={`${headerClasses} select-text`}>
                 {formattedLine}
                 {lineIdx < lines.length - 1 ? "\n" : ""}
               </span>
             );
-          })}
-        </div>
-      );
+          }
+
+          if (isBullet) {
+            return (
+              <span key={lineIdx} className="block pl-5 select-text">
+                • {formattedLine}
+                {lineIdx < lines.length - 1 ? "\n" : ""}
+              </span>
+            );
+          }
+
+          return (
+            <span key={lineIdx} className="select-text">
+              {formattedLine}
+              {lineIdx < lines.length - 1 ? "\n" : ""}
+            </span>
+          );
+        })}
+      </div>
+    );
+  };
+
+  // Helper to render markdown and code blocks in AI responses (with inline document cards)
+  const renderMessageText = (text) => {
+    if (!text) return null;
+
+    // Step 1: Split by code blocks first
+    const codeParts = text.split(/(```[\s\S]*?```)/g);
+    const renderedParts = [];
+
+    codeParts.forEach((part, partIndex) => {
+      if (part.startsWith("```") && part.endsWith("```")) {
+        const match = part.match(/```(\w*)\n([\s\S]*?)```/);
+        const language = match ? match[1] : "";
+        const code = match ? match[2] : part.slice(3, -3);
+        renderedParts.push(
+          <pre key={`code-${partIndex}`} className="bg-slate-950 text-slate-100 font-mono text-[11px] p-3 rounded-lg overflow-x-auto my-2 border border-slate-800 text-left w-full select-text selection:bg-purple-500/30">
+            {language && <div className="text-[9px] uppercase text-purple-400 font-extrabold tracking-wider border-b border-white/5 pb-1 mb-1.5">{language}</div>}
+            <code>{code.trim()}</code>
+          </pre>
+        );
+        return;
+      }
+
+      // Step 2: For non-code segments, extract document links
+      const docSegments = extractDocumentLinks(part);
+      const hasDocLinks = docSegments.some(s => s.type === 'doclink');
+
+      if (!hasDocLinks) {
+        // No doc links — render as normal text
+        renderedParts.push(renderTextSegment(part, `text-${partIndex}`));
+        return;
+      }
+
+      // Has doc links — render text + doc cards inline
+      // Collect all docIds for a grouped card section at end if multiple
+      const textBeforeCards = [];
+      const docIds = [];
+
+      docSegments.forEach((seg, segIdx) => {
+        if (seg.type === 'text') {
+          textBeforeCards.push(renderTextSegment(seg.content, `seg-text-${partIndex}-${segIdx}`));
+        } else if (seg.type === 'doclink') {
+          docIds.push(seg.docId);
+        }
+      });
+
+      // Render the text parts first
+      renderedParts.push(...textBeforeCards);
+
+      // Then render a grouped document cards section
+      if (docIds.length > 0) {
+        renderedParts.push(
+          <div key={`doc-cards-${partIndex}`} className="flex flex-col gap-2 my-3">
+            <div className="flex items-center gap-1.5 text-[9px] font-black text-purple-600 dark:text-purple-400 uppercase tracking-widest select-none mb-1">
+              <BookOpen className="w-3 h-3" />
+              <span>Tài liệu được gợi ý</span>
+            </div>
+            {docIds.map((id, i) => (
+              <InlinedDocumentCard
+                key={`doc-${partIndex}-${i}-${id}`}
+                docId={id}
+                onPreview={(doc) => {
+                  const docWithContent = {
+                    ...doc,
+                    simulated_content: doc.description || '',
+                    hideChat: true
+                  };
+                  setPreviewDoc(docWithContent);
+                }}
+              />
+            ))}
+          </div>
+        );
+      }
     });
+
+    return renderedParts;
   };
 
   const handleSendResetEmail = async () => {
@@ -2351,6 +2611,7 @@ export default function Home() {
     { name: "AI Assistant", icon: Bot, label: "Trợ lý Nghiên cứu AI" },
     { name: "Community", icon: Users, label: "Cộng đồng" },
     { name: "Notifications", icon: Bell, label: "Thông báo học thuật" },
+    ...(user?.role === "LECTURER" ? [{ name: "Hot Docs Review", icon: Flame, label: "Duyệt tài liệu Hot" }] : []),
     { name: "Personal Profile", icon: UserIcon, label: "Hồ sơ & Bảo mật" }
   ];
 
@@ -2431,6 +2692,14 @@ export default function Home() {
 
   return (
     <div className="flex w-full h-screen overflow-hidden bg-slate-50 dark:bg-[#08090d] text-slate-800 dark:text-slate-100 font-sans relative">
+      {/* Processing Overlay */}
+      {processingDocId && (
+        <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-white/60 dark:bg-black/60 backdrop-blur-sm transition-all duration-300">
+          <Loader className="w-10 h-10 text-purple-600 dark:text-purple-400 animate-spin mb-4" />
+          <p className="text-sm font-medium text-slate-700 dark:text-slate-200">Đang xử lý...</p>
+        </div>
+      )}
+
       {/* Gentle Liquid Glass Floating Background Circles */}
       <div className="absolute top-[-15%] left-[-10%] w-[50%] h-[55%] rounded-full bg-purple-500/8 dark:bg-purple-550/5 blur-[140px] pointer-events-none z-0" />
       <div className="absolute top-[35%] right-[5%] w-[40%] h-[40%] rounded-full bg-purple-500/5 dark:bg-purple-500/4 blur-[130px] pointer-events-none z-0" />
@@ -2950,6 +3219,51 @@ export default function Home() {
                         )}
                       </div>
                     </div>
+
+                    {/* Visibility Selection for Lecturer */}
+                    {user?.role === "LECTURER" && (
+                      <div className="flex flex-col gap-2.5 border-t border-slate-100 dark:border-slate-800/50 pt-4 relative">
+                        <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-1">
+                          <Globe className="w-3.5 h-3.5 text-blue-500" />
+                          Phạm vi chia sẻ (Giảng viên)
+                        </label>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div
+                            onClick={() => setUploadVisibility("PRIVATE")}
+                            className={`flex items-center p-2.5 border rounded-xl cursor-pointer transition-all ${
+                              uploadVisibility === "PRIVATE"
+                                ? "border-purple-500 bg-purple-50 dark:bg-purple-900/30"
+                                : "border-slate-200 dark:border-slate-700 hover:border-purple-300"
+                            }`}
+                          >
+                            <div className={`p-1.5 rounded-lg mr-2.5 ${uploadVisibility === "PRIVATE" ? "bg-purple-200 text-purple-700" : "bg-slate-100 text-slate-500"}`}>
+                              <Lock size={16} />
+                            </div>
+                            <div>
+                              <p className="font-bold text-xs text-slate-900 dark:text-white">Cá nhân</p>
+                              <p className="text-[9px] text-slate-500">Chỉ mình tôi</p>
+                            </div>
+                          </div>
+
+                          <div
+                            onClick={() => setUploadVisibility("PUBLIC")}
+                            className={`flex items-center p-2.5 border rounded-xl cursor-pointer transition-all ${
+                              uploadVisibility === "PUBLIC"
+                                ? "border-blue-500 bg-blue-50 dark:bg-blue-900/30"
+                                : "border-slate-200 dark:border-slate-700 hover:border-blue-300"
+                            }`}
+                          >
+                            <div className={`p-1.5 rounded-lg mr-2.5 ${uploadVisibility === "PUBLIC" ? "bg-blue-200 text-blue-700" : "bg-slate-100 text-slate-500"}`}>
+                              <Globe size={16} />
+                            </div>
+                            <div>
+                              <p className="font-bold text-xs text-slate-900 dark:text-white">Cộng đồng</p>
+                              <p className="text-[9px] text-slate-500">Tất cả sinh viên</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
 
                     {/* Tag Editor Component */}
                     <div className="flex flex-col gap-2.5 border-t border-slate-100 dark:border-slate-800/50 pt-4 relative">
@@ -3661,15 +3975,18 @@ export default function Home() {
                                     onClick={async (e) => {
                                       e.stopPropagation();
                                       setOpenMenuId(null);
+                                      setProcessingDocId(doc.document_id || doc.id);
                                       try {
                                         const token = localStorage.getItem("token") || sessionStorage.getItem("token");
                                         await axios.put(`http://localhost:5000/api/documents/${doc.document_id || doc.id}/unshare`, {}, {
                                           headers: { Authorization: `Bearer ${token}` }
                                         });
                                         toast.success("Đã hủy đăng tài liệu khỏi cộng đồng!");
-                                        fetchDashboard();
+                                        setDocuments(prev => prev.map(d => (d.document_id === doc.document_id || d.id === doc.id) ? { ...d, is_community: false } : d));
                                       } catch (err) {
                                         toast.error("Không thể hủy đăng tài liệu khỏi cộng đồng.");
+                                      } finally {
+                                        setProcessingDocId(null);
                                       }
                                     }}
                                     className="w-full flex items-center gap-2 text-left px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-md transition-colors"
@@ -3682,15 +3999,18 @@ export default function Home() {
                                     onClick={async (e) => {
                                       e.stopPropagation();
                                       setOpenMenuId(null);
+                                      setProcessingDocId(doc.document_id || doc.id);
                                       try {
                                         const token = localStorage.getItem("token") || sessionStorage.getItem("token");
                                         await axios.put(`http://localhost:5000/api/documents/${doc.document_id || doc.id}/share`, {}, {
                                           headers: { Authorization: `Bearer ${token}` }
                                         });
                                         toast.success("Đã đăng tài liệu lên cộng đồng thành công!");
-                                        fetchDashboard();
+                                        setDocuments(prev => prev.map(d => (d.document_id === doc.document_id || d.id === doc.id) ? { ...d, is_community: true } : d));
                                       } catch (err) {
                                         toast.error("Không thể đăng tài liệu lên cộng đồng.");
+                                      } finally {
+                                        setProcessingDocId(null);
                                       }
                                     }}
                                     className="w-full flex items-center gap-2 text-left px-3 py-2 text-xs font-medium text-purple-650 hover:bg-purple-50 dark:hover:bg-purple-950/20 rounded-md transition-colors"
@@ -4235,7 +4555,7 @@ export default function Home() {
                     {isAiTyping && (
                       <div className="flex items-center gap-2.5 self-start w-full animate-pulse">
                         <Bot className="w-4 h-4 text-purple-600 animate-spin shrink-0" />
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">AI Đang lập luận...</span>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">...</span>
                       </div>
                     )}
                   </div>
@@ -4639,6 +4959,73 @@ export default function Home() {
             </div>
           );
         })()}
+
+        {activeTab === "Hot Docs Review" && (
+          <div className="w-full max-w-[1200px] mx-auto pb-24 space-y-6">
+            <div className="flex items-center justify-between mb-8">
+              <div>
+                <h1 className="text-2xl font-bold text-slate-800 dark:text-white flex items-center gap-3">
+                  <Flame className="w-7 h-7 text-red-500" />
+                  Duyệt Tài Liệu Hot
+                </h1>
+                <p className="text-slate-500 dark:text-slate-400 mt-1">
+                  Đánh giá và ưu tiên các tài liệu chất lượng cao cho cộng đồng.
+                </p>
+              </div>
+            </div>
+
+            {pendingHotDocsLoading ? (
+              <div className="text-center py-20">
+                <Loader className="w-8 h-8 animate-spin mx-auto text-purple-500" />
+              </div>
+            ) : pendingHotDocs.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-24 text-center">
+                <div className="w-20 h-20 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-4">
+                  <CheckCircle className="w-10 h-10 text-emerald-500" />
+                </div>
+                <h3 className="text-lg font-bold text-slate-800 dark:text-white">Không có tài liệu nào chờ duyệt</h3>
+                <p className="text-slate-500 max-w-md mx-auto mt-2">Tuyệt vời! Bạn đã hoàn thành tất cả các yêu cầu đánh giá tài liệu.</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {pendingHotDocs.map(doc => (
+                  <div key={doc.review_id} className="bg-white dark:bg-[#1a1d27] p-5 rounded-2xl border border-slate-200 dark:border-white/10 flex flex-col md:flex-row gap-5 items-start">
+                    <div className="flex-1">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="px-2 py-0.5 rounded-full bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-400 text-xs font-bold flex items-center gap-1">
+                              <Flame className="w-3 h-3" /> Score: {doc.hot_score}
+                            </span>
+                            <span className="text-xs font-medium text-slate-500">
+                              Yêu cầu bởi: <span className="font-bold text-slate-700 dark:text-slate-300">{doc.sent_by_name}</span>
+                            </span>
+                          </div>
+                          <h3 className="text-lg font-bold text-slate-900 dark:text-white mt-2">{doc.title}</h3>
+                          <p className="text-sm text-slate-600 dark:text-slate-400 mt-1 line-clamp-2">{doc.description || "Không có mô tả"}</p>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-4 mt-4 text-xs font-medium text-slate-500 dark:text-slate-400">
+                        <div className="flex items-center gap-1.5"><FileText className="w-4 h-4" /> {doc.file_type || "Tài liệu"}</div>
+                        <div className="flex items-center gap-1.5"><Heart className="w-4 h-4" /> Lượt xem: {doc.views}</div>
+                        <div className="flex items-center gap-1.5"><Download className="w-4 h-4" /> Lượt tải: {doc.downloads}</div>
+                      </div>
+                    </div>
+                    
+                    <div className="w-full md:w-auto flex flex-row md:flex-col gap-2 pt-2 md:pt-0 border-t md:border-t-0 border-slate-100 dark:border-slate-800">
+                      <Button onClick={() => handleReviewHotDoc(doc.review_id, "APPROVED")} className="flex-1 md:flex-none bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl shadow-sm">
+                        <CheckCircle className="w-4 h-4 mr-2" /> Phê duyệt
+                      </Button>
+                      <Button onClick={() => handleReviewHotDoc(doc.review_id, "REJECTED")} variant="outline" className="flex-1 md:flex-none border-red-200 text-red-600 hover:bg-red-50 dark:border-red-500/30 dark:hover:bg-red-500/10 rounded-xl">
+                        <X className="w-4 h-4 mr-2" /> Từ chối
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* ── SCREEN 5: NOTIFICATIONS TIMELINE ── */}
         {activeTab === "Notifications" && (() => {

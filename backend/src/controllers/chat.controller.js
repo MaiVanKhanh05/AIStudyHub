@@ -10,6 +10,7 @@ import {
   parseZip,
   parseImageViaLLM
 } from "../services/ai/documentParser.service.js";
+import { searchVectorDB, initOpenAI } from "../services/ai/chat.service.js";
 import pool from "../../DB/db.js";
 
 // Đường dẫn API: POST /api/chat/upload-temp
@@ -185,8 +186,67 @@ async function callOpenAI(messages, systemInstruction) {
 }
 
 // Đường dẫn API: POST /api/chat
+
+// Hàm tìm kiếm tài liệu liên quan dựa theo từ khóa trong câu hỏi của người dùng
+async function searchRelevantDocs(message, allDocs) {
+  if (!allDocs || allDocs.length === 0) return [];
+
+  const msg = message.toLowerCase();
+
+  // Tính điểm liên quan cho từng tài liệu
+  const scored = allDocs.map(d => {
+    let score = 0;
+    const title = (d.title || '').toLowerCase();
+    const subject = (d.subject_name || d.subject_code || '').toLowerCase();
+    const desc = (d.description || '').toLowerCase();
+
+    // Khớp chính xác tên môn học hoặc mã môn → điểm cao
+    if (subject && msg.includes(subject)) score += 10;
+    if (d.subject_code && msg.includes(d.subject_code.toLowerCase())) score += 10;
+
+    // Ưu tiên tài liệu AI Hot Docs
+    if (d.is_ai_featured) score += 15;
+
+    // Khớp từng từ trong title
+    const titleWords = title.split(/[\s\-_.,]+/).filter(w => w.length > 2);
+    titleWords.forEach(word => {
+      if (msg.includes(word)) score += 3;
+    });
+
+    // Khớp trong description
+    const descWords = desc.split(/[\s\-_.,]+/).filter(w => w.length > 3);
+    descWords.forEach(word => {
+      if (msg.includes(word)) score += 1;
+    });
+
+    // Từ khóa chuyên ngành CNTT chung → gợi ý tài liệu liên quan lĩnh vực
+    const itKeywords = ['tài liệu', 'document', 'học', 'môn', 'bài', 'slide', 'lab', 'assignment',
+      'software', 'web', 'programming', 'lập trình', 'kỹ thuật', 'phần mềm',
+      'testing', 'kiểm thử', 'database', 'cơ sở dữ liệu', 'java', 'python',
+      'javascript', 'algorithm', 'thuật toán', 'network', 'mạng'];
+    itKeywords.forEach(kw => {
+      if (msg.includes(kw) && (title.includes(kw) || subject.includes(kw))) score += 2;
+    });
+
+    return { doc: d, score };
+  });
+
+  // Lọc và sắp xếp theo điểm
+  const relevant = scored
+    .filter(s => s.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 5) // tối đa 5 tài liệu gợi ý
+    .map(s => s.doc);
+
+  // Bỏ đi fallback trả về top 3 tài liệu ngẫu nhiên vì nó gây khó hiểu cho người dùng
+  // (ví dụ trả về bài văn "Đồng Chí" khi đang nói về kiểm thử phần mềm)
+
+  return relevant;
+}
+
 export async function chatQuery(req, res) {
-  const { message, history = [], aiMode = "General AI", documentContext = "" } = req.body;
+  const { message, history = [], aiMode = "General AI" } = req.body;
+  let documentContext = req.body.documentContext || "";
 
   if (!message) {
     return res.status(400).json({ error: "Câu hỏi không được để trống." });
@@ -215,22 +275,74 @@ export async function chatQuery(req, res) {
 
     systemInstruction = modeInstructions[aiMode] || modeInstructions["General AI"];
 
-    // 2. Kiểm tra xem chat có bị giới hạn trong ngữ cảnh tài liệu hay không
+    // 2. Phục hồi documentContext từ lịch sử nếu người dùng không upload file mới nhưng đã upload file trước đó trong cùng phiên chat
+    if (!documentContext && history && history.length > 0) {
+      const historyFiles = [];
+      for (const h of history) {
+        if (h.sender === "user" && h.files && h.files.length > 0) {
+          h.files.forEach(f => {
+            historyFiles.push(`--- TẬP TIN (Từ lịch sử): ${f.name} ---\n${f.content || ""}`);
+          });
+        }
+      }
+      if (historyFiles.length > 0) {
+        documentContext = historyFiles.join("\n\n");
+      }
+    }
+
+    // 3. Kiểm tra xem chat có bị giới hạn trong ngữ cảnh tài liệu hay không
+    let suggestedDocs = []; // Danh sách tài liệu gợi ý trả về cho frontend
+
     if (documentContext) {
       systemInstruction += "\n\nCRITICAL: Bạn phải TRẢ LỜI CÂU HỎI CHỈ DỰA TRÊN ngữ cảnh tài liệu đã tải lên dưới đây. Tuyệt đối không dùng thông tin hoặc kiến thức bên ngoài tài liệu. Nếu câu hỏi nằm ngoài tài liệu, hãy trả lời lịch sự rằng thông tin này không có trong tài liệu và khuyên người dùng tập trung vào chủ đề của file.";
-      
       additionalContext = `[NGỮ CẢNH TÀI LIỆU ĐÃ UPLOAD]\n${documentContext}\n\n[HẾT NGỮ CẢNH TÀI LIỆU - Vui lòng trả lời câu hỏi dựa trên nội dung này]`;
     } else {
-      // Luôn cung cấp toàn bộ danh mục tài liệu của cộng đồng và giảng viên để AI có thể gợi ý
-      const communityDocs = await getCommunityDocumentCatalog();
-      if (communityDocs && communityDocs.length > 0) {
-        const docList = communityDocs.map((d, index) => {
-          return `[${index + 1}] Tiêu đề: ${d.title} | Loại file: ${d.file_type || "N/A"} | Môn học: ${d.subject_name || "Khác"} | Tác giả: ${d.author} | Link: http://localhost:3000/preview/${d.document_id}`;
-        }).join("\n");
-        additionalContext = `[DANH MỤC TÀI LIỆU NỘI BỘ HỆ THỐNG AISTUDYHUB]\nDưới đây là TOÀN BỘ tài liệu cộng đồng và tài liệu của giảng viên hiện có trên hệ thống. Khi học viên hỏi về tài liệu, môn học, hoặc chủ đề nào, hãy tìm trong danh sách này và đưa ra kết quả phù hợp kèm link.\n${docList}\n\n`;
+      // 1. Tạo Context tìm kiếm từ lịch sử chat để RAG hiểu được ý định "tài liệu trên nói về gì"
+      let searchContext = message;
+      if (history && history.length > 0) {
+        const lastFewUserMsgs = history
+          .filter(h => h.sender === "user" || h.sender === "ai")
+          .slice(-3) // lấy 3 tin nhắn gần nhất để lấy bối cảnh
+          .map(h => h.text)
+          .join("\n");
+        searchContext = lastFewUserMsgs + "\nCâu hỏi hiện tại: " + message;
       }
-      
-      systemInstruction += "\n\nQUAN TRỌNG: Bạn là trợ lý AI của hệ thống AIStudyHub. Bạn có quyền truy cập vào danh mục tài liệu nội bộ được cung cấp bên dưới. Khi học viên yêu cầu tìm tài liệu, hỏi về môn học, hoặc cần tài liệu tham khảo, hãy TÌM TRONG DANH SÁCH TÀI LIỆU NỘI BỘ và liệt kê các tài liệu phù hợp kèm theo link để họ click vào xem. Nếu không tìm thấy tài liệu phù hợp trong danh sách, hãy nói rằng hệ thống hiện chưa có tài liệu về chủ đề này và gợi ý truy cập trang Cộng đồng.";
+
+      // Lấy catalog tài liệu cộng đồng để map ID sang Docs
+      const allCommunityDocs = await getCommunityDocumentCatalog();
+      console.log(`[AI CHAT] Catalog: ${allCommunityDocs.length} docs | Query: "${message.slice(0, 80)}"`);
+
+      // 2. Vector Search (RAG)
+      const aiClient = initOpenAI();
+      let ragContext = "";
+      if (aiClient && process.env.OPENAI_API_KEY) {
+          try {
+              const embedResponse = await aiClient.embeddings.create({
+                  model: "text-embedding-3-small",
+                  input: searchContext.slice(-2000), // giới hạn độ dài string gửi lên OpenAI embed
+              });
+              const queryEmbedding = embedResponse.data[0].embedding;
+              const relevantChunks = await searchVectorDB(queryEmbedding, 6);
+              
+              if (relevantChunks && relevantChunks.length > 0) {
+                  ragContext = relevantChunks.map(chunk => chunk.chunk_text).join("\n\n---\n\n");
+                  additionalContext = `[NGỮ CẢNH TỪ HỆ THỐNG TÀI LIỆU]\n${ragContext}\n\n[HẾT NGỮ CẢNH HỆ THỐNG TÀI LIỆU]`;
+                  systemInstruction += "\n\nCRITICAL: Bạn đang đóng vai trò tìm kiếm tài liệu. Hãy trả lời câu hỏi dựa trên [NGỮ CẢNH TỪ HỆ THỐNG TÀI LIỆU] được trích xuất từ CSDL dưới đây. Trích dẫn đúng tên tài liệu nếu cần.";
+                  
+                  // Map chunk to suggested docs
+                  const docIds = [...new Set(relevantChunks.map(c => c.document_id))];
+                  suggestedDocs = allCommunityDocs.filter(d => docIds.includes(d.document_id)).slice(0, 3);
+              }
+          } catch (e) {
+              console.error("[Vector Search Error]", e);
+          }
+      }
+
+      // 3. Nếu Vector DB không tìm thấy (hoặc bị lỗi), fallback về keyword search truyền thống
+      if (!ragContext && allCommunityDocs.length > 0) {
+        suggestedDocs = await searchRelevantDocs(searchContext, allCommunityDocs);
+        systemInstruction += `\n\nHệ thống AIStudyHub có ${allCommunityDocs.length} tài liệu cộng đồng. Hãy trả lời câu hỏi của học viên một cách hữu ích.`;
+      }
     }
 
     // 3. Xây dựng mảng tin nhắn
@@ -240,11 +352,11 @@ export async function chatQuery(req, res) {
     for (const h of history) {
       queryMessages.push({
         role: h.sender === "ai" ? "assistant" : "user",
-        content: h.text
+        content: h.text || ""
       });
     }
 
-    // Nối thêm câu hỏi hiện tại cùng với ngữ cảnh
+    // Nối ngữ cảnh vào user message nếu có (chỉ khi có documentContext upload)
     const currentQueryWithContext = additionalContext 
       ? `${additionalContext}\n\nCâu hỏi của học viên: ${message}` 
       : message;
@@ -262,9 +374,21 @@ export async function chatQuery(req, res) {
       responseText = await callOpenAI(queryMessages, systemInstruction);
     }
 
+    // 5. Nối các link tài liệu gợi ý vào cuối câu trả lời của AI
+    // Việc này giúp frontend (đã có hàm extractDocumentLinks) tự động nhận diện
+    // và biến đổi các link này thành các Document Card đẹp mắt, đồng thời
+    // cũng giúp lưu lịch sử chat vào DB dễ dàng dưới dạng văn bản.
+    let finalResponseText = responseText;
+    if (suggestedDocs && suggestedDocs.length > 0) {
+      finalResponseText += "\n\n";
+      suggestedDocs.forEach(d => {
+        finalResponseText += `http://localhost:3000/preview/${d.document_id}\n`;
+      });
+    }
 
-
-    return res.json({ response: responseText });
+    return res.json({ 
+      response: finalResponseText
+    });
   } catch (error) {
     console.error("Chat Query Error:", error);
     return res.status(500).json({ error: `Lỗi kết nối AI: ${error.message}` });

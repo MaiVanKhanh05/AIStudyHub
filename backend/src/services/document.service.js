@@ -1,6 +1,7 @@
 import * as documentRepository from "../repositories/document.repository.js";
 import * as tagRepository from "../repositories/tag.repository.js";
 import * as subjectRepository from "../repositories/subject.repository.js";
+import * as userRepository from "../repositories/user.repository.js";
 import { processDocumentInBackground } from "./ai/documentProcessor.service.js";
 
 
@@ -77,12 +78,15 @@ export const uploadNewDocument = async (docData) => {
             delete restDocData.subject;
         }
 
-        // Auto-rename if title already exists in the system
-        restDocData.title = await documentRepository.getUniqueTitle(restDocData.title);
+        // Auto-rename if title already exists for the specific user
+        restDocData.title = await documentRepository.getUniqueTitle(restDocData.title, restDocData.user_id);
 
         const newDoc = await documentRepository.createDocument(restDocData);
 
         if (newDoc) {
+            // Update user storage footprint
+            await userRepository.updateUserStorage(newDoc.user_id, newDoc.file_size);
+
             const tagList = tags && Array.isArray(tags) ? tags : [];
             const resolvedTags = [];
             const tagIds = [];
@@ -114,9 +118,18 @@ export const uploadNewDocument = async (docData) => {
 };
 
 // Delete document from repository
-export const deleteUserDocument = async (id) => {
+export const deleteUserDocument = async (id, userId) => {
     try {
-        return await documentRepository.deleteDocument(id);
+        const doc = await documentRepository.getDocumentById(id);
+        if (doc) {
+            const success = await documentRepository.deleteDocument(id);
+            if (success) {
+                // Free up user storage
+                await userRepository.updateUserStorage(doc.user_id, -doc.file_size);
+            }
+            return success;
+        }
+        return false;
     } catch (error) {
         throw error;
     }
