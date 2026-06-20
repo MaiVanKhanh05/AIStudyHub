@@ -187,3 +187,82 @@ export const getPopularDocuments = async (req, res) => {
     }
 };
 
+// GET /api/admin/analytics — Xu hướng đăng ký user & upload tài liệu theo chuỗi thời gian
+export const getAnalyticsData = async (req, res) => {
+    try {
+        const days = parseInt(req.query.days, 10) || 30;
+
+        // Xu hướng đăng ký user theo ngày
+        const userTrendsResult = await pool.query(
+            `SELECT 
+                d.date::date AS date,
+                COALESCE(COUNT(u.user_id), 0) AS new_users,
+                COALESCE(SUM(CASE WHEN u.role = 'STUDENT' THEN 1 ELSE 0 END), 0) AS new_students,
+                COALESCE(SUM(CASE WHEN u.role = 'LECTURER' THEN 1 ELSE 0 END), 0) AS new_lecturers
+             FROM generate_series(CURRENT_DATE - ($1 || ' days')::interval, CURRENT_DATE, '1 day') AS d(date)
+             LEFT JOIN users u ON DATE(u.created_at) = d.date
+             GROUP BY d.date
+             ORDER BY d.date ASC`,
+            [days]
+        );
+
+        // Xu hướng tài liệu (upload, views, downloads) theo ngày
+        const docTrendsResult = await pool.query(
+            `SELECT 
+                d.date::date AS date,
+                COALESCE(COUNT(doc.document_id), 0) AS uploads,
+                COALESCE(SUM(doc.views), 0) AS views,
+                COALESCE(SUM(doc.downloads), 0) AS downloads
+             FROM generate_series(CURRENT_DATE - ($1 || ' days')::interval, CURRENT_DATE, '1 day') AS d(date)
+             LEFT JOIN document doc ON DATE(doc.upload_date) = d.date
+             GROUP BY d.date
+             ORDER BY d.date ASC`,
+            [days]
+        );
+
+        res.json({
+            userTrends: userTrendsResult.rows,
+            documentTrends: docTrendsResult.rows,
+        });
+    } catch (error) {
+        console.error("Error fetching analytics data:", error);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+};
+
+// GET /api/admin/storage-distribution — Phân bổ tài liệu theo loại file & môn học
+export const getStorageDistribution = async (req, res) => {
+    try {
+        const fileTypeResult = await pool.query(
+            `SELECT 
+                UPPER(COALESCE(NULLIF(file_type, ''), 'OTHER')) AS type,
+                COUNT(*) AS count,
+                COALESCE(SUM(file_size), 0) AS size_bytes
+             FROM document
+             GROUP BY UPPER(COALESCE(NULLIF(file_type, ''), 'OTHER'))
+             ORDER BY count DESC`
+        );
+
+        const subjectResult = await pool.query(
+            `SELECT 
+                COALESCE(s.subject_name, 'Khác') AS subject_name,
+                COALESCE(d.subject_code, 'OTHER') AS subject_code,
+                COUNT(*) AS count,
+                COALESCE(SUM(d.file_size), 0) AS size_bytes
+             FROM document d
+             LEFT JOIN subject s ON d.subject_code = s.subject_code
+             GROUP BY d.subject_code, s.subject_name
+             ORDER BY count DESC
+             LIMIT 8`
+        );
+
+        res.json({
+            fileTypes: fileTypeResult.rows,
+            subjects: subjectResult.rows,
+        });
+    } catch (error) {
+        console.error("Error fetching storage distribution:", error);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+};
+

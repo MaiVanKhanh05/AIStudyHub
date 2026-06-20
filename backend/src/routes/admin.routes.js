@@ -9,6 +9,8 @@ router.use(authenticateToken, requireAdmin);
 
 // Stats dashboard 
 router.get("/stats", adminController.getAdminStats);
+router.get("/analytics", adminController.getAnalyticsData);
+router.get("/storage-distribution", adminController.getStorageDistribution);
 
 // Users
 router.get("/users", adminController.getAllUsers);
