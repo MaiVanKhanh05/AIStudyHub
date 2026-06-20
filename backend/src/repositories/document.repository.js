@@ -31,24 +31,27 @@ export const getUserDocuments = async (userId) => {
 export const getStorageUsage = async (userId) => {
     try {
         const { rows } = await pool.query(
-            "SELECT COALESCE(SUM(file_size), 0) as total_size FROM document WHERE user_id = $1",
+            "SELECT COALESCE(used_storage, 0) as total_size FROM users WHERE user_id = $1",
             [userId]
         );
-        return Number(rows[0].total_size);
+        return Number(rows[0]?.total_size || 0);
     } catch (error) {
         console.error("Error calculating storage usage:", error);
         throw error;
     }
 };
 
-// Get a unique title by appending a suffix if it already exists
-export const getUniqueTitle = async (title) => {
+// Get a unique title by appending a suffix if it already exists for the specific user
+export const getUniqueTitle = async (title, userId) => {
     try {
         let finalTitle = title.trim();
         let exists = true;
         let counter = 1;
         while (exists) {
-            const { rows } = await pool.query("SELECT document_id FROM document WHERE title = $1", [finalTitle]);
+            const { rows } = await pool.query(
+                "SELECT document_id FROM document WHERE title = $1 AND user_id = $2", 
+                [finalTitle, userId]
+            );
             if (rows.length === 0) {
                 exists = false;
             } else {
@@ -144,13 +147,16 @@ export const incrementDownloadCount = async (id) => {
 export const getCommunityDocumentCatalog = async () => {
     try {
         const { rows } = await pool.query(
-            `SELECT d.document_id, d.title, d.description, d.file_type, s.subject_name, 
-                    (u.last_name || ' ' || u.first_name) as author, u.role as user_role
+            `SELECT d.document_id, d.title, d.description, d.file_type, d.subject_code, s.subject_name, 
+                    (u.last_name || ' ' || u.first_name) as author, u.role as user_role,
+                    COALESCE(d.is_ai_featured, FALSE) as is_ai_featured,
+                    COALESCE(d.views, 0) as views,
+                    COALESCE(d.downloads, 0) as downloads
              FROM document d
              JOIN users u ON d.user_id = u.user_id
              LEFT JOIN subject s ON d.subject_code = s.subject_code
              WHERE d.is_community = TRUE OR d.visibility = 'PUBLIC' OR u.role = 'LECTURE'
-             ORDER BY d.view_count DESC, d.upload_date DESC
+             ORDER BY d.is_ai_featured DESC, d.views DESC, d.upload_date DESC
              LIMIT 50`
         );
         return rows;
@@ -174,7 +180,7 @@ export const searchCommunityDocsByKeyword = async (keyword) => {
                AND d.extracted_content IS NOT NULL
                AND d.extracted_content != ''
                AND (LOWER(d.title) LIKE LOWER($1) OR LOWER(d.description) LIKE LOWER($1) OR LOWER(s.subject_name) LIKE LOWER($1))
-             ORDER BY d.view_count DESC
+             ORDER BY d.views DESC
              LIMIT 5`,
             [searchPattern]
         );
@@ -253,7 +259,7 @@ export const updateDocumentVisibility = async (documentId, visibility, descripti
 export const getDocumentById = async (documentId) => {
     try {
         const { rows } = await pool.query(
-            `SELECT d.*, (u.last_name || ' ' || u.first_name) as author, s.subject_name,
+            `SELECT d.*, (u.last_name || ' ' || u.first_name) as author, s.subject_name, u.role as user_role,
                     COALESCE(
                         (SELECT json_agg(json_build_object('tag_id', t.tag_id, 'tag_name', t.tag_name))
                          FROM tags t

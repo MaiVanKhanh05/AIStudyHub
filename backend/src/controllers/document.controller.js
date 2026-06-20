@@ -1,5 +1,6 @@
 import * as documentService from "../services/document.service.js";
 import * as documentPermissionRepository from "../repositories/documentPermission.repository.js";
+import * as userRepository from "../repositories/user.repository.js";
 
 // GET /api/documents/dashboard
 export const getDashboard = async (req, res) => {
@@ -41,6 +42,16 @@ export const createNewDoc = async (req, res) => {
 
         if (!title || !file_url) {
             return res.status(400).json({ error: "Title and file_url are required" });
+        }
+
+        const size = file_size || 0;
+
+        // Check storage limits
+        const storageInfo = await userRepository.getUserStorageInfo(userId);
+        if (storageInfo) {
+            if (storageInfo.used + size > storageInfo.max) {
+                return res.status(400).json({ error: "Dung lượng lưu trữ của bạn đã đầy. Không thể tải lên tài liệu mới." });
+            }
         }
 
         const docData = {
