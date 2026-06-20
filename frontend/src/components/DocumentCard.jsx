@@ -11,6 +11,7 @@ import {
   Share2,
   Check,
   Bookmark,
+  Heart,
   X,
   ZoomIn,
   ZoomOut,
@@ -64,7 +65,7 @@ function getFileType(url = "") {
 export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, onShare, isMyShared }) {
   const [open, setOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [bookmarked, setBookmarked] = useState(false);
+  const [bookmarked, setBookmarked] = useState(doc?.isBookmarked || false);
   const [hasViewed, setHasViewed] = useState(false);
   const [copied, setCopied] = useState(false);
   const [previewDoc, setPreviewDoc] = useState(null);
@@ -103,6 +104,12 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
       window.removeEventListener("click", closeMenu);
     };
   }, [menuOpen]);
+
+  useEffect(() => {
+    if (doc?.isBookmarked !== undefined) {
+      setBookmarked(doc.isBookmarked);
+    }
+  }, [doc?.isBookmarked]);
 
   useEffect(() => {
     const onKey = (e) => {
@@ -165,18 +172,38 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
     }
   };
 
-  const handleDownload = (e) => {
+  const handleDownload = async (e) => {
     if (e) e.stopPropagation();
 
     setDownloadCount((prev) => prev + 1);
     increaseDownload();
 
-    const a = document.createElement("a");
-    a.href = doc.file_url;
-    a.download = doc.title || "file";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    if (!doc.file_url) {
+      toast.error("Không tìm thấy đường dẫn tải xuống!");
+      return;
+    }
+
+    try {
+      const response = await fetch(doc.file_url);
+      if (!response.ok) throw new Error("Network response was not ok");
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      const urlExt = doc.file_url.split('.').pop().split('?')[0] || "pdf";
+      const cleanTitle = (doc.title || "document").endsWith("." + urlExt) 
+        ? (doc.title || "document") 
+        : `${doc.title || "document"}.${urlExt}`;
+      a.download = cleanTitle;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(blobUrl);
+    } catch (error) {
+      console.error("Direct download failed, falling back to new tab:", error);
+      window.open(doc.file_url, "_blank");
+    }
   };
 
   const handleCopy = (e) => {
@@ -195,6 +222,31 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
   const handleDelete = (e) => {
     e.stopPropagation();
     toast.info("Tính năng xóa tài liệu đang được cập nhật");
+  };
+
+  const handleBookmarkToggle = async (e) => {
+    e.stopPropagation();
+    const docId = doc?.document_id || doc?.id;
+    if (!docId) return;
+    try {
+      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+      const res = await fetch(`http://localhost:5000/api/documents/${docId}/bookmark`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setBookmarked(data.bookmarked);
+        if (data.bookmarked) {
+          toast.success("Đã lưu tài liệu vào Kho Yêu Thích!");
+        } else {
+          toast.info("Đã bỏ lưu tài liệu khỏi Kho Yêu Thích.");
+        }
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Lỗi khi lưu tài liệu.");
+    }
   };
 
   return (
@@ -225,17 +277,14 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
 
           {/* FLOATING ACTION BUTTONS */}
           <div className="absolute top-2.5 right-2.5 flex gap-1 z-20">
-            {/* Nút Star Bookmark */}
+            {/* Nút Heart Bookmark */}
             <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setBookmarked(!bookmarked);
-              }}
-              className={`w-5.5 h-5.5 rounded bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm flex items-center justify-center text-[11px] hover:scale-105 active:scale-95 transition-all duration-200
-                ${bookmarked ? "text-yellow-500" : "text-gray-300 dark:text-gray-600"}
+              onClick={handleBookmarkToggle}
+              className={`w-6 h-6 rounded-full bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm flex items-center justify-center hover:scale-110 active:scale-95 transition-all duration-300
+                ${bookmarked ? "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800/50" : ""}
               `}
             >
-              {bookmarked ? "★" : "☆"}
+              <Heart className={`w-3.5 h-3.5 transition-colors duration-300 ${bookmarked ? "fill-red-500 text-red-500" : "text-gray-400 dark:text-gray-500"}`} />
             </button>
 
             {/* Nút Kebab Menu */}
@@ -356,27 +405,27 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
 
           {/* VÙNG FOOTER */}
           <div className="pt-2 flex items-center justify-between mt-auto">
-            {/* Nút Tải xuống tiêu chuẩn xanh lam */}
+            {/* Nút Tải xuống tiêu chuẩn tím */}
             <button
               onClick={handleDownload}
               className="
-                text-[10px] font-bold px-2.5 py-1.5
-                rounded-md bg-[#2f67ff] hover:bg-[#1a54f0]
+                text-[11px] font-bold px-3 py-1.5
+                rounded-xl bg-purple-600 hover:bg-purple-700
                 text-white transition-all duration-200
-                flex items-center gap-1 shrink-0 active:scale-95 shadow-sm
+                flex items-center gap-1.5 shrink-0 active:scale-95 shadow-sm
               "
             >
-              ⬇ Tải xuống
+              <Download className="w-3.5 h-3.5 text-white" /> Tải xuống
             </button>
 
             {/* Khối lượt tải và mắt xem */}
-            <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400 dark:text-slate-500 bg-slate-50/60 dark:bg-[#0c0d13] px-2 py-0.5 rounded border border-slate-100/60 dark:border-white/5 shrink-0 select-none">
-              <span className="flex items-center gap-0.5">
-                ⬇ <span className="text-slate-600 dark:text-slate-300 font-extrabold">{downloadCount}</span>
+            <div className="flex items-center gap-2 text-[10.5px] font-bold text-slate-400 dark:text-slate-500 bg-slate-50/60 dark:bg-[#0c0d13] px-2.5 py-1.5 rounded-xl border border-slate-100/60 dark:border-white/5 shrink-0 select-none">
+              <span className="flex items-center gap-1">
+                <Download className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" /> <span className="text-slate-700 dark:text-slate-300 font-extrabold">{downloadCount}</span>
               </span>
               <span className="text-slate-200 dark:text-slate-800">|</span>
-              <span className="flex items-center gap-0.5">
-                👁 <span className="text-slate-600 dark:text-slate-300 font-extrabold">{viewCount}</span>
+              <span className="flex items-center gap-1">
+                <Eye className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" /> <span className="text-slate-700 dark:text-slate-300 font-extrabold">{viewCount}</span>
               </span>
             </div>
           </div>
@@ -478,7 +527,7 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
                       {/* Dynamic Simulated Content based on title */}
                       <div className="space-y-4 text-xs font-semibold leading-relaxed">
                         <div>
-                          <span className="font-extrabold uppercase text-[9px] text-purple-650 dark:text-purple-400 tracking-wider">TÓM TẮT TÀI LIỆU (OVERVIEW)</span>
+                          <span className="font-extrabold uppercase text-[9px] text-purple-600 dark:text-purple-400 tracking-wider">TÓM TẮT TÀI LIỆU (OVERVIEW)</span>
                           <p className="mt-1.5 text-slate-650 dark:text-slate-405 text-justify">
                             {doc?.description || `Tài liệu nghiên cứu khoa học chuyên sâu và hệ thống bài tập thực hành chất lượng cao dành cho học phần ${doc?.subject || "Công nghệ thông tin"}. Tài liệu cung cấp các định nghĩa rõ ràng, ví dụ cụ thể và lời giải chi tiết giúp người học nhanh chóng nắm vững kiến thức nền tảng và nâng cao.`}
                           </p>
@@ -543,7 +592,7 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
 
                       {/* Key Insights bullets */}
                       <div className="space-y-2">
-                        <span className="text-[8px] font-extrabold uppercase tracking-wider text-purple-655 dark:text-purple-450 block select-none">Điểm cốt lõi từ trợ lý học tập</span>
+                        <span className="text-[8px] font-extrabold uppercase tracking-wider text-purple-600 dark:text-purple-450 block select-none">Điểm cốt lõi từ trợ lý học tập</span>
                         <ul className="text-[10px] text-slate-600 dark:text-slate-400 space-y-1.5 font-bold list-none pl-0">
                           <li className="flex items-start gap-1.5 leading-snug">
                             <span className="text-purple-500 select-none shrink-0">✦</span>
@@ -568,7 +617,7 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
                       👁 Lượt xem: <span className="text-slate-750 dark:text-slate-300 font-extrabold">{viewCount}</span>
                     </span>
                     <span className="flex items-center gap-1">
-                      ⬇ Lượt tải: <span className="text-slate-750 dark:text-slate-300 font-extrabold">{downloadCount}</span>
+                      <Download className="w-3 h-3 text-slate-450" /> Lượt tải: <span className="text-slate-750 dark:text-slate-300 font-extrabold">{downloadCount}</span>
                     </span>
                   </div>
                 </div>
@@ -592,7 +641,7 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
                     <button
                       onClick={handleDownload}
                       className="
-                        flex-1 py-2.5 rounded-lg bg-[#2f67ff] hover:bg-[#1a54f0]
+                        flex-1 py-2.5 rounded-lg bg-purple-600 hover:bg-purple-750
                         text-white font-extrabold text-xs transition-all duration-200
                         flex items-center justify-center gap-1.5 cursor-pointer shadow-sm active:scale-[0.98]
                       "
@@ -604,19 +653,19 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
 
                   {/* Secondary utility actions */}
                   <div className="grid grid-cols-2 gap-2 select-none mt-2">
-                    {/* Star bookmark toggle */}
+                    {/* Heart bookmark toggle */}
                     <button
-                      onClick={() => setBookmarked(!bookmarked)}
+                      onClick={handleBookmarkToggle}
                       className={`
-                        py-2 rounded-lg border text-[10px] font-extrabold flex items-center justify-center gap-1.5 transition-all duration-200 cursor-pointer active:scale-[0.97]
+                        py-2 rounded-lg border text-[10px] font-extrabold flex items-center justify-center gap-1.5 transition-all duration-300 cursor-pointer active:scale-[0.97]
                         ${bookmarked
-                          ? "bg-amber-500/10 border-amber-500/30 text-amber-500 dark:text-amber-400"
+                          ? "bg-red-500/10 border-red-500/30 text-red-600 dark:text-red-400"
                           : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-850"
                         }
                       `}
                     >
-                      <Bookmark className="w-3.5 h-3.5 fill-current" />
-                      {bookmarked ? "Đã đánh dấu" : "Đánh dấu sao"}
+                      <Heart className={`w-3.5 h-3.5 ${bookmarked ? "fill-current" : ""}`} />
+                      {bookmarked ? "Đã yêu thích" : "Yêu thích"}
                     </button>
 
                     {/* Copy link button */}

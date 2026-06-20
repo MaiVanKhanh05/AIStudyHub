@@ -1,6 +1,9 @@
 import * as documentRepository from "../repositories/document.repository.js";
 import * as tagRepository from "../repositories/tag.repository.js";
 import * as subjectRepository from "../repositories/subject.repository.js";
+import * as userRepository from "../repositories/user.repository.js";
+import { processDocumentInBackground } from "./ai/documentProcessor.service.js";
+
 
 // Retrieve dashboard aggregates: user documents and total storage consumption
 export const getDashboardData = async (userId) => {
@@ -12,48 +15,8 @@ export const getDashboardData = async (userId) => {
             documents = await documentRepository.getUserDocuments(userId);
             storageUsage = await documentRepository.getStorageUsage(userId);
         } catch (dbError) {
-            console.error("Database query error, using fallback mock documents:", dbError);
-            // Fallback to empty documents if database fails
+            console.error("Database query error:", dbError);
             documents = [];
-        }
-
-        // Fallback mock documents to keep the workspace visually complete if the DB is empty
-        if (documents.length === 0) {
-            documents = [
-                {
-                    document_id: "demo1",
-                    title: "Web Design_Thiết kế web nâng cao",
-                    subject_code: "WED202c",
-                    subject_name: "Web Design",
-                    owner_name: "ThongNT",
-                    upload_date: new Date(Date.now() - 24 * 60 * 60 * 1000 * 60), // 2 months ago
-                    file_size: 10240, // 10KB
-                    file_type: "PDF",
-                    visibility: "PUBLIC",
-                },
-                {
-                    document_id: "demo2",
-                    title: "WED202c - Web design tutorial & layouts",
-                    subject_code: "WED202c",
-                    subject_name: "Web Design",
-                    owner_name: "ThongNT",
-                    upload_date: new Date(Date.now() - 24 * 60 * 60 * 1000 * 45), // 1.5 months ago
-                    file_size: 10240,
-                    file_type: "PDF",
-                    visibility: "PUBLIC",
-                },
-                {
-                    document_id: "demo3",
-                    title: "Web Design Principles and UI UX Guidelines",
-                    subject_code: "WED202c",
-                    subject_name: "Web Design",
-                    owner_name: "ThongNT",
-                    upload_date: new Date(Date.now() - 24 * 60 * 60 * 1000 * 30), // 1 month ago
-                    file_size: 10240,
-                    file_type: "PDF",
-                    visibility: "PRIVATE",
-                }
-            ];
         }
 
         return {
@@ -66,9 +29,9 @@ export const getDashboardData = async (userId) => {
 };
 
 // Retrieve all public community documents
-export const getCommunityDocs = async () => {
+export const getCommunityDocs = async (userId = null) => {
     try {
-        return await documentRepository.getCommunityDocuments();
+        return await documentRepository.getCommunityDocuments(userId);
     } catch (error) {
         throw error;
     }
@@ -76,7 +39,18 @@ export const getCommunityDocs = async () => {
 
 export const shareDocument = async (documentId, userId, description) => {
     try {
-        return await documentRepository.updateDocumentVisibility(documentId, userId, 'PUBLIC', description);
+        if (description !== null && description !== undefined) {
+            await documentRepository.updateDocumentVisibility(documentId, 'PUBLIC', description);
+        }
+        return await documentRepository.updateDocumentCommunityStatus(documentId, true);
+    } catch (error) {
+        throw error;
+    }
+};
+
+export const unshareDocument = async (documentId, userId) => {
+    try {
+        return await documentRepository.updateDocumentCommunityStatus(documentId, false);
     } catch (error) {
         throw error;
     }
@@ -104,12 +78,15 @@ export const uploadNewDocument = async (docData) => {
             delete restDocData.subject;
         }
 
-        // Auto-rename if title already exists in the system
-        restDocData.title = await documentRepository.getUniqueTitle(restDocData.title);
+        // Auto-rename if title already exists for the specific user
+        restDocData.title = await documentRepository.getUniqueTitle(restDocData.title, restDocData.user_id);
 
         const newDoc = await documentRepository.createDocument(restDocData);
 
         if (newDoc) {
+            // Update user storage footprint
+            await userRepository.updateUserStorage(newDoc.user_id, newDoc.file_size);
+
             const tagList = tags && Array.isArray(tags) ? tags : [];
             const resolvedTags = [];
             const tagIds = [];
@@ -127,6 +104,11 @@ export const uploadNewDocument = async (docData) => {
             }
 
             newDoc.tags = resolvedTags;
+            // Trigger AI RAG Pipeline processing in background (Do not await!)
+            processDocumentInBackground(newDoc).catch(err => {
+                console.error("[Background Error] RAG Pipeline failed:", err);
+            });
+
         }
 
         return newDoc;
@@ -138,7 +120,16 @@ export const uploadNewDocument = async (docData) => {
 // Delete document from repository
 export const deleteUserDocument = async (id, userId) => {
     try {
-        return await documentRepository.deleteDocument(id, userId);
+        const doc = await documentRepository.getDocumentById(id);
+        if (doc) {
+            const success = await documentRepository.deleteDocument(id);
+            if (success) {
+                // Free up user storage
+                await userRepository.updateUserStorage(doc.user_id, -doc.file_size);
+            }
+            return success;
+        }
+        return false;
     } catch (error) {
         throw error;
     }
@@ -211,3 +202,29 @@ export const editDocument = async (id, userId, { title, subject, tags, descripti
         throw error;
     }
 };
+
+export const toggleBookmark = async (userId, documentId) => {
+    try {
+        return await documentRepository.toggleBookmark(userId, documentId);
+    } catch (error) {
+        console.error("Error toggling bookmark in service:", error);
+        throw error;
+    }
+};
+
+export const getBookmarkedDocuments = async (userId) => {
+    try {
+        return await documentRepository.getBookmarkedDocuments(userId);
+    } catch (error) {
+        console.error("Error fetching bookmarked documents in service:", error);
+        throw error;
+    }
+};
+export const getAllDocuments = async () => {
+    try {
+        return await documentRepository.getAllDocuments();
+    } catch (error) {
+        throw error;
+    }
+};
+

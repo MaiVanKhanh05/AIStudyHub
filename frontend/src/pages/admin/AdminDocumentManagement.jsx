@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { Search, CheckCircle, Trash2, FileText, RefreshCw } from "lucide-react";
+import { Search, CheckCircle, Trash2, FileText, RefreshCw, Flame, Send } from "lucide-react";
+import Pagination from "../../components/Pagination";
 
 // BR-AM-07: Admin can approve documents, delete violating documents, update document status
 
@@ -21,30 +22,46 @@ const STATUS_STYLE = {
 const PAGE_SIZE = 8;
 
 export default function AdminDocumentManagement() {
+  const [activeTab, setActiveTab] = useState("ALL"); // ALL, HOT
   const [docs, setDocs]       = useState([]);
+  const [hotDocs, setHotDocs] = useState([]);
+  const [lecturers, setLecturers] = useState([]);
   const [search, setSearch]   = useState("");
   const [page, setPage]       = useState(1);
   const [loading, setLoading] = useState(true);
   const [confirm, setConfirm] = useState(null);
   const [toast, setToast]     = useState(null);
+  const [reviewerId, setReviewerId] = useState("");
 
   const token = localStorage.getItem("token") || sessionStorage.getItem("token");
 
   useEffect(() => {
     setLoading(true);
-    fetch("http://localhost:5000/api/admin/documents", {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then(r => r.json())
-      .then(data => {
-        setDocs(Array.isArray(data) ? data : MOCK_DOCS);
-        setLoading(false);
+    if (activeTab === "ALL") {
+      fetch("http://localhost:5000/api/admin/documents", {
+        headers: { Authorization: `Bearer ${token}` },
       })
-      .catch(() => {
-        setDocs(MOCK_DOCS);
+        .then(r => r.json())
+        .then(data => {
+          setDocs(Array.isArray(data) ? data : MOCK_DOCS);
+          setLoading(false);
+        })
+        .catch(() => {
+          setDocs(MOCK_DOCS);
+          setLoading(false);
+        });
+    } else if (activeTab === "HOT") {
+      Promise.all([
+        fetch("http://localhost:5000/api/admin/hot-docs", { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
+        fetch("http://localhost:5000/api/admin/lecturers", { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json())
+      ]).then(([hotData, lecData]) => {
+        setHotDocs(Array.isArray(hotData) ? hotData : []);
+        setLecturers(Array.isArray(lecData) ? lecData : []);
+        if (lecData && lecData.length > 0) setReviewerId(lecData[0].user_id);
         setLoading(false);
-      });
-  }, []);
+      }).catch(() => setLoading(false));
+    }
+  }, [activeTab]);
 
   const showToast = (type, msg) => {
     setToast({ type, message: msg });
@@ -100,35 +117,67 @@ export default function AdminDocumentManagement() {
     setConfirm(null);
   };
 
+  const handleSendReview = async (doc) => {
+    try {
+      await fetch(`http://localhost:5000/api/admin/hot-docs/${doc.document_id || doc.id}/send-review`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ reviewerId }),
+      });
+      logAction("SEND_HOT_DOC_REVIEW", doc);
+      showToast("success", `Đã gửi yêu cầu duyệt tài liệu: ${doc.title}`);
+    } catch (e) {
+      showToast("error", "Lỗi khi gửi yêu cầu duyệt. Có thể tài liệu đã được gửi trước đó.");
+    }
+    setConfirm(null);
+  };
+
   const filtered = docs.filter(d => {
     const q = search.toLowerCase();
     return !q || d.title?.toLowerCase().includes(q) || d.uploader?.toLowerCase().includes(q);
   });
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
-  const paginated  = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const totalPages = Math.ceil((activeTab === "ALL" ? filtered : hotDocs).length / PAGE_SIZE);
+  const paginated  = (activeTab === "ALL" ? filtered : hotDocs).slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
     <div>
       <div className="adm-page-header">
         <h1 className="adm-page-title">Document Management</h1>
-        <p className="adm-page-subtitle">{filtered.length} documents total</p>
+        <p className="adm-page-subtitle">{(activeTab === "ALL" ? filtered : hotDocs).length} documents total</p>
+      </div>
+
+      <div style={{ display: "flex", gap: "10px", marginBottom: "20px" }}>
+        <button
+          onClick={() => { setActiveTab("ALL"); setPage(1); }}
+          style={{ padding: "8px 16px", borderRadius: "8px", fontWeight: 600, border: "none", background: activeTab === "ALL" ? "#a78bfa" : "#f3f4f6", color: activeTab === "ALL" ? "#fff" : "#4b5563", cursor: "pointer" }}
+        >
+          Tất cả tài liệu
+        </button>
+        <button
+          onClick={() => { setActiveTab("HOT"); setPage(1); }}
+          style={{ display: "flex", alignItems: "center", gap: "6px", padding: "8px 16px", borderRadius: "8px", fontWeight: 600, border: "none", background: activeTab === "HOT" ? "#ef4444" : "#f3f4f6", color: activeTab === "HOT" ? "#fff" : "#4b5563", cursor: "pointer" }}
+        >
+          <Flame size={16} /> Tài liệu Hot
+        </button>
       </div>
 
       <div className="adm-table-card">
         <div className="adm-table-header">
-          <span className="adm-table-title">All Documents</span>
+          <span className="adm-table-title">{activeTab === "ALL" ? "All Documents" : "🔥 Hot Documents (7 Days)"}</span>
           <div className="adm-table-actions">
-            <div className="adm-search-wrap">
-              <Search className="adm-search-icon" />
-              <input
-                id="adm-doc-search"
-                type="text"
-                className="adm-search-input"
-                placeholder="Search documents..."
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-              />
-            </div>
+            {activeTab === "ALL" && (
+                <div className="adm-search-wrap">
+                  <Search className="adm-search-icon" />
+                  <input
+                    id="adm-doc-search"
+                    type="text"
+                    className="adm-search-input"
+                    placeholder="Search documents..."
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                  />
+                </div>
+            )}
           </div>
         </div>
 
@@ -139,7 +188,7 @@ export default function AdminDocumentManagement() {
             <FileText className="adm-empty-icon" />
             <div className="adm-empty-text">No documents found</div>
           </div>
-        ) : (
+        ) : activeTab === "ALL" ? (
           <table className="adm-table">
             <thead>
               <tr>
@@ -210,20 +259,67 @@ export default function AdminDocumentManagement() {
               })}
             </tbody>
           </table>
+        ) : (
+          <table className="adm-table">
+            <thead>
+              <tr>
+                <th>Doc ID</th>
+                <th>Title</th>
+                <th>Score</th>
+                <th>Views / Downloads</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {paginated.map(doc => (
+                <tr key={doc.document_id}>
+                  <td style={{ fontFamily: "monospace", fontSize: 12, color: "#9ca3af" }}>{doc.document_id}</td>
+                  <td style={{ fontWeight: 600, maxWidth: 220 }}>
+                    <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {doc.title}
+                    </div>
+                  </td>
+                  <td style={{ color: "#ef4444", fontWeight: "bold" }}>🔥 {doc.hot_score}</td>
+                  <td style={{ color: "#6b7280" }}>{doc.views} / {doc.downloads}</td>
+                  <td>
+                    {doc.is_ai_featured ? (
+                      <span style={{ background: "#d1fae5", color: "#065f46", padding: "3px 10px", borderRadius: 20, fontSize: 12, fontWeight: 600 }}>Đã duyệt (AI Featured)</span>
+                    ) : (
+                      <span style={{ background: "#fef3c7", color: "#92400e", padding: "3px 10px", borderRadius: 20, fontSize: 12, fontWeight: 600 }}>Chưa gửi / Chờ duyệt</span>
+                    )}
+                  </td>
+                  <td>
+                    {!doc.is_ai_featured && (
+                      <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                        <select 
+                          value={reviewerId} 
+                          onChange={(e) => setReviewerId(e.target.value)}
+                          style={{ padding: "4px", borderRadius: "4px", border: "1px solid #ccc" }}
+                        >
+                          {lecturers.map(l => (
+                            <option key={l.user_id} value={l.user_id}>{l.full_name}</option>
+                          ))}
+                        </select>
+                        <button
+                          className="adm-action-btn approve"
+                          onClick={() => setConfirm({ action: "send_review", doc })}
+                          style={{ padding: "6px 12px", background: "#3b82f6", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer", display: "flex", alignItems: "center", gap: "4px" }}
+                        >
+                          <Send size={11} /> Gửi duyệt
+                        </button>
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
 
         {totalPages > 1 && (
           <div className="adm-pagination">
-            <span className="adm-pagination-info">
-              {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} of {filtered.length}
-            </span>
-            <div className="adm-pagination-btns">
-              {Array.from({ length: totalPages }, (_, i) => (
-                <button key={i} className={`adm-page-btn${page === i + 1 ? " active" : ""}`} onClick={() => setPage(i + 1)}>
-                  {i + 1}
-                </button>
-              ))}
-            </div>
+            <Pagination page={page} setPage={setPage} totalPages={totalPages} />
           </div>
         )}
       </div>
@@ -236,11 +332,13 @@ export default function AdminDocumentManagement() {
               {confirm.action === "approve" && "Duyệt tài liệu"}
               {confirm.action === "reject"  && "Từ chối tài liệu"}
               {confirm.action === "delete"  && "Xóa tài liệu vi phạm"}
+              {confirm.action === "send_review"  && "Gửi yêu cầu duyệt"}
             </div>
             <div className="adm-modal-body">
               {confirm.action === "approve" && <>Duyệt tài liệu "<strong>{confirm.doc.title}</strong>"?</>}
               {confirm.action === "reject"  && <>Từ chối và ẩn tài liệu "<strong>{confirm.doc.title}</strong>"?</>}
               {confirm.action === "delete"  && <>Xóa vĩnh viễn tài liệu "<strong>{confirm.doc.title}</strong>" vi phạm quy định?</>}
+              {confirm.action === "send_review" && <>Gửi tài liệu "<strong>{confirm.doc.title}</strong>" cho giảng viên duyệt?</>}
             </div>
             <div className="adm-modal-actions">
               <button className="adm-btn-cancel" onClick={() => setConfirm(null)}>Hủy</button>
@@ -251,6 +349,7 @@ export default function AdminDocumentManagement() {
                   if (confirm.action === "approve") handleApprove(confirm.doc);
                   if (confirm.action === "reject")  handleReject(confirm.doc);
                   if (confirm.action === "delete")  handleDelete(confirm.doc);
+                  if (confirm.action === "send_review") handleSendReview(confirm.doc);
                 }}
               >
                 Xác nhận

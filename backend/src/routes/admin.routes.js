@@ -22,4 +22,9 @@ router.get("/documents", adminController.getAllDocuments);
 router.delete("/documents/:id", adminController.deleteDocument);
 router.get("/popular-documents", adminController.getPopularDocuments);
 
+// Hot Docs
+router.get("/hot-docs", adminController.getHotDocs);
+router.get("/lecturers", adminController.getLecturers);
+router.post("/hot-docs/:id/send-review", adminController.sendHotDocReview);
+
 export default router;

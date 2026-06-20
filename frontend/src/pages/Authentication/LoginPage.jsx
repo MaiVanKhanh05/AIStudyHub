@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Eye, EyeOff, AlertTriangle } from "lucide-react";
 import bgLogin from "../../assets/background-login.png";
+import logo from "../../assets/logo.png";
 
 import {
   Card,
@@ -78,11 +79,9 @@ export default function LoginPage() {
       <Card className="lp-card relative z-10 w-full max-w-[540px] border border-white/80 dark:border-white/10 shadow-2xl rounded-[28px] overflow-hidden bg-white/72 dark:bg-black/55 backdrop-blur-[24px] saturate-[1.6] p-7 md:p-9 outline-[1.5px] outline-purple-500/25 dark:outline-purple-500/10">
         <CardHeader className="p-0 gap-0">
           {/* Logo / Brand header */}
-          <div className="flex items-center gap-1 mb-5">
-            <span className="w-2.5 h-2.5 rounded-full bg-gradient-to-br from-purple-500 to-purple-800 opacity-85" />
-            <span className="w-2.5 h-2.5 rounded-full bg-gradient-to-br from-purple-500 to-purple-800 opacity-60" />
-            <span className="w-2.5 h-2.5 rounded-full bg-gradient-to-br from-purple-500 to-purple-800 opacity-35" />
-            <span className="text-xs font-extrabold text-purple-800 dark:text-purple-300 tracking-wider ml-1 uppercase">AIStudyHub</span>
+          <div className="flex items-center gap-2.5 mb-5">
+            <img src={logo} alt="AIStudyHub Logo" className="w-9 h-9 rounded-xl object-contain" />
+            <span className="text-sm font-black text-purple-800 dark:text-purple-300 tracking-widest uppercase">AIStudyHub</span>
           </div>
 
           <CardTitle className="text-3xl font-extrabold text-[#1a0d2e] dark:text-white tracking-tight leading-none mb-1">

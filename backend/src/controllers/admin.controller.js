@@ -22,7 +22,7 @@ export const getAdminStats = async (req, res) => {
             ),
         ]);
 
-        const totalStudents  = parseInt(studentsResult.rows[0].count, 10);
+        const totalStudents = parseInt(studentsResult.rows[0].count, 10);
         const totalLecturers = parseInt(lecturersResult.rows[0].count, 10);
         const totalDocuments = parseInt(documentsResult.rows[0].count, 10);
         const totalStorageBytes = parseInt(storageResult.rows[0].total, 10);
@@ -162,7 +162,17 @@ export const getAllDocuments = async (req, res) => {
 export const deleteDocument = async (req, res) => {
     try {
         const { id } = req.params;
+        const { rows } = await pool.query("SELECT user_id, file_size FROM document WHERE document_id = $1", [id]);
+        const doc = rows[0];
+        
         await pool.query("DELETE FROM document WHERE document_id = $1", [id]);
+        
+        if (doc) {
+            await pool.query(
+                "UPDATE users SET used_storage = GREATEST(COALESCE(used_storage, 0) - $1, 0) WHERE user_id = $2",
+                [doc.file_size, doc.user_id]
+            );
+        }
         res.json({ message: "Tài liệu đã bị xóa" });
     } catch (error) {
         console.error("Error deleting document:", error);
@@ -226,6 +236,26 @@ export const getAnalyticsData = async (req, res) => {
         });
     } catch (error) {
         console.error("Error fetching analytics data:", error);
+import * as hotDocRepository from "../repositories/hotDoc.repository.js";
+
+// GET /api/admin/hot-docs
+export const getHotDocs = async (req, res) => {
+    try {
+        const docs = await hotDocRepository.getHotDocuments(20);
+        res.json(docs);
+    } catch (error) {
+        console.error("Error fetching hot docs:", error);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+};
+
+// GET /api/admin/lecturers
+export const getLecturers = async (req, res) => {
+    try {
+        const lecturers = await hotDocRepository.getAllLecturers();
+        res.json(lecturers);
+    } catch (error) {
+        console.error("Error fetching lecturers:", error);
         res.status(500).json({ error: "Internal Server Error" });
     }
 };
@@ -266,3 +296,39 @@ export const getStorageDistribution = async (req, res) => {
     }
 };
 
+// POST /api/admin/hot-docs/:id/send-review
+export const sendHotDocReview = async (req, res) => {
+    try {
+        const adminId = req.userId;
+        const documentId = req.params.id;
+        const { reviewerId } = req.body;
+
+        if (!reviewerId) {
+            return res.status(400).json({ error: "Vui lòng chọn giảng viên để gửi duyệt." });
+        }
+
+        const review = await hotDocRepository.createHotDocReview(documentId, adminId, reviewerId);
+        
+        // Notify lecturer
+        const { createNotification } = await import("../repositories/notification.repository.js");
+        const { getDocumentById } = await import("../repositories/document.repository.js");
+        const doc = await getDocumentById(documentId);
+        const docTitle = doc ? doc.title : "Tài liệu";
+        
+        await createNotification({
+            userId: reviewerId,
+            senderId: adminId,
+            type: "SYSTEM_ALERT",
+            documentId,
+            message: `Admin đã yêu cầu bạn duyệt tài liệu hot: "${docTitle}". Hãy kiểm tra danh sách chờ duyệt.`
+        });
+
+        res.json({ message: "Đã gửi yêu cầu duyệt thành công.", review });
+    } catch (error) {
+        console.error("Error sending hot doc review:", error);
+        if (error.message.includes("đã có yêu cầu duyệt")) {
+            return res.status(400).json({ error: error.message });
+        }
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+};
