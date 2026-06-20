@@ -62,10 +62,16 @@ export default function AdminAnalyticsCharts() {
     Promise.all([
       fetch(`http://localhost:5000/api/admin/analytics?days=${days}`, {
         headers: { Authorization: `Bearer ${token}` },
-      }).then((r) => r.json()),
+      }).then((r) => {
+        if (!r.ok) throw new Error("Failed to fetch analytics");
+        return r.json();
+      }),
       fetch("http://localhost:5000/api/admin/storage-distribution", {
         headers: { Authorization: `Bearer ${token}` },
-      }).then((r) => r.json()),
+      }).then((r) => {
+        if (!r.ok) throw new Error("Failed to fetch storage distribution");
+        return r.json();
+      }),
     ])
       .then(([analytics, storage]) => {
         setAnalyticsData(analytics);
