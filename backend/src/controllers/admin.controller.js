@@ -1,4 +1,5 @@
 import pool from "../../DB/db.js";
+import * as hotDocRepository from "../repositories/hotDoc.repository.js";
 
 // GET /api/admin/stats — tổng hợp số liệu dashboard
 export const getAdminStats = async (req, res) => {
@@ -164,9 +165,9 @@ export const deleteDocument = async (req, res) => {
         const { id } = req.params;
         const { rows } = await pool.query("SELECT user_id, file_size FROM document WHERE document_id = $1", [id]);
         const doc = rows[0];
-        
+
         await pool.query("DELETE FROM document WHERE document_id = $1", [id]);
-        
+
         if (doc) {
             await pool.query(
                 "UPDATE users SET used_storage = GREATEST(COALESCE(used_storage, 0) - $1, 0) WHERE user_id = $2",
@@ -236,7 +237,9 @@ export const getAnalyticsData = async (req, res) => {
         });
     } catch (error) {
         console.error("Error fetching analytics data:", error);
-import * as hotDocRepository from "../repositories/hotDoc.repository.js";
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+};
 
 // GET /api/admin/hot-docs
 export const getHotDocs = async (req, res) => {
@@ -308,13 +311,13 @@ export const sendHotDocReview = async (req, res) => {
         }
 
         const review = await hotDocRepository.createHotDocReview(documentId, adminId, reviewerId);
-        
+
         // Notify lecturer
         const { createNotification } = await import("../repositories/notification.repository.js");
         const { getDocumentById } = await import("../repositories/document.repository.js");
         const doc = await getDocumentById(documentId);
         const docTitle = doc ? doc.title : "Tài liệu";
-        
+
         await createNotification({
             userId: reviewerId,
             senderId: adminId,
