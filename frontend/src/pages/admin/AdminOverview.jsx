@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Users, BookOpen, HardDrive, GraduationCap, Mic2, ClipboardList, TrendingUp, Eye, Download } from "lucide-react";
 import AdminSystemLog from "./AdminSystemLog";
+import AdminAnalyticsCharts from "./AdminAnalyticsCharts";
 
 // BR-AM-08: Dashboard phải hiển thị tổng user, tài liệu, storage
 export default function AdminOverview() {
@@ -172,6 +173,9 @@ export default function AdminOverview() {
           </div>
         ))}
       </div>
+
+      {/* ── Analytics Charts ── */}
+      <AdminAnalyticsCharts />
 
       {/* ── Top 10 Tài Liệu Nổi Bật ── */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden mb-6">
