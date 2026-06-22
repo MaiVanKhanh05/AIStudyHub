@@ -2,6 +2,8 @@ import { Copy, Download, ExternalLink, X, Send, Sparkles, Share2 } from "lucide-
 import { useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
+import QuizCard from "./QuizCard";
+import FlashcardSetCard from "./FlashcardSetCard";
 
 const IMAGE_EXTENSIONS = ["jpg", "jpeg", "png", "gif", "webp", "bmp", "svg"];
 const OFFICE_EXTENSIONS = ["doc", "docx", "xls", "xlsx", "ppt", "pptx"];
@@ -76,7 +78,8 @@ export default function DocumentPreviewModal({ doc, onClose, currentUserId, onSh
         },
         body: JSON.stringify({
           message: `Tôi đang xem tài liệu "${doc?.document_name || doc?.file_name || doc?.title || 'chưa rõ'}". Hãy trả lời câu hỏi sau đây liên quan đến tài liệu này: ${text}`,
-          documentContext: doc?.extracted_content || doc?.content || doc?.simulated_content || ""
+          documentContext: doc?.extracted_content || doc?.content || doc?.simulated_content || "",
+          documentId: doc?.document_id || doc?.id || null
         })
       });
 
@@ -131,7 +134,8 @@ export default function DocumentPreviewModal({ doc, onClose, currentUserId, onSh
         },
         body: JSON.stringify({
           message: `Tôi đang xem tài liệu "${doc?.document_name || doc?.file_name || doc?.title || 'chưa rõ'}". Hãy viết một bản tóm tắt học thuật thật chi tiết, rõ ràng và đầy đủ về nội dung của tài liệu này.`,
-          documentContext: doc?.extracted_content || doc?.content || doc?.simulated_content || ""
+          documentContext: doc?.extracted_content || doc?.content || doc?.simulated_content || "",
+          documentId: doc?.document_id || doc?.id || null
         })
       });
 
@@ -185,8 +189,9 @@ export default function DocumentPreviewModal({ doc, onClose, currentUserId, onSh
           "Authorization": `Bearer ${token}`
         },
         body: JSON.stringify({
-          message: `Tôi đang xem tài liệu "${doc?.document_name || doc?.file_name || doc?.title || 'chưa rõ'}". Hãy tạo một bộ câu hỏi trắc nghiệm ôn tập (khoảng 3-5 câu hỏi) liên quan đến kiến thức trong tài liệu, đi kèm các phương án lựa chọn A, B, C, D và đáp án giải thích chi tiết.`,
-          documentContext: doc?.extracted_content || doc?.content || doc?.simulated_content || ""
+          message: "Tạo 20 câu hỏi trắc nghiệm ôn tập (Quiz) từ tài liệu này",
+          documentContext: doc?.extracted_content || doc?.content || doc?.simulated_content || "",
+          documentId: doc?.document_id || doc?.id || null
         })
       });
 
@@ -213,6 +218,62 @@ export default function DocumentPreviewModal({ doc, onClose, currentUserId, onSh
           id: Date.now() + 1,
           sender: "ai",
           text: "Đã xảy ra lỗi khi kết nối tới Trợ lý AI để tạo quiz ôn tập."
+        }
+      ]);
+    } finally {
+      setIsTyping(false);
+    }
+  };
+
+  const handleGenerateFlashcards = async () => {
+    if (isTyping) return;
+
+    const userMsg = {
+      id: Date.now(),
+      sender: "user",
+      text: "Tạo bộ thẻ ghi nhớ Flashcard ôn tập từ tài liệu này."
+    };
+    setMessages((prev) => [...prev, userMsg]);
+    setIsTyping(true);
+
+    try {
+      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+      const response = await fetch("http://localhost:5000/api/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          message: "Tạo bộ thẻ ghi nhớ Flashcard ôn tập từ tài liệu này",
+          documentContext: doc?.extracted_content || doc?.content || doc?.simulated_content || "",
+          documentId: doc?.document_id || doc?.id || null
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error("API call failed");
+      }
+
+      const data = await response.json();
+      const aiText = data.response || "Không thể tạo bộ thẻ ghi nhớ.";
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now() + 1,
+          sender: "ai",
+          text: aiText
+        }
+      ]);
+    } catch (err) {
+      console.error(err);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now() + 1,
+          sender: "ai",
+          text: "Đã xảy ra lỗi khi kết nối tới Trợ lý AI để tạo bộ thẻ ghi nhớ."
         }
       ]);
     } finally {
@@ -378,7 +439,24 @@ export default function DocumentPreviewModal({ doc, onClose, currentUserId, onSh
                     <span className="text-[8px] font-extrabold uppercase tracking-widest opacity-60 mb-1.5 block">
                       {msg.sender === "ai" ? "🤖 AI ACADEMIC CORE" : "👤 BẠN"}
                     </span>
-                    <p className="font-bold whitespace-pre-line leading-relaxed">{msg.text}</p>
+                    {msg.sender === "ai" && typeof msg.text === "string" && msg.text.trim().startsWith("{") ? (
+                      (() => {
+                        try {
+                          const parsed = JSON.parse(msg.text.trim());
+                          if (parsed.event === "quiz_created" && parsed.quizId) {
+                            return <QuizCard quizId={parsed.quizId} />;
+                          }
+                          if (parsed.event === "flashcard_created" && parsed.setId) {
+                            return <FlashcardSetCard setId={parsed.setId} />;
+                          }
+                        } catch (e) {
+                          // Not valid JSON, fall back
+                        }
+                        return <p className="font-bold whitespace-pre-line leading-relaxed">{msg.text}</p>;
+                      })()
+                    ) : (
+                      <p className="font-bold whitespace-pre-line leading-relaxed">{msg.text}</p>
+                    )}
                   </div>
                 ))}
                 {isTyping && (
@@ -389,14 +467,13 @@ export default function DocumentPreviewModal({ doc, onClose, currentUserId, onSh
                   </div>
                 )}
               </div>
-
               {/* Quick Action Chips */}
-              <div className="flex gap-2 px-4 pb-3.5 pt-2.5 border-t border-slate-200/40 dark:border-slate-850/40 bg-white/80 dark:bg-[#090a10]/80 backdrop-blur-md select-none">
+              <div className="flex items-center gap-2 px-4 pb-2.5 pt-2 border-t border-slate-200/40 dark:border-slate-850/40 bg-white/80 dark:bg-[#090a10]/80 backdrop-blur-md select-none">
                 <button
                   type="button"
                   onClick={handleSummarize}
                   disabled={isTyping}
-                  className="flex-1 py-2 px-2.5 rounded-xl border border-purple-500/25 dark:border-purple-450/25 bg-purple-600/5 hover:bg-purple-600/10 dark:hover:bg-purple-500/10 text-purple-750 dark:text-purple-300 font-black text-[9px] uppercase tracking-wider transition-all duration-200 cursor-pointer flex items-center justify-center gap-1.5 active:scale-[0.97] disabled:opacity-50 hover:scale-[1.02] shadow-sm"
+                  className="flex-1 py-1.5 px-2 rounded-lg border border-purple-500/20 dark:border-purple-450/20 bg-purple-500/5 hover:bg-purple-500/10 text-purple-750 dark:text-purple-300 font-extrabold text-[9px] uppercase tracking-wider transition-all duration-150 cursor-pointer flex items-center justify-center gap-1 active:scale-[0.98] disabled:opacity-50 hover:scale-[1.01]"
                 >
                   Tóm tắt
                 </button>
@@ -404,9 +481,17 @@ export default function DocumentPreviewModal({ doc, onClose, currentUserId, onSh
                   type="button"
                   onClick={handleGenerateQuiz}
                   disabled={isTyping}
-                  className="flex-1 py-2 px-2.5 rounded-xl border border-blue-500/25 dark:border-blue-450/25 bg-blue-600/5 hover:bg-blue-655/10 dark:hover:bg-blue-500/10 text-blue-750 dark:text-blue-300 font-black text-[9px] uppercase tracking-wider transition-all duration-200 cursor-pointer flex items-center justify-center gap-1.5 active:scale-[0.97] disabled:opacity-50 hover:scale-[1.02] shadow-sm"
+                  className="flex-1 py-1.5 px-2 rounded-lg border border-blue-500/20 dark:border-blue-450/20 bg-blue-500/5 hover:bg-blue-500/10 text-blue-750 dark:text-blue-300 font-extrabold text-[9px] uppercase tracking-wider transition-all duration-150 cursor-pointer flex items-center justify-center gap-1 active:scale-[0.98] disabled:opacity-50 hover:scale-[1.01]"
                 >
-                  Tạo Quiz
+                  Quiz
+                </button>
+                <button
+                  type="button"
+                  onClick={handleGenerateFlashcards}
+                  disabled={isTyping}
+                  className="flex-1 py-1.5 px-2 rounded-lg border border-emerald-500/20 dark:border-emerald-450/20 bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-750 dark:text-emerald-300 font-extrabold text-[9px] uppercase tracking-wider transition-all duration-150 cursor-pointer flex items-center justify-center gap-1 active:scale-[0.98] disabled:opacity-50 hover:scale-[1.01]"
+                >
+                  Flashcard
                 </button>
               </div>
 

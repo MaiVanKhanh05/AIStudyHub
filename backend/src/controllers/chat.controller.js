@@ -185,6 +185,9 @@ async function callOpenAI(messages, systemInstruction) {
   return data.choices?.[0]?.message?.content || "Không có câu trả lời nào được phản hồi.";
 }
 
+import * as quizService from "../services/quiz.service.js";
+import * as flashcardService from "../services/flashcard.service.js";
+
 // Đường dẫn API: POST /api/chat
 
 // Hàm tìm kiếm tài liệu liên quan dựa theo từ khóa trong câu hỏi của người dùng
@@ -245,11 +248,173 @@ async function searchRelevantDocs(message, allDocs) {
 }
 
 export async function chatQuery(req, res) {
-  const { message, history = [], aiMode = "General AI" } = req.body;
+  const { message, history = [], aiMode = "General AI", documentId = null } = req.body;
+  const userId = req.userId;
   let documentContext = req.body.documentContext || "";
+
+  // Try to retrieve documentContext from chat history if not provided in the current request
+  if (!documentContext && history && Array.isArray(history)) {
+    for (let i = history.length - 1; i >= 0; i--) {
+      const msg = history[i];
+      if (msg.sender === "user" && msg.files && Array.isArray(msg.files) && msg.files.length > 0) {
+        const foundContext = msg.files
+          .filter(file => file.content)
+          .map(file => `--- TẬP TIN: ${file.name} ---\n${file.content}`)
+          .join("\n\n");
+        if (foundContext) {
+          documentContext = foundContext;
+          break;
+        }
+      }
+    }
+  }
 
   if (!message) {
     return res.status(400).json({ error: "Câu hỏi không được để trống." });
+  }
+
+  // Intercept flashcard creation requests
+  const messageLower = message.toLowerCase();
+  const hasFlashcardKeyword = messageLower.includes("flashcard") ||
+                              messageLower.includes("flash card") ||
+                              messageLower.includes("flashard") || // common typo
+                              messageLower.includes("flash ard") || // common typo
+                              messageLower.includes("thẻ ghi nhớ") ||
+                              messageLower.includes("thẻ ôn tập") ||
+                              messageLower.includes("study card") ||
+                              messageLower.includes("revision card");
+
+  const hasCreateIntent = messageLower.includes("tạo") ||
+                          messageLower.includes("taoj") || // telex typo
+                          messageLower.includes("tao") || // unmarked
+                          messageLower.includes("làm") ||
+                          messageLower.includes("lam") ||
+                          messageLower.includes("sinh") ||
+                          messageLower.includes("học") ||
+                          messageLower.includes("hoc") ||
+                          messageLower.includes("ôn") ||
+                          messageLower.includes("on") ||
+                          messageLower.includes("create") ||
+                          messageLower.includes("generate") ||
+                          messageLower.includes("make") ||
+                          messageLower.includes("study") ||
+                          messageLower.includes("practice") ||
+                          messageLower.includes("review") ||
+                          messageLower.includes("revision") ||
+                          messageLower.includes("giúp tôi ôn tập");
+
+  const isFlashcardRequest = messageLower.includes("giúp tôi ôn tập tài liệu này") ||
+                             (hasFlashcardKeyword && hasCreateIntent);
+
+  if (isFlashcardRequest) {
+    try {
+      console.log("[Chat Query] Flashcard generation intent detected!");
+      
+      if (!userId) {
+        return res.status(401).json({ error: "Bạn cần đăng nhập để tạo thẻ ghi nhớ." });
+      }
+
+      if (!documentId && !documentContext) {
+        return res.json({
+          response: "Vui lòng mở xem trước tài liệu hoặc gửi tệp đính kèm trong chat để tôi có thể tạo bộ thẻ ghi nhớ Flashcard ôn tập dựa trên nội dung đó nhé."
+        });
+      }
+
+      // Parse target card count if explicitly specified by user (e.g. "tạo 30 thẻ", "tạo 15 flashcard")
+      let targetCardCount = null;
+      const countMatch = message.match(/(\d+)\s*(thẻ ghi nhớ|thẻ|câu|flashcard|flash card|cards|card)/i);
+      if (countMatch) {
+        targetCardCount = parseInt(countMatch[1], 10);
+      }
+
+      const flashcardResult = await flashcardService.generateFlashcardSet(
+        documentId ? Number(documentId) : null,
+        message, // Pass raw prompt message as customPrompt/focusPrompt
+        userId,
+        documentContext,
+        targetCardCount
+      );
+
+      const eventString = JSON.stringify({
+        event: "flashcard_created",
+        setId: flashcardResult.setId
+      });
+
+      return res.json({
+        response: eventString,
+        messageType: "flashcard_set",
+        data: {
+          setId: flashcardResult.setId,
+          title: flashcardResult.title,
+          count: flashcardResult.count,
+          topics: flashcardResult.topics
+        }
+      });
+    } catch (error) {
+      console.error("[Chat Query] Failed to auto-generate flashcards in chat:", error);
+      return res.status(200).json({
+        response: `❌ **Lỗi sinh bộ thẻ ghi nhớ:** ${error.message || "Lỗi không xác định."}`
+      });
+    }
+  }
+
+  // Intercept quiz creation requests
+  const hasQuizKeyword = messageLower.includes("quiz") || 
+                         messageLower.includes("quizz") || 
+                         messageLower.includes("trắc nghiệm") || 
+                         messageLower.includes("test my knowledge") || 
+                         messageLower.includes("kiểm tra kiến thức");
+                          
+  const isExplanationQuery = (messageLower.includes("giải thích") || messageLower.includes("tại sao") || messageLower.includes("vì sao") || messageLower.includes("sửa") || messageLower.includes("chữa")) && 
+                             (messageLower.includes("câu") || messageLower.includes("question") || messageLower.includes("đáp án"));
+
+  const isQuizRequest = hasQuizKeyword && !isExplanationQuery;
+
+  if (isQuizRequest) {
+    try {
+      console.log("[Chat Query] Quiz generation intent detected!");
+      
+      // Parse question count
+      let count = 10;
+      const countMatch = message.match(/(\d+)\s*(câu hỏi|câu|questions|question|q)/i);
+      if (countMatch) {
+        count = parseInt(countMatch[1], 10);
+      }
+
+      // We need either a documentContext or documentId
+      if (!documentContext && !documentId) {
+        return res.json({
+          response: "Vui lòng mở xem trước tài liệu hoặc gửi tệp đính kèm trong chat để tôi có thể tạo Quiz ôn tập dựa trên nội dung đó nhé."
+        });
+      }
+
+      const quizResult = await quizService.generateQuizFromText(
+        documentContext,
+        count,
+        userId || null,
+        documentId ? Number(documentId) : null,
+        "CHAT_PROMPT",
+        message // Pass raw prompt message as customInstructions
+      );
+
+      // Return event string as the main response text so it is stored in chat logs,
+      // along with helper metadata for immediate rendering
+      const eventString = JSON.stringify({
+        event: "quiz_created",
+        quizId: quizResult.quizId
+      });
+
+      return res.json({
+        response: eventString,
+        messageType: "quiz_card",
+        data: quizResult
+      });
+    } catch (error) {
+      console.error("[Chat Query] Failed to auto-generate quiz in chat:", error);
+      return res.status(200).json({
+        response: `❌ **Lỗi sinh câu hỏi ôn tập:** ${error.message || "Lỗi không xác định."}`
+      });
+    }
   }
 
   const apiKey = process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY;
