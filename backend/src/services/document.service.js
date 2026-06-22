@@ -39,9 +39,7 @@ export const getCommunityDocs = async (userId = null) => {
 
 export const shareDocument = async (documentId, userId, description) => {
     try {
-        if (description !== null && description !== undefined) {
-            await documentRepository.updateDocumentVisibility(documentId, 'PUBLIC', description);
-        }
+        // Only set community status — visibility is managed independently via the share modal
         return await documentRepository.updateDocumentCommunityStatus(documentId, true);
     } catch (error) {
         throw error;

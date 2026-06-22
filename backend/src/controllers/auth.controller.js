@@ -409,6 +409,8 @@ export const resetPassword = async (req, res) => {
         let userId = null;
         let existingPasswordHash = null;
         let isOtp = trimmedToken.length === 6 && /^\d+$/.test(trimmedToken);
+        let otpRecordToVerify = null;
+        let tokenRecordToConsume = null;
 
         if (isOtp) {
             // Find active and unverified OTP matching email, otp and purpose = 'RESET_PASSWORD'
@@ -437,12 +439,7 @@ export const resetPassword = async (req, res) => {
 
             userId = userRows[0].user_id;
             existingPasswordHash = userRows[0].password_hash;
-
-            // Mark OTP as verified
-            await pool.query(
-                "UPDATE otp_verifications SET is_verified = TRUE WHERE otp_id = $1",
-                [otpRecord.otp_id]
-            );
+            otpRecordToVerify = otpRecord.otp_id;
 
         } else {
             // Old token verification flow
@@ -461,12 +458,7 @@ export const resetPassword = async (req, res) => {
             const resetRecord = resetRows[0];
             userId = resetRecord.user_id;
             existingPasswordHash = resetRecord.password_hash;
-
-            // Mark token as used
-            await pool.query(
-                "UPDATE password_reset SET is_used = TRUE WHERE reset_id = $1",
-                [resetRecord.reset_id]
-            );
+            tokenRecordToConsume = resetRecord.reset_id;
         }
 
         // Check if the new password is the same as the old password
@@ -485,6 +477,19 @@ export const resetPassword = async (req, res) => {
             "UPDATE users SET password_hash = $1, updated_at = NOW() WHERE user_id = $2",
             [hashedPassword, userId]
         );
+
+        // Mark OTP or token as consumed ONLY after successful database password update
+        if (otpRecordToVerify) {
+            await pool.query(
+                "UPDATE otp_verifications SET is_verified = TRUE WHERE otp_id = $1",
+                [otpRecordToVerify]
+            );
+        } else if (tokenRecordToConsume) {
+            await pool.query(
+                "UPDATE password_reset SET is_used = TRUE WHERE reset_id = $1",
+                [tokenRecordToConsume]
+            );
+        }
 
         return res.status(200).json({ message: "Mật khẩu của bạn đã được đặt lại thành công!" });
     } catch (error) {

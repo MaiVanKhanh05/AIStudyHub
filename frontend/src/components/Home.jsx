@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useSearchHistory } from "../hooks/useSearchHistory";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   Home as HomeIcon,
   FolderOpen,
@@ -75,6 +75,8 @@ import { getSimulatedContent } from "../utils/documentUtils";
 import SearchBar from "./SearchBar";
 import Pagination from "./Pagination";
 import ShareDocumentModal from "./ShareDocumentModal";
+import QuizCard from "./QuizCard";
+import FlashcardSetCard from "./FlashcardSetCard";
 
 function getFileIcon(fileType = "", className = "w-5 h-5") {
   const type = fileType.toLowerCase();
@@ -355,10 +357,42 @@ const getSourceIcon = (sourceName) => {
 
 const formatToDDMMYYYY = (dateString) => {
   if (!dateString) return "Chưa cập nhật";
+  if (typeof dateString === "string") {
+    const match = dateString.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (match) {
+      return `${match[3]}/${match[2]}/${match[1]}`;
+    }
+  }
   const d = new Date(dateString);
   if (isNaN(d.getTime())) return "Chưa cập nhật";
-  return String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0') + '/' + d.getFullYear();
+  const day = String(d.getUTCDate()).padStart(2, '0');
+  const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const year = d.getUTCFullYear();
+  return `${day}/${month}/${year}`;
 };
+
+const getSafeYYYYMMDD = (dateVal) => {
+  if (!dateVal) return "";
+  if (typeof dateVal === "string") {
+    const match = dateVal.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (match) return match[0];
+  }
+  try {
+    const d = new Date(dateVal);
+    if (isNaN(d.getTime())) return "";
+    const y = d.getUTCFullYear();
+    const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+    const day = String(d.getUTCDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  } catch (e) {
+    return "";
+  }
+};
+
+const getDaysInMonth = (month, year) => {
+  return new Date(year, month, 0).getDate();
+};
+
 const monthNamesVi = [
   "Tháng 1", "Tháng 2", "Tháng 3", "Tháng 4",
   "Tháng 5", "Tháng 6", "Tháng 7", "Tháng 8",
@@ -368,6 +402,7 @@ const weekdaysVi = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
 
 export default function Home() {
   const navigate = useNavigate();
+  const location = useLocation();
   const isUploadingRef = useRef(false);
   const calendarPopoverRef = useRef(null);
   const documentsSectionRef = useRef(null);
@@ -491,7 +526,14 @@ export default function Home() {
     : fullName;
 
   // Active navigation tab
-  const [activeTab, setActiveTab] = useState("Home");
+  const [activeTab, setActiveTab] = useState(() => {
+    return sessionStorage.getItem("activeTab") || "Home";
+  });
+
+  useEffect(() => {
+    sessionStorage.setItem("activeTab", activeTab);
+  }, [activeTab]);
+
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const [notifFilter, setNotifFilter] = useState("ALL");
   const [notificationsList, setNotificationsList] = useState([]);
@@ -713,6 +755,38 @@ export default function Home() {
   const [docManageMode, setDocManageMode] = useState("UPLOADED"); // "UPLOADED" | "BOOKMARKED"
 
   useEffect(() => {
+    const checkOpenDoc = async () => {
+      const openDocId = location.state?.openDocId;
+      if (openDocId) {
+        // Clear state immediately to prevent re-triggering on subsequent renders
+        navigate(location.pathname, { replace: true, state: {} });
+        try {
+          const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+          const headers = {};
+          if (token) {
+            headers["Authorization"] = `Bearer ${token}`;
+          }
+          const res = await fetch(`http://localhost:5000/api/documents/${openDocId}`, {
+            headers
+          });
+          if (res.ok) {
+            const data = await res.json();
+            const doc = data.document || data;
+            const docWithContent = {
+              ...doc,
+              simulated_content: getSimulatedContent(doc.title || doc.document_name || "", doc.subject || "")
+            };
+            setPreviewDoc(docWithContent);
+          }
+        } catch (err) {
+          console.error("Failed to auto-open document preview modal:", err);
+        }
+      }
+    };
+    checkOpenDoc();
+  }, [location.state, navigate, location.pathname]);
+
+  useEffect(() => {
     if (!showSortMenu) return;
     const closeMenu = () => setShowSortMenu(false);
     const timeoutId = setTimeout(() => window.addEventListener("click", closeMenu), 0);
@@ -756,7 +830,17 @@ export default function Home() {
 
   // AI Assistant Chatbot States
   const [chats, setChats] = useState([]);
-  const [currentChatId, setCurrentChatId] = useState(null);
+  const [currentChatId, setCurrentChatId] = useState(() => {
+    return sessionStorage.getItem("currentChatId") || null;
+  });
+
+  useEffect(() => {
+    if (currentChatId !== null) {
+      sessionStorage.setItem("currentChatId", currentChatId);
+    } else {
+      sessionStorage.removeItem("currentChatId");
+    }
+  }, [currentChatId]);
 
   useEffect(() => {
     const fetchHistory = async () => {
@@ -778,7 +862,10 @@ export default function Home() {
           }))
         }));
         setChats(formattedChats);
-        if (formattedChats.length > 0 && !currentChatId) {
+        const storedChatId = sessionStorage.getItem("currentChatId");
+        if (storedChatId && formattedChats.some(c => c.id === storedChatId)) {
+          setCurrentChatId(storedChatId);
+        } else if (formattedChats.length > 0) {
           setCurrentChatId(formattedChats[0].id);
         }
       } catch (err) {
@@ -1206,7 +1293,7 @@ export default function Home() {
       }
       setAiMessages([]);
     }
-  }, [activeTab, currentChatId]);
+  }, [activeTab, currentChatId, chats]);
 
   const renderModernSearchBar = (isWelcome) => {
     return (
@@ -1408,7 +1495,7 @@ export default function Home() {
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [editProfileData, setEditProfileData] = useState({
     phone: user?.phone || "",
-    dob: user?.dob ? new Date(user.dob).toISOString().split("T")[0] : "",
+    dob: getSafeYYYYMMDD(user?.dob),
     gender: user?.gender || "",
     major: user?.major || ""
   });
@@ -1467,7 +1554,7 @@ export default function Home() {
         },
         body: JSON.stringify({
           phone: user?.phone || "",
-          dob: user?.dob ? new Date(user.dob).toISOString().split("T")[0] : "",
+          dob: getSafeYYYYMMDD(user?.dob),
           gender: user?.gender || "",
           major: user?.major || "",
           avatar_url: newAvatarUrl
@@ -1502,12 +1589,36 @@ export default function Home() {
     if (!isEditingProfile) {
       setEditProfileData({
         phone: user?.phone || "",
-        dob: user?.dob ? new Date(user.dob).toISOString().split("T")[0] : "",
+        dob: getSafeYYYYMMDD(user?.dob),
         gender: user?.gender || "",
         major: user?.major || ""
       });
     }
     setIsEditingProfile(!isEditingProfile);
+  };
+
+  const handleDobPartChange = (type, value) => {
+    let parts = editProfileData.dob ? editProfileData.dob.split("-") : ["", "", ""];
+    if (parts.length !== 3) parts = ["2000", "01", "01"];
+    
+    let currentYear = parts[0] || "2000";
+    let currentMonth = parts[1] || "01";
+    let currentDay = parts[2] || "01";
+    
+    if (type === "year") currentYear = value;
+    if (type === "month") currentMonth = value;
+    if (type === "day") currentDay = value;
+    
+    const maxDays = getDaysInMonth(parseInt(currentMonth, 10), parseInt(currentYear, 10));
+    if (parseInt(currentDay, 10) > maxDays) {
+      currentDay = String(maxDays).padStart(2, "0");
+    }
+    
+    const newDob = `${currentYear}-${currentMonth}-${currentDay}`;
+    setEditProfileData(prev => ({
+      ...prev,
+      dob: newDob
+    }));
   };
 
   const handleSaveProfile = async () => {
@@ -2485,9 +2596,23 @@ export default function Home() {
     );
   };
 
-  // Helper to render markdown and code blocks in AI responses (with inline document cards)
   const renderMessageText = (text) => {
     if (!text) return null;
+
+    // Check if the message is a Quiz or Flashcard event card
+    if (typeof text === "string" && text.trim().startsWith("{")) {
+      try {
+        const parsed = JSON.parse(text.trim());
+        if (parsed.event === "quiz_created" && parsed.quizId) {
+          return <QuizCard quizId={parsed.quizId} />;
+        }
+        if (parsed.event === "flashcard_created" && parsed.setId) {
+          return <FlashcardSetCard setId={parsed.setId} />;
+        }
+      } catch (e) {
+        // Fall back
+      }
+    }
 
     // Step 1: Split by code blocks first
     const codeParts = text.split(/(```[\s\S]*?```)/g);
@@ -2563,6 +2688,9 @@ export default function Home() {
     return renderedParts;
   };
 
+  const [isResettingPasswordWithOtp, setIsResettingPasswordWithOtp] = useState(false);
+  const [resetOtpCode, setResetOtpCode] = useState("");
+
   const handleSendResetEmail = async () => {
     setChangePasswordError("");
     setChangePasswordSuccess("");
@@ -2583,7 +2711,11 @@ export default function Home() {
       const data = await response.json();
 
       if (response.ok) {
-        setChangePasswordSuccess(`Yêu cầu đặt lại mật khẩu đã được gửi đến email: ${user.email}. Vui lòng kiểm tra hộp thư (và mục thư rác) để hoàn tất cập nhật mật khẩu!`);
+        setChangePasswordSuccess(`Mã xác thực OTP đã được gửi đến email: ${user.email}. Vui lòng kiểm tra hộp thư, sau đó nhập mã OTP và mật khẩu mới bên dưới để hoàn tất.`);
+        setIsResettingPasswordWithOtp(true);
+        setResetOtpCode("");
+        setNewPassword("");
+        setConfirmNewPassword("");
       } else {
         setChangePasswordError(data.error || "Gửi email xác thực thất bại.");
       }
@@ -2591,6 +2723,56 @@ export default function Home() {
       setChangePasswordError("Không thể kết nối đến máy chủ để gửi email xác thực.");
     } finally {
       setResetEmailLoading(false);
+    }
+  };
+
+  const handleResetPasswordWithOtp = async (e) => {
+    e.preventDefault();
+    setChangePasswordError("");
+    setChangePasswordSuccess("");
+
+    if (!resetOtpCode || !newPassword || !confirmNewPassword) {
+      setChangePasswordError("Vui lòng điền đầy đủ mã OTP và mật khẩu mới.");
+      return;
+    }
+
+    if (newPassword !== confirmNewPassword) {
+      setChangePasswordError("Mật khẩu mới và xác nhận mật khẩu không trùng khớp.");
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      setChangePasswordError("Mật khẩu mới phải có tối thiểu 6 ký tự.");
+      return;
+    }
+
+    try {
+      setChangePasswordLoading(true);
+      const response = await fetch("http://localhost:5000/api/auth/reset-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: user.email,
+          token: resetOtpCode,
+          newPassword: newPassword
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setChangePasswordSuccess("Mật khẩu học tập của bạn đã được cập nhật thành công!");
+        setIsResettingPasswordWithOtp(false);
+        setResetOtpCode("");
+        setNewPassword("");
+        setConfirmNewPassword("");
+      } else {
+        setChangePasswordError(data.error || "Đặt lại mật khẩu thất bại.");
+      }
+    } catch (err) {
+      setChangePasswordError("Không thể kết nối đến máy chủ để đặt lại mật khẩu.");
+    } finally {
+      setChangePasswordLoading(false);
     }
   };
 
@@ -4047,16 +4229,7 @@ export default function Home() {
                                   Tải xuống
                                 </button>
 
-                                {doc.visibility === "PUBLIC" ? (
-                                  <button
-                                    disabled
-                                    className="w-full flex items-center gap-2 text-left px-3 py-2 text-xs font-medium text-slate-400 dark:text-slate-600 cursor-not-allowed opacity-60 rounded-md select-none"
-                                  >
-                                    <CheckCircle className="w-4 h-4 text-emerald-500" />
-                                    Đã chia sẻ
-                                  </button>
-                                ) : (
-                                  <button
+                                <button
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       setOpenMenuId(null);
@@ -4068,7 +4241,6 @@ export default function Home() {
                                     <Share2 className="w-4 h-4 text-slate-400" />
                                     Chia sẻ
                                   </button>
-                                )}
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
@@ -5492,9 +5664,57 @@ export default function Home() {
                   </div>
                   <div className="flex flex-col w-full gap-0.5">
                     <span className="text-[10px] font-bold text-slate-455 uppercase tracking-widest">Ngày sinh</span>
-                    {isEditingProfile ? (
-                      <Input type="date" value={editProfileData.dob} onChange={(e) => setEditProfileData({ ...editProfileData, dob: e.target.value })} className="h-8 text-sm font-semibold bg-white dark:bg-slate-900/50 border-slate-200/60 dark:border-slate-800 mt-1 focus-visible:ring-1 focus-visible:ring-purple-500" />
-                    ) : (
+                    {isEditingProfile ? (() => {
+                      let dobDay = "";
+                      let dobMonth = "";
+                      let dobYear = "";
+                      if (editProfileData.dob) {
+                        const parts = editProfileData.dob.split("-");
+                        if (parts.length === 3) {
+                          dobYear = parts[0];
+                          dobMonth = parts[1];
+                          dobDay = parts[2];
+                        }
+                      }
+                      const daysInMonth = getDaysInMonth(parseInt(dobMonth || "1", 10), parseInt(dobYear || "2000", 10));
+                      return (
+                        <div className="flex gap-2 mt-1 w-full max-w-[360px]">
+                          <select
+                            value={dobDay}
+                            onChange={(e) => handleDobPartChange("day", e.target.value)}
+                            className="h-8 flex-1 text-sm font-semibold bg-white dark:bg-slate-900/50 rounded-md border border-slate-200/60 dark:border-slate-800 px-2 outline-none focus-visible:ring-1 focus-visible:ring-purple-500 cursor-pointer"
+                          >
+                            <option value="">Ngày</option>
+                            {Array.from({ length: daysInMonth }, (_, i) => {
+                              const d = String(i + 1).padStart(2, "0");
+                              return <option key={d} value={d}>{d}</option>;
+                            })}
+                          </select>
+                          <select
+                            value={dobMonth}
+                            onChange={(e) => handleDobPartChange("month", e.target.value)}
+                            className="h-8 flex-1 text-sm font-semibold bg-white dark:bg-slate-900/50 rounded-md border border-slate-200/60 dark:border-slate-800 px-2 outline-none focus-visible:ring-1 focus-visible:ring-purple-500 cursor-pointer"
+                          >
+                            <option value="">Tháng</option>
+                            {Array.from({ length: 12 }, (_, i) => {
+                              const m = String(i + 1).padStart(2, "0");
+                              return <option key={m} value={m}>{m}</option>;
+                            })}
+                          </select>
+                          <select
+                            value={dobYear}
+                            onChange={(e) => handleDobPartChange("year", e.target.value)}
+                            className="h-8 flex-1 text-sm font-semibold bg-white dark:bg-slate-900/50 rounded-md border border-slate-200/60 dark:border-slate-800 px-2 outline-none focus-visible:ring-1 focus-visible:ring-purple-500 cursor-pointer"
+                          >
+                            <option value="">Năm</option>
+                            {Array.from({ length: new Date().getFullYear() - 1900 + 1 }, (_, i) => {
+                              const y = String(new Date().getFullYear() - i);
+                              return <option key={y} value={y}>{y}</option>;
+                            })}
+                          </select>
+                        </div>
+                      );
+                    })() : (
                       <span className={`text-sm font-bold ${user?.dob ? 'text-slate-900 dark:text-white' : 'text-slate-455 italic'}`}>{formatToDDMMYYYY(user?.dob)}</span>
                     )}
                   </div>
@@ -5572,22 +5792,39 @@ export default function Home() {
             <Card className="liquid-glass rounded-3xl p-6 md:p-8 flex flex-col gap-6 shadow-sm border-0">
               <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800/60 pb-4">
                 <h3 className="text-sm font-extrabold tracking-wider uppercase text-slate-900 dark:text-white flex items-center gap-2.5">
-                  <Lock className="w-4 h-4 text-purple-500" /> Đổi mật khẩu học tập
+                  <Lock className="w-4 h-4 text-purple-500" /> {isResettingPasswordWithOtp ? "Đặt lại mật khẩu qua OTP" : "Đổi mật khẩu học tập"}
                 </h3>
-                <button
-                  type="button"
-                  onClick={handleSendResetEmail}
-                  disabled={resetEmailLoading}
-                  className="text-xs font-bold text-purple-600 hover:text-purple-800 dark:text-purple-400 dark:hover:text-purple-300 transition-colors"
-                >
-                  {resetEmailLoading ? "Đang gửi email..." : "Quên mật khẩu?"}
-                </button>
+                {isResettingPasswordWithOtp ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsResettingPasswordWithOtp(false);
+                      setChangePasswordError("");
+                      setChangePasswordSuccess("");
+                      setResetOtpCode("");
+                      setNewPassword("");
+                      setConfirmNewPassword("");
+                    }}
+                    className="text-xs font-bold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-lg"
+                  >
+                    Đổi thông thường
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleSendResetEmail}
+                    disabled={resetEmailLoading}
+                    className="text-xs font-bold text-purple-600 hover:text-purple-800 dark:text-purple-400 dark:hover:text-purple-300 transition-colors"
+                  >
+                    {resetEmailLoading ? "Đang gửi email..." : "Quên mật khẩu?"}
+                  </button>
+                )}
               </div>
 
-              <form onSubmit={handleChangePassword} className="flex flex-col gap-6">
+              <form onSubmit={isResettingPasswordWithOtp ? handleResetPasswordWithOtp : handleChangePassword} className="flex flex-col gap-6">
                 {changePasswordError && (
                   <div className="flex items-start gap-2.5 text-xs text-red-650 bg-red-50/50 dark:bg-red-950/20 border border-red-200/50 dark:border-red-900/30 rounded-xl p-3.5 backdrop-blur-md">
-                    <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-red-550" />
+                    <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-red-555" />
                     <span className="font-bold">{changePasswordError}</span>
                   </div>
                 )}
@@ -5599,43 +5836,84 @@ export default function Home() {
                   </div>
                 )}
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className="grid gap-2">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">Mật khẩu hiện tại</label>
-                    <Input
-                      type="password"
-                      placeholder="••••••••"
-                      value={currentPassword}
-                      onChange={(e) => setCurrentPassword(e.target.value)}
-                      disabled={changePasswordLoading || resetEmailLoading}
-                      className="bg-white/60 dark:bg-[#0c0d13]/60 border-slate-200/60 dark:border-slate-800 rounded-xl px-4 py-5 text-sm font-semibold focus-visible:ring-1 focus-visible:ring-purple-500"
-                    />
-                  </div>
+                {isResettingPasswordWithOtp ? (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="grid gap-2">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">Mã xác thực OTP</label>
+                      <Input
+                        type="text"
+                        maxLength={6}
+                        placeholder="Nhập mã OTP 6 số"
+                        value={resetOtpCode}
+                        onChange={(e) => setResetOtpCode(e.target.value.replace(/[^0-9]/g, ""))}
+                        disabled={changePasswordLoading}
+                        className="bg-white/60 dark:bg-[#0c0d13]/60 border-slate-200/60 dark:border-slate-800 rounded-xl px-4 py-5 text-sm font-semibold text-center tracking-widest focus-visible:ring-1 focus-visible:ring-purple-500 font-mono"
+                      />
+                    </div>
 
-                  <div className="grid gap-2">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">Mật khẩu mới</label>
-                    <Input
-                      type="password"
-                      placeholder="Tối thiểu 6 ký tự"
-                      value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
-                      disabled={changePasswordLoading}
-                      className="bg-white/60 dark:bg-[#0c0d13]/60 border-slate-200/60 dark:border-slate-800 rounded-xl px-4 py-5 text-sm font-semibold focus-visible:ring-1 focus-visible:ring-purple-500"
-                    />
-                  </div>
+                    <div className="grid gap-2">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">Mật khẩu mới</label>
+                      <Input
+                        type="password"
+                        placeholder="Tối thiểu 6 ký tự"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        disabled={changePasswordLoading}
+                        className="bg-white/60 dark:bg-[#0c0d13]/60 border-slate-200/60 dark:border-slate-800 rounded-xl px-4 py-5 text-sm font-semibold focus-visible:ring-1 focus-visible:ring-purple-500"
+                      />
+                    </div>
 
-                  <div className="grid gap-2">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">Xác nhận mật khẩu</label>
-                    <Input
-                      type="password"
-                      placeholder="Nhập lại để xác nhận"
-                      value={confirmNewPassword}
-                      onChange={(e) => setConfirmNewPassword(e.target.value)}
-                      disabled={changePasswordLoading}
-                      className="bg-white/60 dark:bg-[#0c0d13]/60 border-slate-200/60 dark:border-slate-800 rounded-xl px-4 py-5 text-sm font-semibold focus-visible:ring-1 focus-visible:ring-purple-500"
-                    />
+                    <div className="grid gap-2">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">Xác nhận mật khẩu</label>
+                      <Input
+                        type="password"
+                        placeholder="Nhập lại để xác nhận"
+                        value={confirmNewPassword}
+                        onChange={(e) => setConfirmNewPassword(e.target.value)}
+                        disabled={changePasswordLoading}
+                        className="bg-white/60 dark:bg-[#0c0d13]/60 border-slate-200/60 dark:border-slate-850 rounded-xl px-4 py-5 text-sm font-semibold focus-visible:ring-1 focus-visible:ring-purple-500"
+                      />
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="grid gap-2">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">Mật khẩu hiện tại</label>
+                      <Input
+                        type="password"
+                        placeholder="••••••••"
+                        value={currentPassword}
+                        onChange={(e) => setCurrentPassword(e.target.value)}
+                        disabled={changePasswordLoading || resetEmailLoading}
+                        className="bg-white/60 dark:bg-[#0c0d13]/60 border-slate-200/60 dark:border-slate-800 rounded-xl px-4 py-5 text-sm font-semibold focus-visible:ring-1 focus-visible:ring-purple-500"
+                      />
+                    </div>
+
+                    <div className="grid gap-2">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">Mật khẩu mới</label>
+                      <Input
+                        type="password"
+                        placeholder="Tối thiểu 6 ký tự"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        disabled={changePasswordLoading}
+                        className="bg-white/60 dark:bg-[#0c0d13]/60 border-slate-200/60 dark:border-slate-800 rounded-xl px-4 py-5 text-sm font-semibold focus-visible:ring-1 focus-visible:ring-purple-500"
+                      />
+                    </div>
+
+                    <div className="grid gap-2">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">Xác nhận mật khẩu</label>
+                      <Input
+                        type="password"
+                        placeholder="Nhập lại để xác nhận"
+                        value={confirmNewPassword}
+                        onChange={(e) => setConfirmNewPassword(e.target.value)}
+                        disabled={changePasswordLoading}
+                        className="bg-white/60 dark:bg-[#0c0d13]/60 border-slate-200/60 dark:border-slate-800 rounded-xl px-4 py-5 text-sm font-semibold focus-visible:ring-1 focus-visible:ring-purple-500"
+                      />
+                    </div>
+                  </div>
+                )}
 
                 <div className="flex justify-start mt-2">
                   <Button
@@ -5643,7 +5921,7 @@ export default function Home() {
                     disabled={changePasswordLoading}
                     className="bg-purple-600 hover:bg-purple-700 text-white font-extrabold text-xs tracking-wider px-8 py-5 rounded-xl shadow-sm transition-transform active:scale-95"
                   >
-                    {changePasswordLoading ? "Đang xử lý..." : "Cập nhật mật khẩu"}
+                    {changePasswordLoading ? "Đang xử lý..." : isResettingPasswordWithOtp ? "Đặt lại mật khẩu" : "Cập nhật mật khẩu"}
                   </Button>
                 </div>
               </form>
