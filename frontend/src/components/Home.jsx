@@ -408,6 +408,7 @@ export default function Home() {
   const documentsSectionRef = useRef(null);
   const mainContentRef = useRef(null);
   const seenNotificationsRef = useRef(new Set());
+  const communitySearchSectionRef = useRef(null);
 
   const [currentCalDate, setCurrentCalDate] = useState(new Date());
   const [sidebarWidth, setSidebarWidth] = useState(230);
@@ -565,6 +566,10 @@ export default function Home() {
   useEffect(() => {
     setCommunityPage(1);
   }, [communityRoleFilter]);
+
+  useEffect(() => {
+    setCommunityRoleFilter("ALL");
+  }, [activeTab]);
 
   const [isScrolledDown, setIsScrolledDown] = useState(false);
 
@@ -2932,7 +2937,20 @@ export default function Home() {
           isScrolledDown ? "top-[110px] translate-y-0" : "top-1/2 -translate-y-1/2"
         }`}>
           <button
-            onClick={() => setCommunityRoleFilter(prev => prev === "STUDENT" ? "ALL" : "STUDENT")}
+            onClick={() => {
+              setCommunityRoleFilter(prev => prev === "STUDENT" ? "ALL" : "STUDENT");
+              setTimeout(() => {
+                if (communitySearchSectionRef.current && mainContentRef.current) {
+                  const mainTop = mainContentRef.current.getBoundingClientRect().top;
+                  const searchTop = communitySearchSectionRef.current.getBoundingClientRect().top;
+                  const targetScrollTop = mainContentRef.current.scrollTop + (searchTop - mainTop) - 24;
+                  mainContentRef.current.scrollTo({
+                    top: targetScrollTop,
+                    behavior: 'smooth'
+                  });
+                }
+              }, 100);
+            }}
             className={`px-3 py-3 rounded-l-[16px] text-xs font-black tracking-widest uppercase transition-all duration-300 cursor-pointer flex items-center justify-center text-center h-[48px] border border-r-0 shadow-[0_4px_12px_rgba(0,0,0,0.1)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.4)] whitespace-nowrap ${
               communityRoleFilter === "STUDENT"
                 ? "bg-gradient-to-br from-purple-600 to-indigo-600 border-purple-500 text-white scale-105 w-[160px]"
@@ -2942,7 +2960,20 @@ export default function Home() {
             Sinh viên
           </button>
           <button
-            onClick={() => setCommunityRoleFilter(prev => prev === "LECTURER" ? "ALL" : "LECTURER")}
+            onClick={() => {
+              setCommunityRoleFilter(prev => prev === "LECTURER" ? "ALL" : "LECTURER");
+              setTimeout(() => {
+                if (communitySearchSectionRef.current && mainContentRef.current) {
+                  const mainTop = mainContentRef.current.getBoundingClientRect().top;
+                  const searchTop = communitySearchSectionRef.current.getBoundingClientRect().top;
+                  const targetScrollTop = mainContentRef.current.scrollTop + (searchTop - mainTop) - 24;
+                  mainContentRef.current.scrollTo({
+                    top: targetScrollTop,
+                    behavior: 'smooth'
+                  });
+                }
+              }, 100);
+            }}
             className={`px-3 py-3 rounded-l-[16px] text-xs font-black tracking-widest uppercase transition-all duration-300 cursor-pointer flex items-center justify-center text-center h-[48px] border border-r-0 shadow-[0_4px_12px_rgba(0,0,0,0.1)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.4)] whitespace-nowrap ${
               communityRoleFilter === "LECTURER"
                 ? "bg-gradient-to-br from-purple-600 to-indigo-600 border-purple-500 text-white scale-105 w-[160px]"
@@ -4274,7 +4305,7 @@ export default function Home() {
                                           headers: { Authorization: `Bearer ${token}` }
                                         });
                                         toast.success("Đã hủy đăng tài liệu khỏi cộng đồng!");
-                                        setDocuments(prev => prev.map(d => (d.document_id === doc.document_id || d.id === doc.id) ? { ...d, is_community: false } : d));
+                                        setDocuments(prev => prev.map(d => ((d.document_id && d.document_id === doc.document_id) || (d.id && d.id === doc.id)) ? { ...d, is_community: false } : d));
                                       } catch (err) {
                                         toast.error("Không thể hủy đăng tài liệu khỏi cộng đồng.");
                                       } finally {
@@ -4298,7 +4329,7 @@ export default function Home() {
                                           headers: { Authorization: `Bearer ${token}` }
                                         });
                                         toast.success("Đã đăng tài liệu lên cộng đồng thành công!");
-                                        setDocuments(prev => prev.map(d => (d.document_id === doc.document_id || d.id === doc.id) ? { ...d, is_community: true } : d));
+                                        setDocuments(prev => prev.map(d => ((d.document_id && d.document_id === doc.document_id) || (d.id && d.id === doc.id)) ? { ...d, is_community: true } : d));
                                       } catch (err) {
                                         toast.error("Không thể đăng tài liệu lên cộng đồng.");
                                       } finally {
@@ -4959,7 +4990,7 @@ export default function Home() {
               )}
 
               {/* Search and Date Filter Section */}
-              <div className="w-full max-w-2xl mx-auto flex items-center gap-3 mt-2 relative">
+              <div ref={communitySearchSectionRef} className="w-full max-w-2xl mx-auto flex items-center gap-3 mt-2 relative">
                 <div className="flex-1">
                   <SearchBar
                     search={communitySearch}
