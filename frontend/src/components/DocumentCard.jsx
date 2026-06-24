@@ -345,14 +345,6 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
                     </>
                   ) : (
                     <>
-                      {onTogglePin && (
-                        <button
-                          onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onTogglePin(); }}
-                          className="menu-item font-medium text-slate-700 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-slate-800/60 flex items-center"
-                        >
-                          <Pin className="w-4 h-4 mr-2" /> {isPinned ? "Bỏ ghim" : "Ghim lên đầu"}
-                        </button>
-                      )}
                       <button
                         onClick={(e) => { setMenuOpen(false); handleCopy(e); }}
                         className="menu-item font-medium text-slate-700 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-slate-800/60 flex items-center"
