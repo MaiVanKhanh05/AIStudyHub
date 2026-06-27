@@ -61,7 +61,9 @@ import {
   RotateCcw,
   Camera,
   Flame,
-  Loader
+  Loader,
+  SlidersHorizontal,
+  ArrowUpDown
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -405,6 +407,7 @@ export default function Home() {
   const location = useLocation();
   const isUploadingRef = useRef(false);
   const calendarPopoverRef = useRef(null);
+  const communitySortPopoverRef = useRef(null);
   const documentsSectionRef = useRef(null);
   const mainContentRef = useRef(null);
   const seenNotificationsRef = useRef(new Set());
@@ -417,6 +420,8 @@ export default function Home() {
   const [rangeEnd, setRangeEnd] = useState(null);
   const [isCalDragging, setIsCalDragging] = useState(false);
   const [showCalendarPopover, setShowCalendarPopover] = useState(false);
+  const [showCommunitySortPopover, setShowCommunitySortPopover] = useState(false);
+  const [communitySortOption, setCommunitySortOption] = useState("newest"); // "newest" | "oldest" | "popular"
 
   const [personalRangeStart, setPersonalRangeStart] = useState(null);
   const [personalRangeEnd, setPersonalRangeEnd] = useState(null);
@@ -460,6 +465,19 @@ export default function Home() {
       document.removeEventListener("mousedown", handleOutsideClick);
     };
   }, [showCalendarPopover]);
+
+  useEffect(() => {
+    if (!showCommunitySortPopover) return;
+    const handleOutsideClick = (e) => {
+      if (communitySortPopoverRef.current && !communitySortPopoverRef.current.contains(e.target)) {
+        setShowCommunitySortPopover(false);
+      }
+    };
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+    };
+  }, [showCommunitySortPopover]);
 
   useEffect(() => {
     if (!isCalDragging) return;
@@ -566,6 +584,10 @@ export default function Home() {
   useEffect(() => {
     setCommunityPage(1);
   }, [communityRoleFilter]);
+
+  useEffect(() => {
+    setCommunityPage(1);
+  }, [communitySortOption]);
 
   useEffect(() => {
     setCommunityRoleFilter("ALL");
@@ -718,9 +740,30 @@ export default function Home() {
     return matchesSearch && matchesDate && matchesRole;
   });
 
+  const sortDocs = (docsList) => {
+    return [...docsList].sort((a, b) => {
+      if (communitySortOption === "newest") {
+        const dateA = a.upload_date ? new Date(a.upload_date).getTime() : 0;
+        const dateB = b.upload_date ? new Date(b.upload_date).getTime() : 0;
+        return dateB - dateA;
+      }
+      if (communitySortOption === "oldest") {
+        const dateA = a.upload_date ? new Date(a.upload_date).getTime() : 0;
+        const dateB = b.upload_date ? new Date(b.upload_date).getTime() : 0;
+        return dateA - dateB;
+      }
+      if (communitySortOption === "popular") {
+        const scoreA = (a.views || 0) + (a.downloads || 0);
+        const scoreB = (b.views || 0) + (b.downloads || 0);
+        return scoreB - scoreA;
+      }
+      return 0;
+    });
+  };
+
   const sortedCommunityDocs = [
-    ...filteredCommunityDocs.filter(d => d.isPinned),
-    ...filteredCommunityDocs.filter(d => !d.isPinned)
+    ...sortDocs(filteredCommunityDocs.filter(d => d.isPinned)),
+    ...sortDocs(filteredCommunityDocs.filter(d => !d.isPinned))
   ];
 
   const COMMUNITY_PAGE_SIZE = 9;
@@ -5168,6 +5211,73 @@ export default function Home() {
                           className="text-[10px] font-bold text-red-500 hover:underline cursor-pointer"
                         >
                           Đặt lại
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Sort Option Toggle Button and Popover */}
+                <div className="relative flex items-center" ref={communitySortPopoverRef}>
+                  <button
+                    onClick={() => setShowCommunitySortPopover(!showCommunitySortPopover)}
+                    className={`
+                      flex items-center gap-2 px-4 py-3 rounded-xl border text-xs font-bold transition-all duration-300 shadow-sm h-[46px] select-none cursor-pointer
+                      ${showCommunitySortPopover
+                        ? "bg-purple-600 border-purple-600 text-white shadow-purple-500/10"
+                        : "bg-white/40 dark:bg-[#0f111a]/45 backdrop-blur-xl border-slate-200/30 dark:border-white/5 text-slate-700 dark:text-slate-300 hover:bg-white/60 dark:hover:bg-[#0f111a]/60 hover:text-purple-600 dark:hover:text-purple-400"
+                      }
+                    `}
+                  >
+                    <SlidersHorizontal className="w-4 h-4 shrink-0" />
+                    <span className="hidden sm:inline">
+                      {communitySortOption === "newest" && "Mới nhất"}
+                      {communitySortOption === "oldest" && "Cũ nhất"}
+                      {communitySortOption === "popular" && "Phổ biến"}
+                    </span>
+                  </button>
+
+                  {showCommunitySortPopover && (
+                    <div className="absolute right-0 top-[52px] w-[180px] p-2 bg-white dark:bg-[#0f111a] border border-slate-200/85 dark:border-white/10 rounded-2xl shadow-xl z-[9999] animate-in fade-in slide-in-from-top-2 duration-200 text-left">
+                      <div className="flex flex-col gap-1">
+                        <button
+                          onClick={() => {
+                            setCommunitySortOption("newest");
+                            setShowCommunitySortPopover(false);
+                          }}
+                          className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold transition-colors cursor-pointer ${
+                            communitySortOption === "newest"
+                              ? "bg-purple-50 dark:bg-purple-950/20 text-purple-600 dark:text-purple-400"
+                              : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/40"
+                          }`}
+                        >
+                          Mới nhất
+                        </button>
+                        <button
+                          onClick={() => {
+                            setCommunitySortOption("oldest");
+                            setShowCommunitySortPopover(false);
+                          }}
+                          className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold transition-colors cursor-pointer ${
+                            communitySortOption === "oldest"
+                              ? "bg-purple-50 dark:bg-purple-950/20 text-purple-600 dark:text-purple-400"
+                              : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/40"
+                          }`}
+                        >
+                          Cũ nhất
+                        </button>
+                        <button
+                          onClick={() => {
+                            setCommunitySortOption("popular");
+                            setShowCommunitySortPopover(false);
+                          }}
+                          className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold transition-colors cursor-pointer ${
+                            communitySortOption === "popular"
+                              ? "bg-purple-50 dark:bg-purple-950/20 text-purple-600 dark:text-purple-400"
+                              : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/40"
+                          }`}
+                        >
+                          Phổ biến
                         </button>
                       </div>
                     </div>

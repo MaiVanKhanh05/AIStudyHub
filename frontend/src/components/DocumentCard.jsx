@@ -26,6 +26,7 @@ import {
 import { toast } from "sonner";
 import DocumentPreviewModal from "./DocumentPreviewModal";
 import { getSimulatedContent } from "../utils/documentUtils";
+import { deleteFileFromSupabase } from "../lib/supabase";
 
 // Hàm định dạng dung lượng file từ bytes sang chuỗi dễ đọc (KB, MB)
 function formatFileSize(bytes) {
@@ -62,7 +63,7 @@ function getFileType(url = "") {
   return "other";
 }
 
-export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, onShare, isMyShared }) {
+export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, onShare, isMyShared, onDelete }) {
   const [open, setOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [bookmarked, setBookmarked] = useState(doc?.isBookmarked || false);
@@ -135,8 +136,10 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
     const docId = doc?.document_id || doc?.id;
     if (!docId) return;
     try {
-      await fetch(`http://localhost:5000/documents/${docId}/view`, {
+      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+      await fetch(`http://localhost:5000/api/documents/${docId}/view`, {
         method: "PUT",
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
       });
     } catch { }
   };
@@ -153,8 +156,10 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
     const docId = doc?.document_id || doc?.id;
     if (!docId) return;
     try {
-      await fetch(`http://localhost:5000/documents/${docId}/download`, {
+      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+      await fetch(`http://localhost:5000/api/documents/${docId}/download`, {
         method: "PUT",
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
       });
     } catch { }
   };
@@ -219,9 +224,53 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
     toast.info("Tính năng sửa tài liệu đang được cập nhật");
   };
 
-  const handleDelete = (e) => {
+  const handleDelete = async (e) => {
     e.stopPropagation();
-    toast.info("Tính năng xóa tài liệu đang được cập nhật");
+    const docId = doc?.document_id || doc?.id;
+    if (!docId) return;
+
+    const confirmed = window.confirm("Bạn có chắc chắn muốn xóa vĩnh viễn tài liệu này khỏi hệ thống không?");
+    if (!confirmed) return;
+
+    try {
+      // 1. Delete the file from Supabase Storage if file_url is present
+      if (doc?.file_url) {
+        try {
+          const urlParts = doc.file_url.split("/AIStudyHub/");
+          if (urlParts.length > 1) {
+            const filePath = decodeURIComponent(urlParts[1]);
+            const storageResult = await deleteFileFromSupabase(filePath, "AIStudyHub");
+            if (!storageResult.success) {
+              console.warn("Could not delete from Supabase storage:", storageResult.error);
+            }
+          }
+        } catch (storageErr) {
+          console.error("Storage deletion error:", storageErr);
+        }
+      }
+
+      // 2. Delete the record from PostgreSQL database via backend API
+      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+      const res = await fetch(`http://localhost:5000/api/documents/${docId}`, {
+        method: "DELETE",
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      });
+      const data = await res.json();
+
+      if (res.ok) {
+        toast.success("Đã xóa tài liệu thành công khỏi hệ thống!");
+        if (onDelete) {
+          onDelete(docId);
+        }
+      } else {
+        toast.error(data.error || "Không thể xóa tài liệu.");
+      }
+    } catch (err) {
+      console.error("Lỗi khi xóa tài liệu:", err);
+      toast.error("Đã xảy ra lỗi khi kết nối tới server để xóa tài liệu.");
+    }
   };
 
   const handleBookmarkToggle = async (e) => {
@@ -364,7 +413,7 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
                             onClick={(e) => { setMenuOpen(false); handleDelete(e); }}
                             className="menu-item danger font-medium hover:bg-red-50 dark:hover:bg-red-950/20 flex items-center text-red-600"
                           >
-                            <Trash2 className="w-4 h-4 mr-2" /> Xóa file
+                            <Trash2 className="w-4 h-4 mr-2" /> Gỡ bỏ
                           </button>
                         </>
                       )}
