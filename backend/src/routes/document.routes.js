@@ -35,10 +35,10 @@ router.put("/:id/edit", authenticateToken, documentController.editDoc);
 router.get("/:id", optionalAuthenticateToken, documentController.getDocById);
 
 // PUT /api/documents/:id/view
-router.put("/:id/view", authenticateToken, requireDocumentAccess, documentController.increaseView);
+router.put("/:id/view", documentController.increaseView);
 
 // PUT /api/documents/:id/download
-router.put("/:id/download", authenticateToken, requireDocumentAccess, documentController.increaseDownload);
+router.put("/:id/download", documentController.increaseDownload);
 
 // DELETE /api/documents/:id
 router.delete("/:id", authenticateToken, requireOwnerAccess, documentController.deleteDoc);
@@ -49,14 +49,5 @@ router.post("/:id/share", authenticateToken, requireOwnerAccess, documentPermiss
 router.patch("/:id/share/:userId", authenticateToken, requireOwnerAccess, documentPermissionController.updateSharePermission);
 router.delete("/:id/share/:userId", authenticateToken, requireOwnerAccess, documentPermissionController.deleteSharePermission);
 router.patch("/:id/visibility", authenticateToken, requireOwnerAccess, documentPermissionController.updateVisibility);
-
-// PUT /api/documents/:id/view
-router.put("/:id/view", documentController.increaseView);
-
-// PUT /api/documents/:id/download
-router.put("/:id/download", documentController.increaseDownload);
-
-// DELETE /api/documents/:id
-router.delete("/:id", authenticateToken, documentController.deleteDoc);
 
 export default router;
