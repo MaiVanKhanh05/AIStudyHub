@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
+import { useLanguage } from "../context/LanguageContext";
 import {
   FileText,
   FileSpreadsheet,
@@ -64,6 +65,7 @@ function getFileType(url = "") {
 }
 
 export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, onShare, isMyShared, onDelete, onUnshare }) {
+  const { t, language } = useLanguage();
   const [open, setOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [bookmarked, setBookmarked] = useState(doc?.isBookmarked || false);
@@ -81,15 +83,15 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
   }, [doc?.file_url]);
 
   const formattedUploadDate = useMemo(() => {
-    if (!doc?.upload_date) return "30 Thg 05, 2026";
+    if (!doc?.upload_date) return language === "vi" ? "30 Thg 05, 2026" : "May 30, 2026";
     try {
       const d = new Date(doc.upload_date);
       if (isNaN(d.getTime())) return doc.upload_date;
-      return d.toLocaleDateString("vi-VN", { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+      return d.toLocaleDateString(language === "vi" ? "vi-VN" : "en-US", { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
     } catch {
       return doc.upload_date;
     }
-  }, [doc?.upload_date]);
+  }, [doc?.upload_date, language]);
 
   // Tự động đóng menu khi click ra ngoài vùng trống
   useEffect(() => {
@@ -184,7 +186,7 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
     increaseDownload();
 
     if (!doc.file_url) {
-      toast.error("Không tìm thấy đường dẫn tải xuống!");
+      toast.error(t("myDocs.toast_download_fail") || "Không tìm thấy đường dẫn tải xuống!");
       return;
     }
 
@@ -216,12 +218,12 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
     const docId = doc.document_id || doc.id;
     const previewUrl = docId ? `${window.location.origin}/preview/${docId}` : (doc.file_url || "https://aistudyhub.com");
     navigator.clipboard.writeText(previewUrl);
-    toast.success("Đã sao chép liên kết xem trước vào clipboard!");
+    toast.success(language === "vi" ? "Đã sao chép liên kết xem trước vào clipboard!" : "Preview link copied to clipboard!");
   };
 
   const handleEdit = (e) => {
     e.stopPropagation();
-    toast.info("Tính năng sửa tài liệu đang được cập nhật");
+    toast.info(language === "vi" ? "Tính năng sửa tài liệu đang được cập nhật" : "Document editing is being updated");
   };
 
   const handleDelete = async (e) => {
@@ -229,7 +231,7 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
     const docId = doc?.document_id || doc?.id;
     if (!docId) return;
 
-    const confirmed = window.confirm("Bạn có chắc chắn muốn xóa vĩnh viễn tài liệu này khỏi hệ thống không?");
+    const confirmed = window.confirm(language === "vi" ? "Bạn có chắc chắn muốn xóa vĩnh viễn tài liệu này khỏi hệ thống không?" : "Are you sure you want to permanently delete this document from the system?");
     if (!confirmed) return;
 
     try {
@@ -260,16 +262,16 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
       const data = await res.json();
 
       if (res.ok) {
-        toast.success("Đã xóa tài liệu thành công khỏi hệ thống!");
+        toast.success(language === "vi" ? "Đã xóa tài liệu thành công khỏi hệ thống!" : "Document deleted successfully!");
         if (onDelete) {
           onDelete(docId);
         }
       } else {
-        toast.error(data.error || "Không thể xóa tài liệu.");
+        toast.error(data.error || (language === "vi" ? "Không thể xóa tài liệu." : "Failed to delete document."));
       }
     } catch (err) {
       console.error("Lỗi khi xóa tài liệu:", err);
-      toast.error("Đã xảy ra lỗi khi kết nối tới server để xóa tài liệu.");
+      toast.error(language === "vi" ? "Đã xảy ra lỗi khi kết nối tới server để xóa tài liệu." : "Server error deleting document.");
     }
   };
 
@@ -278,7 +280,7 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
     const docId = doc?.document_id || doc?.id;
     if (!docId) return;
 
-    const confirmed = window.confirm("Bạn có chắc chắn muốn gỡ tài liệu này khỏi Trang Cộng Đồng không?");
+    const confirmed = window.confirm(language === "vi" ? "Bạn có chắc chắn muốn gỡ tài liệu này khỏi Trang Cộng Đồng không?" : "Are you sure you want to remove this document from the Community page?");
     if (!confirmed) return;
 
     try {
@@ -292,16 +294,16 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
       const data = await res.json();
 
       if (res.ok) {
-        toast.success("Đã gỡ tài liệu khỏi Trang Cộng Đồng thành công!");
+        toast.success(t("myDocs.toast_unpost_success") || "Đã gỡ tài liệu khỏi Trang Cộng Đồng thành công!");
         if (onUnshare) {
           onUnshare(docId);
         }
       } else {
-        toast.error(data.error || "Không thể gỡ tài liệu.");
+        toast.error(data.error || (t("myDocs.toast_unpost_fail") || "Không thể gỡ tài liệu."));
       }
     } catch (err) {
       console.error("Lỗi khi gỡ tài liệu:", err);
-      toast.error("Đã xảy ra lỗi khi kết nối tới server để gỡ tài liệu.");
+      toast.error(language === "vi" ? "Đã xảy ra lỗi khi kết nối tới server để gỡ tài liệu." : "Server error removing document.");
     }
   };
 
@@ -319,14 +321,14 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
         const data = await res.json();
         setBookmarked(data.bookmarked);
         if (data.bookmarked) {
-          toast.success("Đã lưu tài liệu vào Kho Yêu Thích!");
+          toast.success(language === "vi" ? "Đã lưu tài liệu vào Kho Yêu Thích!" : "Saved to Favorites!");
         } else {
-          toast.info("Đã bỏ lưu tài liệu khỏi Kho Yêu Thích.");
+          toast.info(language === "vi" ? "Đã bỏ lưu tài liệu khỏi Kho Yêu Thích." : "Removed from Favorites.");
         }
       }
     } catch (err) {
       console.error(err);
-      toast.error("Lỗi khi lưu tài liệu.");
+      toast.error(language === "vi" ? "Lỗi khi lưu tài liệu." : "Error saving document.");
     }
   };
 
@@ -400,7 +402,7 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
                         onClick={(e) => { setMenuOpen(false); handleDownload(e); }}
                         className="menu-item font-medium text-slate-700 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-slate-800/60 flex items-center"
                       >
-                        <Download className="w-4 h-4 mr-2" /> Tải xuống
+                        <Download className="w-4 h-4 mr-2" /> {t("myDocs.download") || "Tải xuống"}
                       </button>
                       <button
                         onClick={(e) => {
@@ -414,14 +416,14 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
                         }}
                         className="menu-item font-medium text-slate-700 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-slate-800/60 flex items-center"
                       >
-                        <Share2 className="w-4 h-4 mr-2" /> Chia sẻ
+                        <Share2 className="w-4 h-4 mr-2" /> {t("myDocs.share") || "Chia sẻ"}
                       </button>
                       <div className="h-px bg-slate-100 dark:bg-slate-800/60 my-1" />
                       <button
                         onClick={(e) => { setMenuOpen(false); handleDelete(e); }}
                         className="menu-item danger font-medium hover:bg-red-50 dark:hover:bg-red-950/20 flex items-center text-red-600"
                       >
-                        <Trash2 className="w-4 h-4 mr-2" /> Gỡ bỏ
+                        <Trash2 className="w-4 h-4 mr-2" /> {t("myDocs.remove") || "Gỡ bỏ"}
                       </button>
                     </>
                   ) : (
@@ -430,13 +432,13 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
                         onClick={(e) => { setMenuOpen(false); handleCopy(e); }}
                         className="menu-item font-medium text-slate-700 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-slate-800/60 flex items-center"
                       >
-                        <Link2 className="w-4 h-4 mr-2" /> Sao chép link
+                        <Link2 className="w-4 h-4 mr-2" /> {language === "vi" ? "Sao chép link" : "Copy link"}
                       </button>
                       <button
                         onClick={(e) => { setMenuOpen(false); handleDownload(e); }}
                         className="menu-item font-medium text-slate-700 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-slate-800/60 flex items-center"
                       >
-                        <Download className="w-4 h-4 mr-2" /> Tải xuống file
+                        <Download className="w-4 h-4 mr-2" /> {language === "vi" ? "Tải xuống file" : "Download file"}
                       </button>
                       {isMyShared && (
                         <>
@@ -445,7 +447,7 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
                             onClick={(e) => { setMenuOpen(false); handleUnshare(e); }}
                             className="menu-item danger font-medium hover:bg-red-50 dark:hover:bg-red-950/20 flex items-center text-red-600"
                           >
-                            <Trash2 className="w-4 h-4 mr-2" /> Gỡ bỏ
+                            <Trash2 className="w-4 h-4 mr-2" /> {t("myDocs.remove") || "Gỡ bỏ"}
                           </button>
                         </>
                       )}
@@ -467,12 +469,12 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
 
             {/* Tên tác giả */}
             <p className="text-[11px] font-medium text-slate-400 dark:text-slate-500 truncate">
-              By {doc?.author || doc?.uploader_name || "An Nguyen"}
+              {language === "vi" ? "Bởi" : "By"} {doc?.author || doc?.uploader_name || "An Nguyen"}
             </p>
 
             {/* Ngày cập nhật */}
             <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500">
-              Updated: {formattedUploadDate}
+              {language === "vi" ? "Cập nhật:" : "Updated:"} {formattedUploadDate}
             </p>
           </div>
 
@@ -488,7 +490,7 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
                 flex items-center gap-1.5 shrink-0 active:scale-95 shadow-sm
               "
             >
-              <Download className="w-3.5 h-3.5 text-white" /> Tải xuống
+              <Download className="w-3.5 h-3.5 text-white" /> {t("myDocs.download") || "Tải xuống"}
             </button>
 
             {/* Khối lượt tải và mắt xem */}
@@ -569,7 +571,7 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
 
                     <span className="text-slate-200 dark:text-slate-800">|</span>
 
-                    <span className="text-[9px] font-bold">Trang 1 / 5</span>
+                    <span className="text-[9px] font-bold">{language === "vi" ? "Trang 1 / 5" : "Page 1 / 5"}</span>
                   </div>
                 </div>
 
@@ -594,34 +596,34 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
                       <div className="text-center border-b pb-4 mb-4 select-none">
                         <span className="text-[9px] uppercase tracking-widest text-slate-400 dark:text-slate-500 font-bold">AIStudyHub Academic Library Repository</span>
                         <h2 className="text-sm font-extrabold text-slate-900 dark:text-white mt-2 uppercase tracking-wide">{doc?.title}</h2>
-                        <p className="text-[9px] text-slate-450 dark:text-slate-550 mt-1 italic">Tác giả: {doc?.author || doc?.uploader_name || "An Nguyen"} • Lưu trữ học thuật</p>
+                        <p className="text-[9px] text-slate-450 dark:text-slate-550 mt-1 italic">{language === "vi" ? "Tác giả:" : "Author:"} {doc?.author || doc?.uploader_name || "An Nguyen"} • {language === "vi" ? "Lưu trữ học thuật" : "Academic Archive"}</p>
                       </div>
 
                       {/* Dynamic Simulated Content based on title */}
                       <div className="space-y-4 text-xs font-semibold leading-relaxed">
                         <div>
-                          <span className="font-extrabold uppercase text-[9px] text-purple-600 dark:text-purple-400 tracking-wider">TÓM TẮT TÀI LIỆU (OVERVIEW)</span>
+                          <span className="font-extrabold uppercase text-[9px] text-purple-600 dark:text-purple-400 tracking-wider">{t("preview.details") || (language === "vi" ? "TÓM TẮT TÀI LIỆU (OVERVIEW)" : "DOCUMENT OVERVIEW")}</span>
                           <p className="mt-1.5 text-slate-650 dark:text-slate-405 text-justify">
-                            {doc?.description || `Tài liệu nghiên cứu khoa học chuyên sâu và hệ thống bài tập thực hành chất lượng cao dành cho học phần ${doc?.subject || "Công nghệ thông tin"}. Tài liệu cung cấp các định nghĩa rõ ràng, ví dụ cụ thể và lời giải chi tiết giúp người học nhanh chóng nắm vững kiến thức nền tảng và nâng cao.`}
+                            {doc?.description || (language === "vi" ? `Tài liệu nghiên cứu khoa học chuyên sâu và hệ thống bài tập thực hành chất lượng cao dành cho học phần ${doc?.subject || "Công nghệ thông tin"}. Tài liệu cung cấp các định nghĩa rõ ràng, ví dụ cụ thể và lời giải chi tiết giúp người học nhanh chóng nắm vững kiến thức nền tảng và nâng cao.` : `In-depth academic research material and high-quality practice exercises for ${doc?.subject || "Information Technology"}. The document provides clear definitions, concrete examples, and detailed solutions to help learners quickly master foundational and advanced knowledge.`)}
                           </p>
                         </div>
 
                         <div className="space-y-1">
-                          <span className="font-extrabold text-[9px] text-slate-900 dark:text-slate-100 tracking-wider block uppercase">I. CHI TIẾT TÀI LIỆU & NỘI DUNG</span>
+                          <span className="font-extrabold text-[9px] text-slate-900 dark:text-slate-100 tracking-wider block uppercase">{language === "vi" ? "I. CHI TIẾT TÀI LIỆU & NỘI DUNG" : "I. DOCUMENT DETAILS & CONTENT"}</span>
                           <p className="text-slate-650 dark:text-slate-400 text-justify">
-                            Tài liệu này bao gồm bài tập và giáo trình tóm tắt chuyên sâu có hệ thống. Giúp học viên nắm rõ kiến thức trọng tâm của học phần {doc?.subject || "Công nghệ thông tin"}, chuẩn bị tốt nhất cho kỳ thi cuối kỳ hoặc các đề án nghiên cứu chuyên sâu.
+                            {language === "vi" ? `Tài liệu này bao gồm bài tập và giáo trình tóm tắt chuyên sâu có hệ thống. Giúp học viên nắm rõ kiến thức trọng tâm của học phần ${doc?.subject || "Công nghệ thông tin"}, chuẩn bị tốt nhất cho kỳ thi cuối kỳ hoặc các đề án nghiên cứu chuyên sâu.` : `This document includes structured practice problems and in-depth summary materials. It helps students master core concepts of ${doc?.subject || "Information Technology"}, preparing them well for final exams or research projects.`}
                           </p>
                         </div>
 
                         <div className="space-y-1">
-                          <span className="font-extrabold text-[9px] text-slate-900 dark:text-slate-100 tracking-wider block uppercase">II. TÓM TẮT TỪ TRỢ LÝ HỌC TẬP AI</span>
+                          <span className="font-extrabold text-[9px] text-slate-900 dark:text-slate-100 tracking-wider block uppercase">{language === "vi" ? "II. TÓM TẮT TỪ TRỢ LÝ HỌC TẬP AI" : "II. SUMMARY FROM AI LEARNING ASSISTANT"}</span>
                           <p className="text-slate-650 dark:text-slate-400 text-justify">
-                            {doc?.ai_summary || "Hệ thống AI đã phân tích cấu trúc tài liệu này và nhận thấy tài liệu được trình bày rất mạch lạc, đi kèm sơ đồ trực quan và mã nguồn mẫu/bài tập minh họa thiết thực."}
+                            {doc?.ai_summary || (language === "vi" ? "Hệ thống AI đã phân tích cấu trúc tài liệu này và nhận thấy tài liệu được trình bày rất mạch lạc, đi kèm sơ đồ trực quan và mã nguồn mẫu/bài tập minh họa thiết thực." : "The AI system has analyzed this document's structure and found it to be very well-organized, with intuitive diagrams and practical code samples/exercises.")}
                           </p>
                         </div>
 
                         <div className="border-t pt-4 mt-4 select-none text-center">
-                          <span className="text-[9px] uppercase tracking-widest text-slate-400 dark:text-slate-500 font-bold">--- KẾT THÚC BẢN XEM TRƯỚC HỌC LIỆU ---</span>
+                          <span className="text-[9px] uppercase tracking-widest text-slate-400 dark:text-slate-500 font-bold">{language === "vi" ? "--- KẾT THÚC BẢN XEM TRƯỚC HỌC LIỆU ---" : "--- END OF DOCUMENT PREVIEW ---"}</span>
                         </div>
                       </div>
                     </div>
@@ -638,11 +640,11 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
                   {/* Academic stats badges */}
                   <div className="grid grid-cols-2 gap-2 text-[9px] font-extrabold tracking-wider uppercase text-slate-500 dark:text-slate-450 shrink-0">
                     <div className="bg-slate-50 dark:bg-slate-950 p-2.5 rounded-lg border border-slate-100 dark:border-slate-850/60 flex flex-col gap-0.5">
-                      <span className="text-slate-400 text-[8px] font-bold">Dung lượng</span>
+                      <span className="text-slate-400 text-[8px] font-bold">{language === "vi" ? "Dung lượng" : "Size"}</span>
                       <span className="text-slate-800 dark:text-slate-200 font-black">{doc?.file_size ? formatFileSize(doc.file_size) : "2.4 MB"}</span>
                     </div>
                     <div className="bg-slate-50 dark:bg-slate-950 p-2.5 rounded-lg border border-slate-100 dark:border-slate-850/60 flex flex-col gap-0.5">
-                      <span className="text-slate-400 text-[8px] font-bold">Định dạng file</span>
+                      <span className="text-slate-400 text-[8px] font-bold">{language === "vi" ? "Định dạng file" : "File format"}</span>
                       <span className="text-slate-800 dark:text-slate-200 font-black tracking-widest">{finalFileType}</span>
                     </div>
                   </div>
@@ -653,31 +655,31 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
 
                     <div className="flex items-center gap-1.5 text-purple-700 dark:text-purple-400 uppercase tracking-widest text-[9px] font-extrabold select-none">
                       <Sparkles className="w-3.5 h-3.5 text-purple-500 animate-pulse" />
-                      <span>Tóm tắt học thuật AI</span>
+                      <span>{language === "vi" ? "Tóm tắt học thuật AI" : "AI Academic Summary"}</span>
                     </div>
 
                     <div className="space-y-3">
                       <div className="text-[11px] font-semibold text-slate-700 dark:text-slate-350 leading-relaxed text-justify italic">
-                        {doc?.ai_summary || doc?.description || "Hệ thống AI đang xử lý phân tích cấu trúc tài liệu. Bản tóm tắt sẽ hiển thị chi tiết các phần chính và các thuật toán liên quan."}
+                        {doc?.ai_summary || doc?.description || (language === "vi" ? "Hệ thống AI đang xử lý phân tích cấu trúc tài liệu. Bản tóm tắt sẽ hiển thị chi tiết các phần chính và các thuật toán liên quan." : "The AI system is analyzing the document structure. The summary will detail key sections and related algorithms.")}
                       </div>
 
                       <div className="w-full h-px bg-purple-500/10 dark:bg-purple-500/20" />
 
                       {/* Key Insights bullets */}
                       <div className="space-y-2">
-                        <span className="text-[8px] font-extrabold uppercase tracking-wider text-purple-600 dark:text-purple-450 block select-none">Điểm cốt lõi từ trợ lý học tập</span>
+                        <span className="text-[8px] font-extrabold uppercase tracking-wider text-purple-600 dark:text-purple-450 block select-none">{language === "vi" ? "Điểm cốt lõi từ trợ lý học tập" : "Key Insights from AI Assistant"}</span>
                         <ul className="text-[10px] text-slate-600 dark:text-slate-400 space-y-1.5 font-bold list-none pl-0">
                           <li className="flex items-start gap-1.5 leading-snug">
                             <span className="text-purple-500 select-none shrink-0">✦</span>
-                            <span>Hệ thống hóa toàn bộ công thức và sơ đồ tư duy thực hành.</span>
+                            <span>{language === "vi" ? "Hệ thống hóa toàn bộ công thức và sơ đồ tư duy thực hành." : "Systematize all formulas and practical mind maps."}</span>
                           </li>
                           <li className="flex items-start gap-1.5 leading-snug">
                             <span className="text-purple-500 select-none shrink-0">✦</span>
-                            <span>Đi kèm bài tập tự luyện và ví dụ thực tiễn chi tiết.</span>
+                            <span>{language === "vi" ? "Đi kèm bài tập tự luyện và ví dụ thực tiễn chi tiết." : "Includes practice exercises and detailed real-world examples."}</span>
                           </li>
                           <li className="flex items-start gap-1.5 leading-snug">
                             <span className="text-purple-500 select-none shrink-0">✦</span>
-                            <span>Phù hợp chuẩn bị ôn thi cuối học kỳ hoặc tiểu luận học thuật.</span>
+                            <span>{language === "vi" ? "Phù hợp chuẩn bị ôn thi cuối học kỳ hoặc tiểu luận học thuật." : "Suitable for final exam prep or academic essays."}</span>
                           </li>
                         </ul>
                       </div>
@@ -687,10 +689,10 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
                   {/* Standard downloads & views summary */}
                   <div className="flex items-center justify-between text-[10px] font-bold text-slate-400 dark:text-slate-500 px-2 shrink-0 select-none">
                     <span className="flex items-center gap-1">
-                      👁 Lượt xem: <span className="text-slate-750 dark:text-slate-300 font-extrabold">{viewCount}</span>
+                      👁 {language === "vi" ? "Lượt xem:" : "Views:"} <span className="text-slate-750 dark:text-slate-300 font-extrabold">{viewCount}</span>
                     </span>
                     <span className="flex items-center gap-1">
-                      <Download className="w-3 h-3 text-slate-450" /> Lượt tải: <span className="text-slate-750 dark:text-slate-300 font-extrabold">{downloadCount}</span>
+                      <Download className="w-3 h-3 text-slate-455" /> {language === "vi" ? "Lượt tải:" : "Downloads:"} <span className="text-slate-750 dark:text-slate-300 font-extrabold">{downloadCount}</span>
                     </span>
                   </div>
                 </div>
@@ -708,7 +710,7 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
                       "
                     >
                       <BookOpen className="w-4 h-4" />
-                      Xem trước
+                      {t("preview.preview") || (language === "vi" ? "Xem trước" : "Preview")}
                     </button>
 
                     <button
@@ -720,7 +722,7 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
                       "
                     >
                       <Download className="w-4 h-4" />
-                      Tải xuống
+                      {t("myDocs.download") || "Tải xuống"}
                     </button>
                   </div>
 
@@ -738,7 +740,7 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
                       `}
                     >
                       <Heart className={`w-3.5 h-3.5 ${bookmarked ? "fill-current" : ""}`} />
-                      {bookmarked ? "Đã yêu thích" : "Yêu thích"}
+                      {bookmarked ? (language === "vi" ? "Đã yêu thích" : "Favorited") : (t("myDocs.bookmark") || "Yêu thích")}
                     </button>
 
                     {/* Copy link button */}
@@ -762,12 +764,12 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
                       {copied ? (
                         <>
                           <Check className="w-3.5 h-3.5" />
-                          Đã sao chép!
+                          {language === "vi" ? "Đã sao chép!" : "Copied!"}
                         </>
                       ) : (
                         <>
                           <Share2 className="w-3.5 h-3.5" />
-                          Sao chép liên kết
+                          {language === "vi" ? "Sao chép liên kết" : "Copy Link"}
                         </>
                       )}
                     </button>

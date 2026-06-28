@@ -1,5 +1,6 @@
 import { Copy, Download, ExternalLink, X, Send, Sparkles, Share2 } from "lucide-react";
 import { useMemo, useState } from "react";
+import { useLanguage } from "../context/LanguageContext";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import QuizCard from "./QuizCard";
@@ -42,13 +43,16 @@ function getPreviewType(doc = {}, fileUrl = "") {
 }
 
 export default function DocumentPreviewModal({ doc, onClose, currentUserId, onShare }) {
+  const { t, language } = useLanguage();
   const [copied, setCopied] = useState(false);
   const [isDocLoading, setIsDocLoading] = useState(!doc?.content);
-  const [messages, setMessages] = useState([
+  const [messages, setMessages] = useState(() => [
     {
       id: 1,
       sender: "ai",
-      text: `Xin chào! Tôi là Trợ lý AI. Tôi có thể giúp bạn giải đáp, tóm tắt hoặc phân tích nội dung của tài liệu "${doc?.document_name || doc?.file_name || doc?.title || 'này'}" này. Bạn có câu hỏi nào không?`
+      text: language === "vi"
+        ? `Xin chào! Tôi là Trợ lý AI. Tôi có thể giúp bạn giải đáp, tóm tắt hoặc phân tích nội dung của tài liệu "${doc?.document_name || doc?.file_name || doc?.title || 'này'}" này. Bạn có câu hỏi nào không?`
+        : `Hello! I am your AI Assistant. I can help you answer questions, summarize, or analyze the contents of "${doc?.document_name || doc?.file_name || doc?.title || 'this document'}". Do you have any questions?`
     }
   ]);
   const [input, setInput] = useState("");
@@ -77,7 +81,7 @@ export default function DocumentPreviewModal({ doc, onClose, currentUserId, onSh
           "Authorization": `Bearer ${token}`
         },
         body: JSON.stringify({
-          message: `Tôi đang xem tài liệu "${doc?.document_name || doc?.file_name || doc?.title || 'chưa rõ'}". Hãy trả lời câu hỏi sau đây liên quan đến tài liệu này: ${text}`,
+          message: language === "vi" ? `Tôi đang xem tài liệu "${doc?.document_name || doc?.file_name || doc?.title || 'chưa rõ'}". Hãy trả lời câu hỏi sau đây liên quan đến tài liệu này: ${text}` : `I am viewing the document "${doc?.document_name || doc?.file_name || doc?.title || 'unknown'}". Please answer the following question related to this document: ${text}`,
           documentContext: doc?.extracted_content || doc?.content || doc?.simulated_content || "",
           documentId: doc?.document_id || doc?.id || null
         })
@@ -88,7 +92,7 @@ export default function DocumentPreviewModal({ doc, onClose, currentUserId, onSh
       }
 
       const data = await response.json();
-      const aiText = data.response || "Xin lỗi, tôi không nhận được phản hồi từ hệ thống AI.";
+      const aiText = data.response || (language === "vi" ? "Xin lỗi, tôi không nhận được phản hồi từ hệ thống AI." : "Sorry, I received no response from the AI system.");
 
       setMessages((prev) => [
         ...prev,
@@ -105,7 +109,7 @@ export default function DocumentPreviewModal({ doc, onClose, currentUserId, onSh
         {
           id: Date.now() + 1,
           sender: "ai",
-          text: "Đã xảy ra lỗi khi kết nối tới Trợ lý AI. Vui lòng kiểm tra lại kết nối mạng."
+          text: language === "vi" ? "Đã xảy ra lỗi khi kết nối tới Trợ lý AI. Vui lòng kiểm tra lại kết nối mạng." : "An error occurred connecting to the AI Assistant. Please check your network connection."
         }
       ]);
     } finally {
@@ -119,7 +123,7 @@ export default function DocumentPreviewModal({ doc, onClose, currentUserId, onSh
     const userMsg = {
       id: Date.now(),
       sender: "user",
-      text: "Tóm tắt tài liệu này giúp tôi."
+      text: language === "vi" ? "Tóm tắt tài liệu này giúp tôi." : "Summarize this document for me."
     };
     setMessages((prev) => [...prev, userMsg]);
     setIsTyping(true);
@@ -133,7 +137,7 @@ export default function DocumentPreviewModal({ doc, onClose, currentUserId, onSh
           "Authorization": `Bearer ${token}`
         },
         body: JSON.stringify({
-          message: `Tôi đang xem tài liệu "${doc?.document_name || doc?.file_name || doc?.title || 'chưa rõ'}". Hãy viết một bản tóm tắt học thuật thật chi tiết, rõ ràng và đầy đủ về nội dung của tài liệu này.`,
+          message: language === "vi" ? `Tôi đang xem tài liệu "${doc?.document_name || doc?.file_name || doc?.title || 'chưa rõ'}". Hãy viết một bản tóm tắt học thuật thật chi tiết, rõ ràng và đầy đủ về nội dung của tài liệu này.` : `I am viewing the document "${doc?.document_name || doc?.file_name || doc?.title || 'unknown'}". Please write a detailed, clear, and comprehensive academic summary of the contents of this document.`,
           documentContext: doc?.extracted_content || doc?.content || doc?.simulated_content || "",
           documentId: doc?.document_id || doc?.id || null
         })
@@ -144,7 +148,7 @@ export default function DocumentPreviewModal({ doc, onClose, currentUserId, onSh
       }
 
       const data = await response.json();
-      const aiText = data.response || "Không thể tạo bản tóm tắt.";
+      const aiText = data.response || (language === "vi" ? "Không thể tạo bản tóm tắt." : "Failed to generate the summary.");
 
       setMessages((prev) => [
         ...prev,
@@ -161,7 +165,7 @@ export default function DocumentPreviewModal({ doc, onClose, currentUserId, onSh
         {
           id: Date.now() + 1,
           sender: "ai",
-          text: "Đã xảy ra lỗi khi kết nối tới Trợ lý AI để tóm tắt tài liệu."
+          text: language === "vi" ? "Đã xảy ra lỗi khi kết nối tới Trợ lý AI để tóm tắt tài liệu." : "An error occurred connecting to the AI Assistant to summarize the document."
         }
       ]);
     } finally {
@@ -175,7 +179,7 @@ export default function DocumentPreviewModal({ doc, onClose, currentUserId, onSh
     const userMsg = {
       id: Date.now(),
       sender: "user",
-      text: "Tạo câu hỏi trắc nghiệm ôn tập (Quiz) từ tài liệu này."
+      text: language === "vi" ? "Tạo câu hỏi trắc nghiệm ôn tập (Quiz) từ tài liệu này." : "Generate revision Quiz from this document."
     };
     setMessages((prev) => [...prev, userMsg]);
     setIsTyping(true);
@@ -189,7 +193,7 @@ export default function DocumentPreviewModal({ doc, onClose, currentUserId, onSh
           "Authorization": `Bearer ${token}`
         },
         body: JSON.stringify({
-          message: "Tạo 20 câu hỏi trắc nghiệm ôn tập (Quiz) từ tài liệu này",
+          message: language === "vi" ? "Tạo 20 câu hỏi trắc nghiệm ôn tập (Quiz) từ tài liệu này" : "Generate 20 revision Quiz questions from this document",
           documentContext: doc?.extracted_content || doc?.content || doc?.simulated_content || "",
           documentId: doc?.document_id || doc?.id || null
         })
@@ -200,7 +204,7 @@ export default function DocumentPreviewModal({ doc, onClose, currentUserId, onSh
       }
 
       const data = await response.json();
-      const aiText = data.response || "Không thể tạo bộ câu hỏi.";
+      const aiText = data.response || (language === "vi" ? "Không thể tạo bộ câu hỏi." : "Failed to generate the Quiz.");
 
       setMessages((prev) => [
         ...prev,
@@ -217,7 +221,7 @@ export default function DocumentPreviewModal({ doc, onClose, currentUserId, onSh
         {
           id: Date.now() + 1,
           sender: "ai",
-          text: "Đã xảy ra lỗi khi kết nối tới Trợ lý AI để tạo quiz ôn tập."
+          text: language === "vi" ? "Đã xảy ra lỗi khi kết nối tới Trợ lý AI để tạo quiz ôn tập." : "An error occurred connecting to the AI Assistant to generate the Quiz."
         }
       ]);
     } finally {
@@ -231,7 +235,7 @@ export default function DocumentPreviewModal({ doc, onClose, currentUserId, onSh
     const userMsg = {
       id: Date.now(),
       sender: "user",
-      text: "Tạo bộ thẻ ghi nhớ Flashcard ôn tập từ tài liệu này."
+      text: language === "vi" ? "Tạo bộ thẻ ghi nhớ Flashcard ôn tập từ tài liệu này." : "Generate revision Flashcards from this document."
     };
     setMessages((prev) => [...prev, userMsg]);
     setIsTyping(true);
@@ -245,7 +249,7 @@ export default function DocumentPreviewModal({ doc, onClose, currentUserId, onSh
           "Authorization": `Bearer ${token}`
         },
         body: JSON.stringify({
-          message: "Tạo bộ thẻ ghi nhớ Flashcard ôn tập từ tài liệu này",
+          message: language === "vi" ? "Tạo bộ thẻ ghi nhớ Flashcard ôn tập từ tài liệu này" : "Generate revision Flashcards from this document",
           documentContext: doc?.extracted_content || doc?.content || doc?.simulated_content || "",
           documentId: doc?.document_id || doc?.id || null
         })
@@ -256,7 +260,7 @@ export default function DocumentPreviewModal({ doc, onClose, currentUserId, onSh
       }
 
       const data = await response.json();
-      const aiText = data.response || "Không thể tạo bộ thẻ ghi nhớ.";
+      const aiText = data.response || (language === "vi" ? "Không thể tạo bộ thẻ ghi nhớ." : "Failed to generate Flashcards.");
 
       setMessages((prev) => [
         ...prev,
@@ -273,7 +277,7 @@ export default function DocumentPreviewModal({ doc, onClose, currentUserId, onSh
         {
           id: Date.now() + 1,
           sender: "ai",
-          text: "Đã xảy ra lỗi khi kết nối tới Trợ lý AI để tạo bộ thẻ ghi nhớ."
+          text: language === "vi" ? "Đã xảy ra lỗi khi kết nối tới Trợ lý AI để tạo bộ thẻ ghi nhớ." : "An error occurred connecting to the AI Assistant to generate Flashcards."
         }
       ]);
     } finally {
@@ -295,19 +299,19 @@ export default function DocumentPreviewModal({ doc, onClose, currentUserId, onSh
     const previewUrl = docId ? `${window.location.origin}/preview/${docId}` : fileUrl;
 
     if (!previewUrl) {
-      toast.error("Không tìm thấy URL");
+      toast.error(language === "vi" ? "Không tìm thấy URL" : "URL not found");
       return;
     }
 
     await navigator.clipboard.writeText(previewUrl);
     setCopied(true);
-    toast.success("Đã sao chép liên kết xem trước!");
+    toast.success(language === "vi" ? "Đã sao chép liên kết xem trước!" : "Preview link copied!");
     setTimeout(() => setCopied(false), 2000);
   };
 
   const handleDownload = async () => {
     if (!fileUrl) {
-      toast.error("Không tìm thấy đường dẫn tải xuống!");
+      toast.error(t("myDocs.toast_download_fail") || "Không tìm thấy đường dẫn tải xuống!");
       return;
     }
 
@@ -366,7 +370,7 @@ export default function DocumentPreviewModal({ doc, onClose, currentUserId, onSh
                   <div className="absolute inset-0 rounded-full border-4 border-purple-500/20 dark:border-purple-500/10 animate-pulse" />
                   <div className="absolute inset-0 rounded-full border-4 border-t-purple-600 animate-spin" />
                 </div>
-                <h3 className="mt-4 text-xs font-bold text-slate-800 dark:text-slate-200">Đang tải tài liệu...</h3>
+                <h3 className="mt-4 text-xs font-bold text-slate-800 dark:text-slate-200">{language === "vi" ? "Đang tải tài liệu..." : "Loading document..."}</h3>
                 <p className="mt-1 text-[9px] text-purple-600 dark:text-purple-400 font-extrabold tracking-wider uppercase">AIStudyHub Scholar Reader</p>
                 <div className="mt-5 w-40 h-1 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden relative">
                   <div className="absolute top-0 bottom-0 left-0 w-1/2 bg-purple-600 rounded-full loading-bar-active" />
@@ -404,7 +408,7 @@ export default function DocumentPreviewModal({ doc, onClose, currentUserId, onSh
               />
             ) : (
               <PreviewMessage
-                message="Định dạng này chưa hỗ trợ xem trực tiếp."
+                message={language === "vi" ? "Định dạng này chưa hỗ trợ xem trực tiếp." : "This file format does not support live preview."}
                 fileUrl={fileUrl}
               />
             )}
@@ -420,7 +424,7 @@ export default function DocumentPreviewModal({ doc, onClose, currentUserId, onSh
                     <Sparkles className="w-3.5 h-3.5 text-white animate-pulse" />
                   </div>
                   <div className="flex flex-col text-left">
-                    <span className="text-[10px] font-black text-slate-850 dark:text-slate-200 uppercase tracking-widest leading-none">Trợ lý học giả AI</span>
+                    <span className="text-[10px] font-black text-slate-855 dark:text-slate-200 uppercase tracking-widest leading-none">{t("dashboard.ai_assistant") || "Trợ lý học giả AI"}</span>
                     <span className="text-[8px] text-purple-600 dark:text-purple-400 font-extrabold uppercase tracking-wider mt-0.5">Scholar Assistant</span>
                   </div>
                 </div>
@@ -437,7 +441,7 @@ export default function DocumentPreviewModal({ doc, onClose, currentUserId, onSh
                       }`}
                   >
                     <span className="text-[8px] font-extrabold uppercase tracking-widest opacity-60 mb-1.5 block">
-                      {msg.sender === "ai" ? "🤖 AI ACADEMIC CORE" : "👤 BẠN"}
+                      {msg.sender === "ai" ? "🤖 AI ACADEMIC CORE" : (language === "vi" ? "👤 BẠN" : "👤 YOU")}
                     </span>
                     {msg.sender === "ai" && typeof msg.text === "string" && msg.text.trim().startsWith("{") ? (
                       (() => {
@@ -475,7 +479,7 @@ export default function DocumentPreviewModal({ doc, onClose, currentUserId, onSh
                   disabled={isTyping}
                   className="flex-1 py-1.5 px-2 rounded-lg border border-purple-500/20 dark:border-purple-450/20 bg-purple-500/5 hover:bg-purple-500/10 text-purple-750 dark:text-purple-300 font-extrabold text-[9px] uppercase tracking-wider transition-all duration-150 cursor-pointer flex items-center justify-center gap-1 active:scale-[0.98] disabled:opacity-50 hover:scale-[1.01]"
                 >
-                  Tóm tắt
+                  {language === "vi" ? "Tóm tắt" : "Summarize"}
                 </button>
                 <button
                   type="button"
@@ -500,7 +504,7 @@ export default function DocumentPreviewModal({ doc, onClose, currentUserId, onSh
                 <div className="flex-grow relative flex items-center">
                   <input
                     type="text"
-                    placeholder="Hỏi về tài liệu này..."
+                    placeholder={language === "vi" ? "Hỏi về tài liệu này..." : "Ask about this document..."}
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     disabled={isTyping}
@@ -528,7 +532,7 @@ export default function DocumentPreviewModal({ doc, onClose, currentUserId, onSh
               className="flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors font-medium text-sm"
             >
               <ExternalLink className="w-4 h-4" />
-              Mở file
+              {language === "vi" ? "Mở file" : "Open file"}
             </a>
           )}
           {!fileUrl?.startsWith("blob:") && (
@@ -537,7 +541,7 @@ export default function DocumentPreviewModal({ doc, onClose, currentUserId, onSh
               className="flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-white hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors font-medium text-sm"
             >
               <Copy className="w-4 h-4" />
-              {copied ? "Đã sao chép!" : "Sao chép URL"}
+              {copied ? (language === "vi" ? "Đã sao chép!" : "Copied!") : (language === "vi" ? "Sao chép URL" : "Copy URL")}
             </button>
           )}
           <button
@@ -545,7 +549,7 @@ export default function DocumentPreviewModal({ doc, onClose, currentUserId, onSh
             className="flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-750 text-white transition-colors font-medium text-sm"
           >
             <Download className="w-4 h-4" />
-            Tải xuống
+            {t("myDocs.download") || "Tải xuống"}
           </button>
           {doc && (doc.user_id === currentUserId) && onShare && (
             <button
@@ -553,14 +557,14 @@ export default function DocumentPreviewModal({ doc, onClose, currentUserId, onSh
               className="flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white transition-colors font-medium text-sm"
             >
               <Share2 className="w-4 h-4" />
-              Chia sẻ
+              {t("myDocs.share") || "Chia sẻ"}
             </button>
           )}
           <button
             onClick={onClose}
             className="px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors font-medium text-sm"
           >
-            Đóng
+            {language === "vi" ? "Đóng" : "Close"}
           </button>
         </div>
         <style>{`
@@ -591,7 +595,7 @@ function PreviewMessage({ message, fileUrl }) {
             rel="noreferrer"
             className="inline-flex items-center gap-2 mt-4 text-sm font-semibold text-purple-600 dark:text-purple-400 hover:underline"
           >
-            Mở file trong tab mới
+            {language === "vi" ? "Mở file trong tab mới" : "Open file in a new tab"}
             <ExternalLink className="w-4 h-4" />
           </a>
         )}
