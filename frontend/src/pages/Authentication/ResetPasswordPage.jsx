@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Eye, EyeOff, AlertTriangle, ArrowLeft } from "lucide-react";
 import bgLogin from "../../assets/background-login.png";
+import { useLanguage } from "../../context/LanguageContext";
 
 import {
   Card,
@@ -19,6 +20,7 @@ export default function ResetPasswordPage() {
   const [searchParams] = useSearchParams();
   const token = searchParams.get("token") || "";
   const email = searchParams.get("email") || "";
+  const { t, language, setLanguage } = useLanguage();
 
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -32,22 +34,22 @@ export default function ResetPasswordPage() {
     e.preventDefault();
 
     if (!email || !token) {
-      setError("Thiếu thông tin xác thực mã token hoặc email từ đường dẫn liên kết.");
+      setError(language === "vi" ? "Thiếu thông tin xác thực mã token hoặc email từ đường dẫn liên kết." : "Missing token or email authentication details from link.");
       return;
     }
 
     if (!password || !confirmPassword) {
-      setError("Vui lòng điền đầy đủ tất cả các trường.");
+      setError(t("auth.error_fields"));
       return;
     }
 
     if (password.length < 6) {
-      setError("Mật khẩu mới phải có tối thiểu 6 ký tự.");
+      setError(language === "vi" ? "Mật khẩu mới phải có tối thiểu 6 ký tự." : "New password must be at least 6 characters.");
       return;
     }
 
     if (password !== confirmPassword) {
-      setError("Mật khẩu xác nhận không khớp.");
+      setError(t("auth.error_password_match"));
       return;
     }
 
@@ -65,15 +67,15 @@ export default function ResetPasswordPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        setError(data.error || "Có lỗi xảy ra khi đặt lại mật khẩu.");
+        setError(data.error || (language === "vi" ? "Có lỗi xảy ra khi đặt lại mật khẩu." : "An error occurred during password reset."));
         return;
       }
 
-      setMessage(data.message || "Mật khẩu mới đã được thiết lập thành công!");
+      setMessage(data.message || t("auth.success_reset"));
       setPassword("");
       setConfirmPassword("");
     } catch (err) {
-      setError("Không thể kết nối đến server. Hãy đảm bảo backend đang chạy.");
+      setError(t("auth.error_connection"));
     } finally {
       setLoading(false);
     }
@@ -88,18 +90,46 @@ export default function ResetPasswordPage() {
       <Card className="lp-card relative z-10 w-full max-w-[540px] border border-white/80 dark:border-white/10 shadow-2xl rounded-[28px] overflow-hidden bg-white/72 dark:bg-black/55 backdrop-blur-[24px] saturate-[1.6] p-7 md:p-9 outline-[1.5px] outline-purple-500/25 dark:outline-purple-500/10">
         <CardHeader className="p-0 gap-0">
           {/* Logo / Brand header */}
-          <div className="flex items-center gap-1 mb-5">
-            <span className="w-2.5 h-2.5 rounded-full bg-gradient-to-br from-purple-500 to-purple-800 opacity-85" />
-            <span className="w-2.5 h-2.5 rounded-full bg-gradient-to-br from-purple-500 to-purple-800 opacity-60" />
-            <span className="w-2.5 h-2.5 rounded-full bg-gradient-to-br from-purple-500 to-purple-800 opacity-35" />
-            <span className="text-xs font-extrabold text-purple-800 dark:text-purple-300 tracking-wider ml-1 uppercase">AIStudyHub</span>
+          <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center gap-1">
+              <span className="w-2.5 h-2.5 rounded-full bg-gradient-to-br from-purple-500 to-purple-800 opacity-85" />
+              <span className="w-2.5 h-2.5 rounded-full bg-gradient-to-br from-purple-500 to-purple-800 opacity-60" />
+              <span className="w-2.5 h-2.5 rounded-full bg-gradient-to-br from-purple-500 to-purple-800 opacity-35" />
+              <span className="text-xs font-extrabold text-purple-800 dark:text-purple-300 tracking-wider ml-1 uppercase">AIStudyHub</span>
+            </div>
+            
+            {/* Language Selector */}
+            <div className="flex p-0.5 bg-purple-500/5 dark:bg-white/5 border border-purple-500/10 dark:border-white/10 rounded-xl">
+              <button
+                type="button"
+                onClick={() => setLanguage("vi")}
+                className={`h-7 px-2.5 text-[10px] font-black rounded-lg transition-all duration-300 cursor-pointer ${
+                  language === "vi"
+                    ? "bg-purple-600 dark:bg-purple-500 text-white shadow-sm"
+                    : "text-purple-900/50 hover:text-purple-900 dark:text-purple-100/50 dark:hover:text-white bg-transparent"
+                }`}
+              >
+                VI
+              </button>
+              <button
+                type="button"
+                onClick={() => setLanguage("en")}
+                className={`h-7 px-2.5 text-[10px] font-black rounded-lg transition-all duration-300 cursor-pointer ${
+                  language === "en"
+                    ? "bg-purple-600 dark:bg-purple-500 text-white shadow-sm"
+                    : "text-purple-900/50 hover:text-purple-900 dark:text-purple-100/50 dark:hover:text-white bg-transparent"
+                }`}
+              >
+                EN
+              </button>
+            </div>
           </div>
 
           <CardTitle className="text-3xl font-extrabold text-[#1a0d2e] dark:text-white tracking-tight leading-none mb-1">
-            Reset Password
+            {t("auth.reset_title")}
           </CardTitle>
           <CardDescription className="text-sm font-medium text-purple-900/50 dark:text-purple-100/50 mb-6">
-            Create a secure new password for your account.
+            {t("auth.reset_desc")}
           </CardDescription>
         </CardHeader>
 
@@ -112,13 +142,13 @@ export default function ResetPasswordPage() {
                 htmlFor="lp-password"
                 className="text-xs font-bold uppercase tracking-wider text-purple-900/70 dark:text-purple-200/70"
               >
-                New Password
+                {t("auth.new_password")}
               </Label>
               <div className="relative">
                 <Input
                   id="lp-password"
                   type={showPassword ? "text" : "password"}
-                  placeholder="Enter new password"
+                  placeholder={language === "vi" ? "Nhập mật khẩu mới" : "Enter new password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
@@ -129,7 +159,7 @@ export default function ResetPasswordPage() {
                   type="button"
                   className="absolute right-4 top-1/2 -translate-y-1/2 text-purple-400 hover:text-purple-600 dark:hover:text-purple-300 transition-colors"
                   onClick={() => setShowPassword((v) => !v)}
-                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  aria-label={showPassword ? (language === "vi" ? "Ẩn mật khẩu" : "Hide password") : (language === "vi" ? "Hiện mật khẩu" : "Show password")}
                 >
                   {showPassword ? <EyeOff className="h-4.5 w-4.5" /> : <Eye className="h-4.5 w-4.5" />}
                 </button>
@@ -142,13 +172,13 @@ export default function ResetPasswordPage() {
                 htmlFor="lp-confirm-password"
                 className="text-xs font-bold uppercase tracking-wider text-purple-900/70 dark:text-purple-200/70"
               >
-                Confirm New Password
+                {t("auth.confirm_password")}
               </Label>
               <div className="relative">
                 <Input
                   id="lp-confirm-password"
                   type={showConfirmPassword ? "text" : "password"}
-                  placeholder="Confirm new password"
+                  placeholder={language === "vi" ? "Nhập lại mật khẩu" : "Confirm new password"}
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   required
@@ -158,7 +188,7 @@ export default function ResetPasswordPage() {
                   type="button"
                   className="absolute right-4 top-1/2 -translate-y-1/2 text-purple-400 hover:text-purple-600 dark:hover:text-purple-300 transition-colors"
                   onClick={() => setShowConfirmPassword((v) => !v)}
-                  aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                  aria-label={showConfirmPassword ? (language === "vi" ? "Ẩn mật khẩu" : "Hide password") : (language === "vi" ? "Hiện mật khẩu" : "Show password")}
                 >
                   {showConfirmPassword ? <EyeOff className="h-4.5 w-4.5" /> : <Eye className="h-4.5 w-4.5" />}
                 </button>
@@ -194,10 +224,10 @@ export default function ResetPasswordPage() {
                     <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" opacity=".25" />
                     <path fill="currentColor" d="M4 12a8 8 0 018-8v8z" opacity=".75" />
                   </svg>
-                  Resetting password…
+                  {t("auth.updating")}
                 </span>
               ) : (
-                "Reset Password"
+                t("auth.reset_btn")
               )}
             </Button>
           </form>
@@ -208,7 +238,7 @@ export default function ResetPasswordPage() {
               onClick={() => navigate("/login")}
               className="flex items-center gap-1 text-sm font-bold text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300 transition-colors"
             >
-              <ArrowLeft size={14} /> Back to Login
+              <ArrowLeft size={14} /> {t("auth.back_to_login")}
             </button>
           </div>
         </CardContent>

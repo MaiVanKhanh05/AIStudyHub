@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Search, X, Clock, Trash2, ChevronDown, ChevronUp } from "lucide-react";
+import { useLanguage } from "../context/LanguageContext";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const API_BASE   = "http://localhost:5000";
@@ -32,9 +33,11 @@ export default function SearchBar({
   setSearch,
   onSearch,
   userId      = null,
-  placeholder = "Tìm kiếm tài liệu, môn học, tác giả...",
+  placeholder,
   className   = "max-w-2xl mx-auto",
 }) {
+  const { t, language } = useLanguage();
+  const actualPlaceholder = placeholder || t("searchBar.placeholder") || "Tìm kiếm tài liệu, môn học, tác giả...";
   const [inputValue,   setInputValue]   = useState(search || "");
   const [history,      setHistory]      = useState([]);
   const [open,         setOpen]         = useState(false);
@@ -245,7 +248,7 @@ export default function SearchBar({
           onChange={onChange}
           onKeyDown={onKeyDown}
           onFocus={() => { if (hasHistory) setOpen(true); }}
-          placeholder={placeholder}
+          placeholder={actualPlaceholder}
           className="w-full rounded-lg bg-white/80 dark:bg-[#0c0d13]/80 border-none pl-11 pr-11 py-2.5 text-xs placeholder:text-slate-400 dark:placeholder:text-slate-600 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-purple-500/40 transition-all duration-300"
         />
 
@@ -270,7 +273,7 @@ export default function SearchBar({
             <div className="flex items-center gap-1.5">
               <Clock className="w-3 h-3 text-slate-400" />
               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                Lịch sử tìm kiếm
+                {t("searchBar.history_title")}
               </span>
               <span className="text-[9px] font-bold bg-purple-50 dark:bg-purple-950/40 text-purple-500 dark:text-purple-400 px-1.5 py-0.5 rounded-full border border-purple-500/10">
                 {history.length}
@@ -283,7 +286,7 @@ export default function SearchBar({
               className="flex items-center gap-1 text-[10px] font-bold text-slate-400 hover:text-red-500 transition-colors duration-150 cursor-pointer"
             >
               <Trash2 className="w-3 h-3" />
-              Xóa tất cả
+              {t("searchBar.clear_history")}
             </button>
           </div>
 
@@ -321,8 +324,8 @@ export default function SearchBar({
             className="w-full flex items-center justify-center gap-1.5 py-2.5 text-[10px] font-black text-purple-600 dark:text-purple-400 hover:bg-purple-50/50 dark:hover:bg-purple-950/10 border-t border-slate-100 dark:border-slate-800/60 transition-colors duration-150 cursor-pointer"
           >
             {expanded
-              ? <><ChevronUp className="w-3 h-3" /> Thu gọn</>
-              : <><ChevronDown className="w-3 h-3" /> Xem tất cả ({history.length} mục)</>
+              ? <><ChevronUp className="w-3 h-3" /> {language === "vi" ? "Thu gọn" : "Collapse"}</>
+              : <><ChevronDown className="w-3 h-3" /> {language === "vi" ? `Xem tất cả (${history.length} mục)` : `View all (${history.length} items)`}</>
             }
           </button>
         </div>
