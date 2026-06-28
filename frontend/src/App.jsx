@@ -14,8 +14,10 @@ import FlashcardStudyPage from "./pages/FlashcardStudyPage";
 import { Button } from "@/components/ui/button";
 import { LogOut, Home as HomeIcon, User as UserIcon, BookOpen, FolderOpen, Upload } from "lucide-react";
 import { Toaster } from "sonner";
+import { LanguageProvider, useLanguage } from "./context/LanguageContext";
 
 function AppLayout() {
+  const { t, language, setLanguage } = useLanguage();
   const location = useLocation();
   const navigate = useNavigate();
   const hideNav = ["/login", "/register", "/forgot-password", "/reset-password", "/", "/oauth-callback"].includes(location.pathname) || location.pathname.startsWith("/admin") || location.pathname.startsWith("/preview") || location.pathname.startsWith("/quiz") || location.pathname.startsWith("/flashcards");
@@ -47,23 +49,49 @@ function AppLayout() {
             </Link>
             <Link to="/" className="flex items-center gap-1.5 text-sm font-semibold hover:text-purple-600 dark:hover:text-purple-400 transition-colors">
               <HomeIcon className="w-4 h-4" />
-              Home
+              {t("nav.home")}
             </Link>
             <Link to="/documents" className="flex items-center gap-1.5 text-sm font-semibold hover:text-purple-600 dark:hover:text-purple-400 transition-colors">
               <FolderOpen className="w-4 h-4 text-purple-600" />
-              Documents
+              {t("nav.documents")}
             </Link>
             <Link to="/upload" className="flex items-center gap-1.5 text-sm font-semibold hover:text-purple-600 dark:hover:text-purple-400 transition-colors">
               <Upload className="w-4 h-4" />
-              Upload
+              {t("nav.upload")}
             </Link>
           </div>
           <div className="flex items-center gap-4">
+            {/* Language Selector */}
+            <div className="flex p-0.5 bg-purple-500/5 dark:bg-white/5 border border-purple-500/10 dark:border-white/10 rounded-xl">
+              <button
+                type="button"
+                onClick={() => setLanguage("vi")}
+                className={`h-7 px-2.5 text-[10px] font-black rounded-lg transition-all duration-300 cursor-pointer ${
+                  language === "vi"
+                    ? "bg-purple-600 dark:bg-purple-500 text-white shadow-sm"
+                    : "text-purple-900/50 hover:text-purple-900 dark:text-purple-100/50 dark:hover:text-white bg-transparent"
+                }`}
+              >
+                VI
+              </button>
+              <button
+                type="button"
+                onClick={() => setLanguage("en")}
+                className={`h-7 px-2.5 text-[10px] font-black rounded-lg transition-all duration-300 cursor-pointer ${
+                  language === "en"
+                    ? "bg-purple-600 dark:bg-purple-500 text-white shadow-sm"
+                    : "text-purple-900/50 hover:text-purple-900 dark:text-purple-100/50 dark:hover:text-white bg-transparent"
+                }`}
+              >
+                EN
+              </button>
+            </div>
+
             {token ? (
               <>
                 <span className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
                   <UserIcon className="w-4 h-4 text-purple-500/80" />
-                  Hi, <span className="text-foreground font-semibold">{user?.first_name ? `${user.last_name} ${user.first_name}`.trim() : user?.email}</span>
+                  {t("nav.hi")} <span className="text-foreground font-semibold">{user?.first_name ? `${user.last_name} ${user.first_name}`.trim() : user?.email}</span>
                 </span>
                 <Button
                   variant="ghost"
@@ -71,16 +99,16 @@ function AppLayout() {
                   className="h-8 gap-1.5 text-xs font-bold text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-lg cursor-pointer"
                 >
                   <LogOut className="w-3.5 h-3.5" />
-                  Logout
+                  {t("nav.logout")}
                 </Button>
               </>
             ) : (
               <>
                 <Link to="/login" className="text-sm font-semibold hover:text-purple-600 dark:hover:text-purple-400 transition-colors">
-                  Login
+                  {t("nav.login")}
                 </Link>
                 <Link to="/register" className="text-sm font-semibold hover:text-purple-600 dark:hover:text-purple-400 transition-colors">
-                  Register
+                  {t("nav.register")}
                 </Link>
               </>
             )}
@@ -107,9 +135,11 @@ function AppLayout() {
 
 function App() {
   return (
-    <BrowserRouter>
-      <AppLayout />
-    </BrowserRouter>
+    <LanguageProvider>
+      <BrowserRouter>
+        <AppLayout />
+      </BrowserRouter>
+    </LanguageProvider>
   );
 }
 

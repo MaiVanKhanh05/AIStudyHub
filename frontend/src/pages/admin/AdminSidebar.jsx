@@ -4,35 +4,38 @@ import {
   LayoutDashboard, HardDrive, UserCog, User,
   Settings, LogOut, GraduationCap, Mic2, BookOpen, ShieldCheck, Globe
 } from "lucide-react";
+import { useLanguage } from "../../context/LanguageContext";
 
-const NAV_SECTIONS = [
-  {
-    label: "Quản trị",
-    items: [
-      { key: "dashboard", label: "Tổng quan",          icon: LayoutDashboard },
-      { key: "student",   label: "Sinh viên",           icon: GraduationCap },
-      { key: "lecture",   label: "Giảng viên",          icon: Mic2 },
-      { key: "users",     label: "Quản lý người dùng",  icon: UserCog },
-    ],
-  },
-  {
-    label: "Nội dung",
-    items: [
-      { key: "documents", label: "Tài liệu",   icon: BookOpen },
-      { key: "storage",   label: "Lưu trữ",    icon: HardDrive },
-    ],
-  },
-];
+// NAV_SECTIONS is now defined dynamically inside the component to support active language switching
 
 export default function AdminSidebar({ activeSection, onNavigate }) {
   const navigate = useNavigate();
   const [showSettings, setShowSettings] = useState(false);
-  const [language, setLanguage] = useState(() => localStorage.getItem("admin_lang") || "vi");
+  const { t, language, setLanguage } = useLanguage();
   const userStr = localStorage.getItem("user") || sessionStorage.getItem("user");
   const user = userStr ? JSON.parse(userStr) : null;
   const initials = user?.full_name
     ? user.full_name.split(" ").map(n => n[0]).slice(0, 2).join("").toUpperCase()
     : "A";
+
+  const navSections = [
+    {
+      label: language === "vi" ? "Quản trị" : "Administration",
+      items: [
+        { key: "dashboard", label: t("admin.sidebar.overview") || "Overview",          icon: LayoutDashboard },
+        { key: "student",   label: language === "vi" ? "Sinh viên" : "Students",           icon: GraduationCap },
+        { key: "lecture",   label: language === "vi" ? "Giảng viên" : "Lecturers",          icon: Mic2 },
+        { key: "users",     label: t("admin.sidebar.users") || "User Management",  icon: UserCog },
+      ],
+    },
+    {
+      label: language === "vi" ? "Nội dung" : "Content",
+      items: [
+        { key: "documents", label: language === "vi" ? "Tài liệu" : "Documents",   icon: BookOpen },
+        { key: "storage",   label: t("admin.sidebar.storage") || "Storage Management",    icon: HardDrive },
+      ],
+    },
+  ];
 
   const handleLogout = () => {
     localStorage.removeItem("token");
@@ -72,7 +75,7 @@ export default function AdminSidebar({ activeSection, onNavigate }) {
 
       {/* Navigation */}
       <nav className="flex-1 px-3 pt-2 pb-2 space-y-4">
-        {NAV_SECTIONS.map(({ label, items }) => (
+        {navSections.map(({ label, items }) => (
           <div key={label}>
             <p className="text-[10px] font-bold text-white/30 uppercase tracking-[0.12em] px-2 mb-1">{label}</p>
             <div className="space-y-0.5">
@@ -109,7 +112,7 @@ export default function AdminSidebar({ activeSection, onNavigate }) {
               ${showSettings ? "bg-white/[0.08] text-white" : "text-white/50 hover:text-white/90 hover:bg-white/[0.07]"}`}
           >
             <Settings size={15} className="shrink-0" />
-            <span>Cài đặt</span>
+            <span>{language === "vi" ? "Cài đặt" : "Settings"}</span>
           </button>
 
           {/* Settings Dropdown Panel */}
@@ -122,7 +125,7 @@ export default function AdminSidebar({ activeSection, onNavigate }) {
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="text-[12px] font-bold text-white truncate leading-none mb-0.5">
-                    {user?.full_name || "Quản trị viên"}
+                    {user?.full_name || (language === "vi" ? "Quản trị viên" : "Administrator")}
                   </div>
                   <div className="text-[10px] text-white/40 truncate leading-none mb-1">
                     {user?.email || "admin@aistudyhub.vn"}
@@ -142,7 +145,7 @@ export default function AdminSidebar({ activeSection, onNavigate }) {
                 }}
                 className="w-full py-1.5 mt-1 rounded-lg bg-white/[0.06] hover:bg-white/[0.12] text-white text-[11.5px] font-bold text-center border border-white/5 transition-all cursor-pointer block"
               >
-                Hồ sơ & Bảo mật
+                {language === "vi" ? "Hồ sơ & Bảo mật" : "Profile & Security"}
               </button>
 
               <div className="h-px bg-white/10" />
@@ -151,7 +154,7 @@ export default function AdminSidebar({ activeSection, onNavigate }) {
               <div className="space-y-1">
                 <div className="flex items-center gap-1.5 text-[10px] font-bold text-white/40 uppercase tracking-wider">
                   <Globe size={10} />
-                  <span>Ngôn ngữ hiển thị</span>
+                  <span>{language === "vi" ? "Ngôn ngữ hiển thị" : "Display Language"}</span>
                 </div>
                 <div className="relative">
                   <select
@@ -184,7 +187,7 @@ export default function AdminSidebar({ activeSection, onNavigate }) {
           className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium text-red-400/80 hover:text-red-400 hover:bg-red-500/10 transition-all cursor-pointer"
         >
           <LogOut size={15} className="shrink-0" />
-          <span>Đăng xuất</span>
+          <span>{language === "vi" ? "Đăng xuất" : "Log out"}</span>
         </button>
       </div>
     </aside>

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Mail, AlertTriangle, ArrowLeft, Eye, EyeOff } from "lucide-react";
 import bgLogin from "../../assets/background-login.png";
 import logo from "../../assets/logo.png";
+import { useLanguage } from "../../context/LanguageContext";
 
 import {
   Card,
@@ -17,6 +18,7 @@ import { Label } from "@/components/ui/label";
 
 export default function ForgotPasswordPage() {
   const navigate = useNavigate();
+  const { t, language, setLanguage } = useLanguage();
 
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
@@ -214,16 +216,16 @@ export default function ForgotPasswordPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        setError(data.error || "Gửi lại mã OTP thất bại.");
+        setError(data.error || (language === "vi" ? "Gửi lại mã OTP thất bại." : "Failed to resend OTP code."));
         return;
       }
 
       setOtpCode(Array(6).fill(""));
       setOtpTimer(300);
-      setMessage("Mã OTP mới đã được gửi thành công!");
+      setMessage(language === "vi" ? "Mã OTP mới đã được gửi thành công!" : "New OTP code sent successfully!");
       setTimeout(() => setMessage(""), 4000);
     } catch {
-      setError("Không thể kết nối đến server.");
+      setError(language === "vi" ? "Không thể kết nối đến server." : "Unable to connect to server.");
     } finally {
       setOtpLoading(false);
     }
@@ -238,18 +240,46 @@ export default function ForgotPasswordPage() {
       <Card className="lp-card relative z-10 w-full max-w-[540px] border border-white/80 dark:border-white/10 shadow-2xl rounded-[28px] overflow-hidden bg-white/72 dark:bg-black/55 backdrop-blur-[24px] saturate-[1.6] p-7 md:p-9 outline-[1.5px] outline-purple-500/25 dark:outline-purple-500/10">
         <CardHeader className="p-0 gap-0">
           {/* Logo / Brand header */}
-          <div className="flex items-center gap-2.5 mb-5">
-            <img src={logo} alt="AIStudyHub Logo" className="w-9 h-9 rounded-xl object-contain" />
-            <span className="text-sm font-black text-purple-800 dark:text-purple-300 tracking-widest uppercase">AIStudyHub</span>
+          <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center gap-2.5">
+              <img src={logo} alt="AIStudyHub Logo" className="w-9 h-9 rounded-xl object-contain" />
+              <span className="text-sm font-black text-purple-800 dark:text-purple-300 tracking-widest uppercase">AIStudyHub</span>
+            </div>
+            
+            {/* Language Selector */}
+            <div className="flex p-0.5 bg-purple-500/5 dark:bg-white/5 border border-purple-500/10 dark:border-white/10 rounded-xl">
+              <button
+                type="button"
+                onClick={() => setLanguage("vi")}
+                className={`h-7 px-2.5 text-[10px] font-black rounded-lg transition-all duration-300 cursor-pointer ${
+                  language === "vi"
+                    ? "bg-purple-600 dark:bg-purple-500 text-white shadow-sm"
+                    : "text-purple-900/50 hover:text-purple-900 dark:text-purple-100/50 dark:hover:text-white bg-transparent"
+                }`}
+              >
+                VI
+              </button>
+              <button
+                type="button"
+                onClick={() => setLanguage("en")}
+                className={`h-7 px-2.5 text-[10px] font-black rounded-lg transition-all duration-300 cursor-pointer ${
+                  language === "en"
+                    ? "bg-purple-600 dark:bg-purple-500 text-white shadow-sm"
+                    : "text-purple-900/50 hover:text-purple-900 dark:text-purple-100/50 dark:hover:text-white bg-transparent"
+                }`}
+              >
+                EN
+              </button>
+            </div>
           </div>
 
           <CardTitle className="text-3xl font-extrabold text-[#1a0d2e] dark:text-white tracking-tight leading-none mb-1">
-            {otpPendingEmail ? "Đặt lại mật khẩu" : "Quên mật khẩu"}
+            {otpPendingEmail ? t("auth.reset_title") : t("auth.forgot_title")}
           </CardTitle>
           <CardDescription className="text-sm font-medium text-purple-900/50 dark:text-purple-100/50 mb-6">
             {otpPendingEmail
-              ? "Vui lòng nhập mã OTP 6 chữ số và thiết lập mật khẩu mới."
-              : "Nhập địa chỉ email của bạn để nhận mã xác thực đặt lại mật khẩu."}
+              ? (language === "vi" ? "Vui lòng nhập mã OTP 6 chữ số và thiết lập mật khẩu mới." : "Please enter the 6-digit OTP code and set your new password.")
+              : t("auth.forgot_desc")}
           </CardDescription>
         </CardHeader>
 
@@ -370,7 +400,7 @@ export default function ForgotPasswordPage() {
                   disabled={otpLoading}
                   className="w-full py-6 text-sm font-bold text-white bg-gradient-to-r from-purple-400 via-purple-600 to-purple-800 hover:from-purple-500 hover:to-purple-900 shadow-lg shadow-purple-500/20 active:translate-y-px rounded-xl transition-all select-none"
                 >
-                  {otpLoading ? "Đang xử lý…" : "Đổi mật khẩu"}
+                  {otpLoading ? (language === "vi" ? "Đang xử lý…" : "Processing...") : t("auth.reset_btn")}
                 </Button>
                 <button
                   type="button"
@@ -382,7 +412,7 @@ export default function ForgotPasswordPage() {
                   }}
                   className="w-full py-3 text-sm font-bold text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300 border border-purple-500/20 hover:border-purple-500/40 rounded-xl transition-all"
                 >
-                  Quay lại nhập Email
+                  {language === "vi" ? "Quay lại nhập Email" : "Back to Email Entry"}
                 </button>
               </div>
             </form>
@@ -395,12 +425,12 @@ export default function ForgotPasswordPage() {
                   htmlFor="lp-email"
                   className="text-xs font-bold uppercase tracking-wider text-purple-900/70 dark:text-purple-200/70"
                 >
-                  Email Address
+                  {t("auth.email")}
                 </Label>
                 <Input
                   id="lp-email"
                   type="email"
-                  placeholder="Enter your registered email"
+                  placeholder={language === "vi" ? "Nhập email của bạn" : "Enter your email"}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
@@ -438,10 +468,10 @@ export default function ForgotPasswordPage() {
                       <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" opacity=".25" />
                       <path fill="currentColor" d="M4 12a8 8 0 018-8v8z" opacity=".75" />
                     </svg>
-                    Sending code…
+                    {t("auth.sending")}
                   </span>
                 ) : (
-                  "Send Reset Code"
+                  t("auth.send_link")
                 )}
               </Button>
             </form>
@@ -454,7 +484,7 @@ export default function ForgotPasswordPage() {
                 onClick={() => navigate("/login")}
                 className="flex items-center gap-1 text-sm font-bold text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300 transition-colors"
               >
-                <ArrowLeft size={14} /> Back to Login
+                <ArrowLeft size={14} /> {t("auth.back_to_login")}
               </button>
             </div>
           )}
