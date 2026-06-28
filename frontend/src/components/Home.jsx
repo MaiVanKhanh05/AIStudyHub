@@ -4431,7 +4431,7 @@ export default function Home() {
                                   className="w-full flex items-center gap-2 text-left px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-md transition-colors"
                                 >
                                   <Trash2 className="w-4 h-4" />
-                                  Gỡ bỏ
+                                  Xóa
                                 </button>
                               </div>
                             )}
@@ -4497,7 +4497,8 @@ export default function Home() {
                           key={doc.document_id || doc.id}
                           doc={{ ...doc, isBookmarked: true }}
                           isPersonal={false}
-                          isMyShared={false}
+                          isMyShared={user && doc.user_id === user.user_id}
+                          onUnshare={fetchBookmarkedDocs}
                         />
                       ))}
                     </div>
@@ -5026,6 +5027,7 @@ export default function Home() {
                         doc={doc}
                         isPersonal={false}
                         isMyShared={true}
+                        onUnshare={fetchCommunityDocs}
                       />
                     ))}
                   </div>
@@ -5326,7 +5328,8 @@ export default function Home() {
                                 isPinned={doc.isPinned}
                                 onTogglePin={() => handleToggleCommunityPin(doc.id)}
                                 isPersonal={false}
-                                isMyShared={communityFilterMode === "MY_SHARED"}
+                                isMyShared={communityFilterMode === "MY_SHARED" || (user && doc.user_id === user.user_id)}
+                                onUnshare={fetchCommunityDocs}
                               />
                             ))}
                           </div>
@@ -5350,7 +5353,8 @@ export default function Home() {
                                 isPinned={doc.isPinned}
                                 onTogglePin={() => handleToggleCommunityPin(doc.id)}
                                 isPersonal={false}
-                                isMyShared={communityFilterMode === "MY_SHARED"}
+                                isMyShared={communityFilterMode === "MY_SHARED" || (user && doc.user_id === user.user_id)}
+                                onUnshare={fetchCommunityDocs}
                               />
                             ))}
                           </div>

@@ -63,7 +63,7 @@ function getFileType(url = "") {
   return "other";
 }
 
-export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, onShare, isMyShared, onDelete }) {
+export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, onShare, isMyShared, onDelete, onUnshare }) {
   const [open, setOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [bookmarked, setBookmarked] = useState(doc?.isBookmarked || false);
@@ -273,6 +273,38 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
     }
   };
 
+  const handleUnshare = async (e) => {
+    if (e) e.stopPropagation();
+    const docId = doc?.document_id || doc?.id;
+    if (!docId) return;
+
+    const confirmed = window.confirm("Bạn có chắc chắn muốn gỡ tài liệu này khỏi Trang Cộng Đồng không?");
+    if (!confirmed) return;
+
+    try {
+      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+      const res = await fetch(`http://localhost:5000/api/documents/${docId}/unshare`, {
+        method: "PUT",
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      });
+      const data = await res.json();
+
+      if (res.ok) {
+        toast.success("Đã gỡ tài liệu khỏi Trang Cộng Đồng thành công!");
+        if (onUnshare) {
+          onUnshare(docId);
+        }
+      } else {
+        toast.error(data.error || "Không thể gỡ tài liệu.");
+      }
+    } catch (err) {
+      console.error("Lỗi khi gỡ tài liệu:", err);
+      toast.error("Đã xảy ra lỗi khi kết nối tới server để gỡ tài liệu.");
+    }
+  };
+
   const handleBookmarkToggle = async (e) => {
     e.stopPropagation();
     const docId = doc?.document_id || doc?.id;
@@ -410,7 +442,7 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
                         <>
                           <div className="h-px bg-slate-100 dark:bg-slate-800/60 my-1" />
                           <button
-                            onClick={(e) => { setMenuOpen(false); handleDelete(e); }}
+                            onClick={(e) => { setMenuOpen(false); handleUnshare(e); }}
                             className="menu-item danger font-medium hover:bg-red-50 dark:hover:bg-red-950/20 flex items-center text-red-600"
                           >
                             <Trash2 className="w-4 h-4 mr-2" /> Gỡ bỏ

@@ -19,43 +19,43 @@ export default function DocumentList() {
   const [filterMode, setFilterMode] = useState("ALL");
   const [currentUser, setCurrentUser] = useState(null);
 
+  const fetchDocuments = async () => {
+    setLoading(true);
+    try {
+      const response = await axios.get("http://localhost:5000/api/documents/community");
+      setDocuments(response.data);
+
+      // Fetch bookmarks if logged in
+      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+      if (token) {
+        const bookmarkRes = await axios.get("http://localhost:5000/api/documents/bookmarks", {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const bookmarksWithFlag = bookmarkRes.data.map(doc => ({ ...doc, isBookmarked: true }));
+        setBookmarkedDocs(bookmarksWithFlag);
+
+        // Update main documents array to set isBookmarked flag
+        setDocuments(prevDocs => {
+          const bookmarkIds = new Set(bookmarksWithFlag.map(b => b.document_id));
+          return prevDocs.map(doc => ({
+            ...doc,
+            isBookmarked: bookmarkIds.has(doc.document_id)
+          }));
+        });
+      }
+    } catch (error) {
+      console.error("Lỗi khi tải dữ liệu:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     // Lấy thông tin user hiện tại
     const userStr = sessionStorage.getItem("user");
     if (userStr) {
       setCurrentUser(JSON.parse(userStr));
     }
-
-    const fetchDocuments = async () => {
-      setLoading(true);
-      try {
-        const response = await axios.get("http://localhost:5000/api/documents/community");
-        setDocuments(response.data);
-
-        // Fetch bookmarks if logged in
-        const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-        if (token) {
-          const bookmarkRes = await axios.get("http://localhost:5000/api/documents/bookmarks", {
-            headers: { Authorization: `Bearer ${token}` }
-          });
-          const bookmarksWithFlag = bookmarkRes.data.map(doc => ({ ...doc, isBookmarked: true }));
-          setBookmarkedDocs(bookmarksWithFlag);
-
-          // Update main documents array to set isBookmarked flag
-          setDocuments(prevDocs => {
-            const bookmarkIds = new Set(bookmarksWithFlag.map(b => b.document_id));
-            return prevDocs.map(doc => ({
-              ...doc,
-              isBookmarked: bookmarkIds.has(doc.document_id)
-            }));
-          });
-        }
-      } catch (error) {
-        console.error("Lỗi khi tải dữ liệu:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
 
     fetchDocuments();
   }, []);
@@ -138,6 +138,8 @@ export default function DocumentList() {
                   key={doc.document_id}
                   doc={doc}
                   isPersonal={false} // Chế độ cộng đồng chung
+                  isMyShared={true}
+                  onUnshare={fetchDocuments}
                 />
               ))}
             </div>
@@ -209,6 +211,8 @@ export default function DocumentList() {
                     key={doc.document_id}
                     doc={doc}
                     isPersonal={false}
+                    isMyShared={currentUser && doc.user_id === currentUser.user_id}
+                    onUnshare={fetchDocuments}
                   />
                 ))}
               </div>
@@ -260,6 +264,8 @@ export default function DocumentList() {
                   key={doc.document_id}
                   doc={doc}
                   isPersonal={false}
+                  isMyShared={filterMode === "MY_SHARED" || (currentUser && doc.user_id === currentUser.user_id)}
+                  onUnshare={fetchDocuments}
                 />
               ))}
             </div>
