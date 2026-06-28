@@ -61,7 +61,9 @@ import {
   RotateCcw,
   Camera,
   Flame,
-  Loader
+  Loader,
+  SlidersHorizontal,
+  ArrowUpDown
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -405,10 +407,12 @@ export default function Home() {
   const location = useLocation();
   const isUploadingRef = useRef(false);
   const calendarPopoverRef = useRef(null);
+  const communitySortPopoverRef = useRef(null);
   const documentsSectionRef = useRef(null);
   const mainContentRef = useRef(null);
   const seenNotificationsRef = useRef(new Set());
   const communitySearchSectionRef = useRef(null);
+  const communitySearchAnchorRef = useRef(null);
 
   const [currentCalDate, setCurrentCalDate] = useState(new Date());
   const [sidebarWidth, setSidebarWidth] = useState(230);
@@ -417,6 +421,8 @@ export default function Home() {
   const [rangeEnd, setRangeEnd] = useState(null);
   const [isCalDragging, setIsCalDragging] = useState(false);
   const [showCalendarPopover, setShowCalendarPopover] = useState(false);
+  const [showCommunitySortPopover, setShowCommunitySortPopover] = useState(false);
+  const [communitySortOption, setCommunitySortOption] = useState("default"); // "default" | "newest" | "oldest" | "popular"
 
   const [personalRangeStart, setPersonalRangeStart] = useState(null);
   const [personalRangeEnd, setPersonalRangeEnd] = useState(null);
@@ -460,6 +466,19 @@ export default function Home() {
       document.removeEventListener("mousedown", handleOutsideClick);
     };
   }, [showCalendarPopover]);
+
+  useEffect(() => {
+    if (!showCommunitySortPopover) return;
+    const handleOutsideClick = (e) => {
+      if (communitySortPopoverRef.current && !communitySortPopoverRef.current.contains(e.target)) {
+        setShowCommunitySortPopover(false);
+      }
+    };
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+    };
+  }, [showCommunitySortPopover]);
 
   useEffect(() => {
     if (!isCalDragging) return;
@@ -566,6 +585,10 @@ export default function Home() {
   useEffect(() => {
     setCommunityPage(1);
   }, [communityRoleFilter]);
+
+  useEffect(() => {
+    setCommunityPage(1);
+  }, [communitySortOption]);
 
   useEffect(() => {
     setCommunityRoleFilter("ALL");
@@ -718,9 +741,33 @@ export default function Home() {
     return matchesSearch && matchesDate && matchesRole;
   });
 
+  const sortDocs = (docsList) => {
+    if (communitySortOption === "default") {
+      return docsList;
+    }
+    return [...docsList].sort((a, b) => {
+      if (communitySortOption === "newest") {
+        const dateA = a.upload_date ? new Date(a.upload_date).getTime() : 0;
+        const dateB = b.upload_date ? new Date(b.upload_date).getTime() : 0;
+        return dateB - dateA;
+      }
+      if (communitySortOption === "oldest") {
+        const dateA = a.upload_date ? new Date(a.upload_date).getTime() : 0;
+        const dateB = b.upload_date ? new Date(b.upload_date).getTime() : 0;
+        return dateA - dateB;
+      }
+      if (communitySortOption === "popular") {
+        const scoreA = a.views || 0;
+        const scoreB = b.views || 0;
+        return scoreB - scoreA;
+      }
+      return 0;
+    });
+  };
+
   const sortedCommunityDocs = [
-    ...filteredCommunityDocs.filter(d => d.isPinned),
-    ...filteredCommunityDocs.filter(d => !d.isPinned)
+    ...sortDocs(filteredCommunityDocs.filter(d => d.isPinned)),
+    ...sortDocs(filteredCommunityDocs.filter(d => !d.isPinned))
   ];
 
   const COMMUNITY_PAGE_SIZE = 9;
@@ -2281,10 +2328,19 @@ export default function Home() {
     const msgIndex = aiMessages.findIndex(m => m.id === msgId);
     if (msgIndex === -1) return;
 
-    const targetQuery = aiMessages[msgIndex].text;
-    const historyUpToTarget = aiMessages.slice(0, msgIndex);
+    const originalMsg = aiMessages[msgIndex];
+    const targetQuery = originalMsg.text;
+    const msgFiles = originalMsg.files || [];
 
-    const updatedMessages = aiMessages.slice(0, msgIndex + 1);
+    const newUserMsg = {
+      id: String(Date.now()),
+      sender: "user",
+      text: targetQuery,
+      files: msgFiles
+    };
+
+    const historyPayload = [...aiMessages];
+    const updatedMessages = [...aiMessages, newUserMsg];
     setAiMessages(updatedMessages);
 
     setIsAiTyping(true);
@@ -2295,7 +2351,7 @@ export default function Home() {
 
       const payload = {
         message: targetQuery,
-        history: historyUpToTarget,
+        history: historyPayload,
         aiMode: aiMode,
         useWeb: useWeb,
         useScholar: useScholar,
@@ -2303,7 +2359,6 @@ export default function Home() {
         documentContext: ""
       };
 
-      const msgFiles = aiMessages[msgIndex].files || [];
       if (msgFiles.length > 0) {
         payload.documentContext = msgFiles.map(file => `--- TẬP TIN: ${file.name} ---\n${file.content}`).join("\n\n");
       }
@@ -2350,15 +2405,19 @@ export default function Home() {
     const msgIndex = aiMessages.findIndex(m => m.id === msgId);
     if (msgIndex === -1) return;
 
+    const originalMsg = aiMessages[msgIndex];
     const targetQuery = editingText.trim();
-    const historyUpToTarget = aiMessages.slice(0, msgIndex);
+    const msgFiles = originalMsg.files || [];
 
-    const updatedMessages = aiMessages.slice(0, msgIndex + 1);
-    updatedMessages[msgIndex] = {
-      ...updatedMessages[msgIndex],
-      text: targetQuery
+    const newUserMsg = {
+      id: String(Date.now()),
+      sender: "user",
+      text: targetQuery,
+      files: msgFiles
     };
 
+    const historyPayload = [...aiMessages];
+    const updatedMessages = [...aiMessages, newUserMsg];
     setAiMessages(updatedMessages);
     setEditingMessageId(null);
     setEditingText("");
@@ -2371,7 +2430,7 @@ export default function Home() {
 
       const payload = {
         message: targetQuery,
-        history: historyUpToTarget,
+        history: historyPayload,
         aiMode: aiMode,
         useWeb: useWeb,
         useScholar: useScholar,
@@ -2379,7 +2438,6 @@ export default function Home() {
         documentContext: ""
       };
 
-      const msgFiles = updatedMessages[msgIndex].files || [];
       if (msgFiles.length > 0) {
         payload.documentContext = msgFiles.map(file => `--- TẬP TIN: ${file.name} ---\n${file.content}`).join("\n\n");
       }
@@ -4373,7 +4431,7 @@ export default function Home() {
                                   className="w-full flex items-center gap-2 text-left px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-md transition-colors"
                                 >
                                   <Trash2 className="w-4 h-4" />
-                                  Gỡ bỏ
+                                  Xóa
                                 </button>
                               </div>
                             )}
@@ -4439,7 +4497,8 @@ export default function Home() {
                           key={doc.document_id || doc.id}
                           doc={{ ...doc, isBookmarked: true }}
                           isPersonal={false}
-                          isMyShared={false}
+                          isMyShared={user && doc.user_id === user.user_id}
+                          onUnshare={fetchBookmarkedDocs}
                         />
                       ))}
                     </div>
@@ -4968,6 +5027,7 @@ export default function Home() {
                         doc={doc}
                         isPersonal={false}
                         isMyShared={true}
+                        onUnshare={fetchCommunityDocs}
                       />
                     ))}
                   </div>
@@ -4989,8 +5049,9 @@ export default function Home() {
                 </div>
               )}
 
-              {/* Search and Date Filter Section */}
-              <div ref={communitySearchSectionRef} className="w-full max-w-2xl mx-auto flex items-center gap-3 mt-2 relative">
+
+              {/* Sticky Search and Filter Wrapper */}
+              <div ref={communitySearchSectionRef} className="bg-transparent py-0 w-full max-w-3xl mx-auto flex items-center gap-3 relative">
                 <div className="flex-1">
                   <SearchBar
                     search={communitySearch}
@@ -5010,25 +5071,24 @@ export default function Home() {
                   <button
                     onClick={() => setShowCalendarPopover(!showCalendarPopover)}
                     className={`
-                      flex items-center gap-2 px-4 py-3 rounded-xl border text-xs font-bold transition-all duration-300 shadow-sm h-[46px] select-none cursor-pointer
+                      flex items-center justify-center gap-2 rounded-xl border text-xs font-bold transition-all duration-300 shadow-sm h-[46px] select-none cursor-pointer
                       ${showCalendarPopover || rangeStart
                         ? "bg-purple-600 border-purple-600 text-white shadow-purple-500/10"
                         : "bg-white/40 dark:bg-[#0f111a]/45 backdrop-blur-xl border-slate-200/30 dark:border-white/5 text-slate-700 dark:text-slate-300 hover:bg-white/60 dark:hover:bg-[#0f111a]/60 hover:text-purple-600 dark:hover:text-purple-400"
                       }
+                      ${rangeStart ? "px-4" : "w-[46px]"}
                     `}
                   >
                     <Calendar className="w-4 h-4 shrink-0" />
-                    <span className="hidden sm:inline">
-                      {rangeStart ? (
-                        rangeEnd && rangeStart.toDateString() !== rangeEnd.toDateString() ? (
+                    {rangeStart && (
+                      <span className="hidden sm:inline">
+                        {rangeEnd && rangeStart.toDateString() !== rangeEnd.toDateString() ? (
                           `${rangeStart.toLocaleDateString("vi-VN", { day: "numeric", month: "numeric" })} - ${rangeEnd.toLocaleDateString("vi-VN", { day: "numeric", month: "numeric" })}`
                         ) : (
                           rangeStart.toLocaleDateString("vi-VN", { day: "numeric", month: "numeric" })
-                        )
-                      ) : (
-                        "Lọc ngày"
-                      )}
-                    </span>
+                        )}
+                      </span>
+                    )}
                   </button>
 
                   {rangeStart && (
@@ -5145,7 +5205,7 @@ export default function Home() {
                                   ? "bg-purple-600 text-white shadow-md shadow-purple-500/20 hover:bg-purple-700"
                                   : selected
                                     ? "bg-purple-100 dark:bg-purple-900/35 text-purple-700 dark:text-purple-300 font-bold hover:bg-purple-200 dark:hover:bg-purple-900/50"
-                                    : "text-slate-700 dark:text-slate-350 hover:bg-slate-100 dark:hover:bg-slate-800"
+                                    : "text-slate-700 dark:text-slate-355 hover:bg-slate-100 dark:hover:bg-slate-800"
                                 }
                               `}
                             >
@@ -5173,11 +5233,60 @@ export default function Home() {
                     </div>
                   )}
                 </div>
+
+                {/* Sort Option Toggle Button and Popover */}
+                <div className="flex items-center gap-2 relative shrink-0" ref={communitySortPopoverRef}>
+                  <span className="text-xs font-bold text-slate-500 shrink-0">Lọc theo:</span>
+                  <div
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowCommunitySortPopover(!showCommunitySortPopover);
+                    }}
+                    className="flex items-center justify-between gap-2 bg-slate-100 dark:bg-[#151722] hover:bg-slate-200 dark:hover:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-1.5 text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer transition-colors w-[190px] shrink-0"
+                  >
+                    <span className="truncate">
+                      {communitySortOption === "default" && "Mặc định"}
+                      {communitySortOption === "newest" && "Ngày tải lên (Mới nhất)"}
+                      {communitySortOption === "oldest" && "Ngày tải lên (Cũ nhất)"}
+                      {communitySortOption === "popular" && "Phổ biến"}
+                    </span>
+                    <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                  </div>
+
+                  {showCommunitySortPopover && (
+                    <div
+                      onClick={(e) => e.stopPropagation()}
+                      className="absolute right-0 top-10 w-52 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.08)] z-30 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150 p-1 text-left"
+                    >
+                      {[
+                        { label: "Mặc định", option: "default" },
+                        { label: "Ngày tải lên (Mới nhất)", option: "newest" },
+                        { label: "Ngày tải lên (Cũ nhất)", option: "oldest" },
+                        { label: "Phổ biến", option: "popular" }
+                      ].map((item, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => {
+                            setCommunitySortOption(item.option);
+                            setShowCommunitySortPopover(false);
+                          }}
+                          className={`w-full text-left px-3 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                            communitySortOption === item.option
+                              ? "bg-purple-50 dark:bg-purple-950/20 text-purple-600 dark:text-purple-400"
+                              : "text-slate-750 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/40"
+                          }`}
+                        >
+                          {item.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Stats */}
-              <div className="h-10 flex items-center justify-center select-none">
-                {!communityLoading && (communitySearch || rangeStart) && (
+              {!communityLoading && (communitySearch || rangeStart) && (
+                <div className="h-10 flex items-center justify-center select-none">
                   <div className="px-3.5 py-1.5 bg-purple-500/8 dark:bg-purple-500/12 text-purple-750 dark:text-purple-300 rounded-full border border-purple-500/10 text-[10px] font-bold uppercase tracking-wider animate-in fade-in zoom-in-95 duration-200 flex items-center gap-2">
                     <span>Tìm thấy {filteredCommunityDocs.length} tài liệu học tập</span>
                     {rangeStart && (
@@ -5186,8 +5295,8 @@ export default function Home() {
                       </span>
                     )}
                   </div>
-                )}
-              </div>
+                </div>
+              )}
 
               {/* Loading & Grid Section */}
               {communityLoading ? (
@@ -5219,7 +5328,8 @@ export default function Home() {
                                 isPinned={doc.isPinned}
                                 onTogglePin={() => handleToggleCommunityPin(doc.id)}
                                 isPersonal={false}
-                                isMyShared={communityFilterMode === "MY_SHARED"}
+                                isMyShared={communityFilterMode === "MY_SHARED" || (user && doc.user_id === user.user_id)}
+                                onUnshare={fetchCommunityDocs}
                               />
                             ))}
                           </div>
@@ -5243,7 +5353,8 @@ export default function Home() {
                                 isPinned={doc.isPinned}
                                 onTogglePin={() => handleToggleCommunityPin(doc.id)}
                                 isPersonal={false}
-                                isMyShared={communityFilterMode === "MY_SHARED"}
+                                isMyShared={communityFilterMode === "MY_SHARED" || (user && doc.user_id === user.user_id)}
+                                onUnshare={fetchCommunityDocs}
                               />
                             ))}
                           </div>

@@ -391,7 +391,7 @@ export const updateDocumentCommunityStatus = async (documentId, isCommunity) => 
     try {
         const queryStr = isCommunity 
             ? "UPDATE document SET is_community = $1, visibility = 'PUBLIC' WHERE document_id = $2 RETURNING *"
-            : "UPDATE document SET is_community = $1 WHERE document_id = $2 RETURNING *";
+            : "UPDATE document SET is_community = $1, visibility = 'RESTRICTED' WHERE document_id = $2 RETURNING *";
         const { rows } = await pool.query(queryStr, [isCommunity, documentId]);
         return rows[0] ? new Document(rows[0]) : null;
     } catch (error) {

@@ -74,6 +74,11 @@ export const connectDB = async () => {
             UPDATE document SET visibility = 'RESTRICTED' WHERE visibility = 'PRIVATE'
         `);
 
+        // Fix inconsistent old records where is_community is false but visibility is PUBLIC
+        await pool.query(`
+            UPDATE document SET visibility = 'RESTRICTED' WHERE is_community = FALSE AND visibility = 'PUBLIC'
+        `);
+
         // Alter default visibility column default constraint to RESTRICTED
         await pool.query(`
             ALTER TABLE document ALTER COLUMN visibility SET DEFAULT 'RESTRICTED'
