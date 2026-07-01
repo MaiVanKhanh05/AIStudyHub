@@ -6,65 +6,79 @@ import { uploadFileToSupabase } from "@/lib/supabase";
 import { toast } from "sonner";
 
 export default function UploadPage() {
-    const [files, setFiles] = useState([]);
-    const [uploading, setUploading] = useState(false);
-    const [dragActive, setDragActive] = useState(false);
-    const fileInputRef = useRef(null);
-    const isUploadingRef = useRef(false);
+    // --- KHAI BÁO STATE CƠ BẢN ---
+    const [files, setFiles] = useState([]); // Mảng chứa các file người dùng đã chọn
+    const [uploading, setUploading] = useState(false); // Trạng thái có đang upload hay không (để xoay spinner)
+    const [dragActive, setDragActive] = useState(false); // Trạng thái khi người dùng kéo thả file vào vùng Drag & Drop
+    
+    // --- THAM CHIẾU (REFS) ---
+    const fileInputRef = useRef(null); // Reference đến thẻ <input type="file"> bị ẩn
+    const isUploadingRef = useRef(false); // Biến cờ (flag) chống click double khi đang tải
+    
+    // --- THÔNG TIN TÀI LIỆU (METADATA) ---
     const [documentTitle, setDocumentTitle] = useState("");
     const [subject, setSubject] = useState("");
     const [description, setDescription] = useState("");
-    const [visibility, setVisibility] = useState("PRIVATE");
+    const [visibility, setVisibility] = useState("PRIVATE"); // Trạng thái hiển thị mặc định (Cá nhân)
 
+    // --- THÔNG TIN NGƯỜI DÙNG HIỆN TẠI ---
     const userStr = localStorage.getItem("user") || sessionStorage.getItem("user");
     const user = userStr ? JSON.parse(userStr) : null;
-    const userRole = user?.role || "STUDENT";
+    const userRole = user?.role || "STUDENT"; // Phân quyền: LECTURER thì được set Public
     
-    const [currentStorageUsage, setCurrentStorageUsage] = useState(0);
-    const storageLimit = user?.max_storage_bytes || 2147483648; // default 2GB
+    // --- KIỂM SOÁT DUNG LƯỢNG LƯU TRỮ ---
+    const [currentStorageUsage, setCurrentStorageUsage] = useState(0); // Dung lượng đã dùng
+    const storageLimit = user?.max_storage_bytes || 2147483648; // Giới hạn dung lượng (default 2GB)
 
+    // --- EFFECT: LẤY THÔNG TIN DUNG LƯỢNG TỪ SERVER KHI MỞ TRANG ---
     useEffect(() => {
         const fetchStorage = async () => {
             try {
                 const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-                if (!token) return;
+                if (!token) return; // Nếu chưa đăng nhập thì bỏ qua
+                
+                // Gọi API backend để lấy dung lượng lưu trữ hiện tại
                 const res = await fetch("http://localhost:5000/api/documents/dashboard", {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 if (res.ok) {
                     const data = await res.json();
-                    setCurrentStorageUsage(data.storageUsage || 0);
+                    setCurrentStorageUsage(data.storageUsage || 0); // Cập nhật state dung lượng đã dùng
                 }
             } catch (err) {
                 console.error("Error fetching storage:", err);
             }
         };
         fetchStorage();
-    }, []);
+    }, []); // Chạy 1 lần duy nhất khi component mount
 
-    const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+    // --- QUY TẮC FILE (VALIDATION CONFIG) ---
+    const MAX_FILE_SIZE = 50 * 1024 * 1024; // Dung lượng file tối đa: 50MB
     const ALLOWED_TYPES = [
-        "application/pdf",
-        "application/msword",
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        "application/vnd.ms-excel",
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "text/plain",
-        "image/jpeg",
-        "image/png",
-        "image/webp",
+        "application/pdf", // PDF
+        "application/msword", // DOC cũ
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // DOCX
+        "application/vnd.ms-excel", // XLS cũ
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", // XLSX
+        "text/plain", // TXT
+        "image/jpeg", // JPG/JPEG
+        "image/png", // PNG
+        "image/webp", // WEBP
     ];
 
+    // --- XỬ LÝ KÉO THẢ (DRAG & DROP) ---
+    // Hiển thị hiệu ứng khi đang kéo thả file vào vùng chỉ định
     const handleDrag = (e) => {
         e.preventDefault();
         e.stopPropagation();
         if (e.type === "dragenter" || e.type === "dragover") {
-            setDragActive(true);
+            setDragActive(true); // Kích hoạt đổi màu nền
         } else if (e.type === "dragleave") {
-            setDragActive(false);
+            setDragActive(false); // Trả lại màu nền cũ
         }
     };
 
+    // Hàm kiểm tra file có hợp lệ (kích thước, định dạng) hay không
     const validateFile = (file) => {
         if (file.size > MAX_FILE_SIZE) {
             toast.error(`File "${file.name}" exceeds 50MB limit`);
@@ -79,29 +93,32 @@ export default function UploadPage() {
         return true;
     };
 
+    // Xử lý sự kiện khi người dùng "thả" file vào ô nét đứt
     const handleDrop = (e) => {
         e.preventDefault();
         e.stopPropagation();
         setDragActive(false);
 
         const droppedFiles = Array.from(e.dataTransfer.files);
-        addFiles(droppedFiles);
+        addFiles(droppedFiles); // Chuyển sang hàm addFiles để lọc và thêm
     };
 
+    // Xử lý sự kiện khi người dùng "click" chọn file từ máy tính (qua thẻ input ẩn)
     const handleFileInput = (e) => {
         const selectedFiles = Array.from(e.target.files);
         addFiles(selectedFiles);
     };
 
+    // Hàm chung để thêm file mới vào danh sách chờ
     const addFiles = (newFiles) => {
-        const validFiles = newFiles.filter(validateFile);
+        const validFiles = newFiles.filter(validateFile); // Bỏ qua các file không qua được vòng gửi xe
         if (validFiles.length > 0) {
             setFiles((prev) => [
                 ...prev,
                 ...validFiles.map((file) => ({
-                    file,
-                    id: Math.random().toString(36).substring(7),
-                    status: "pending",
+                    file, // Bản thân đối tượng file gốc
+                    id: Math.random().toString(36).substring(7), // Tạo ID ngẫu nhiên để quản lý React Key
+                    status: "pending", // Trạng thái mặc định là "đang chờ"
                     progress: 0,
                     error: null,
                     uploadedUrl: null,
@@ -110,13 +127,17 @@ export default function UploadPage() {
         }
     };
 
+    // Xóa một file khỏi danh sách chờ (bằng cách click nút X)
     const removeFile = (id) => {
         setFiles((prev) => prev.filter((f) => f.id !== id));
     };
 
+    // Hàm xử lý chính cho việc Upload tài liệu
     const handleUpload = async () => {
+        // 1. Kiểm tra trạng thái: Nếu đang upload thì không cho bấm liên tục
         if (isUploadingRef.current) return;
 
+        // 2. Validate form: Yêu cầu phải có file và tiêu đề tài liệu
         if (files.length === 0) {
             toast.error("Please select files to upload");
             return;
@@ -127,54 +148,61 @@ export default function UploadPage() {
             return;
         }
 
+        // 3. Lọc ra danh sách các file đang chờ upload
         const pendingFiles = files.filter((f) => f.status === "pending");
         if (pendingFiles.length === 0) return;
 
-        // TÍNH TOÁN DUNG LƯỢNG (Check storage limit)
+        // 4. Kiểm tra giới hạn dung lượng lưu trữ (Storage limit check)
+        // Lấy tổng dung lượng các file sắp upload cộng với dung lượng hiện tại đã dùng
         const totalNewBytes = pendingFiles.reduce((acc, f) => acc + f.file.size, 0);
         if (currentStorageUsage + totalNewBytes > storageLimit) {
             toast.error("Dung lượng lưu trữ của bạn đã đầy. Không thể tải lên tài liệu mới.");
             return;
         }
 
+        // Khóa trạng thái giao diện để bắt đầu tiến trình upload
         isUploadingRef.current = true;
         setUploading(true);
 
+        // 5. Tiến hành Upload từng file song song (dùng Promise.all sau đó)
         const uploadPromises = pendingFiles
             .map(async (fileItem) => {
                 try {
-                    // Update file status
+                    // 5.1. Cập nhật UI: Đổi trạng thái file thành "đang upload" để hiện spinner
                     setFiles((prev) =>
                         prev.map((f) =>
                             f.id === fileItem.id ? { ...f, status: "uploading" } : f
                         )
                     );
 
-                    // Load logged in user to get userId for user-specific folder structure
+                    // 5.2. Lấy thông tin User để tạo thư mục lưu trữ cá nhân hóa trên Supabase (ví dụ: /userId/filename)
                     const userStr = localStorage.getItem("user") || sessionStorage.getItem("user");
                     const user = userStr ? JSON.parse(userStr) : null;
                     const userId = user?.user_id || "";
 
-                    // Upload to Supabase using AIStudyHub bucket and user folder prefix
+                    // 5.3. BƯỚC UPLOAD VẬT LÝ LÊN SUPABASE
+                    // Gọi hàm uploadFileToSupabase đẩy file vật lý lên bucket 'AIStudyHub' trên Supabase.
                     const result = await uploadFileToSupabase(fileItem.file, "AIStudyHub", userId);
 
                     if (result.success) {
-                        // Save metadata to backend
+                        // 5.4. BƯỚC LƯU METADATA LÊN BACKEND (POSTGRESQL)
+                        // Nếu file upload lên Supabase thành công, ta lấy được URL của file (result.fileUrl)
                         const token =
                             localStorage.getItem("token") ||
                             sessionStorage.getItem("token");
 
+                        // Gọi API tới backend để lưu thông tin về tài liệu vào Database
                         const response = await fetch("http://localhost:5000/api/documents/upload", {
                             method: "POST",
                             headers: {
                                 "Content-Type": "application/json",
-                                Authorization: `Bearer ${token}`,
+                                Authorization: `Bearer ${token}`, // Gửi token để xác thực user
                             },
                             body: JSON.stringify({
                                 title: documentTitle,
                                 subject,
                                 description,
-                                file_url: result.fileUrl,
+                                file_url: result.fileUrl, // URL file lấy từ Supabase trả về
                                 file_name: fileItem.file.name,
                                 file_type: fileItem.file.type,
                                 file_size: result.size,
@@ -187,6 +215,7 @@ export default function UploadPage() {
                             throw new Error(errorData.error || "Failed to save document metadata");
                         }
 
+                        // 5.5. Cập nhật UI: File upload thành công, hiển thị dấu tích xanh
                         setFiles((prev) =>
                             prev.map((f) =>
                                 f.id === fileItem.id
@@ -201,9 +230,11 @@ export default function UploadPage() {
 
                         toast.success(`"${fileItem.file.name}" uploaded successfully`);
                     } else {
+                        // Bắt lỗi nếu upload Supabase thất bại
                         throw new Error(result.error);
                     }
                 } catch (error) {
+                    // 5.6. Bắt lỗi: Nếu có bất kì lỗi gì (từ Supabase hoặc Backend), báo đỏ file đó
                     setFiles((prev) =>
                         prev.map((f) =>
                             f.id === fileItem.id
@@ -219,11 +250,14 @@ export default function UploadPage() {
                 }
             });
 
+        // Đợi tất cả các file trong mảng tiến trình xử lý xong
         await Promise.all(uploadPromises);
+        
+        // Mở khóa UI
         setUploading(false);
         isUploadingRef.current = false;
 
-        // Reset form if all files uploaded successfully
+        // 6. Reset form: Dọn dẹp giao diện nếu toàn bộ file tải lên trơn tru không lỗi lầm
         if (files.every((f) => f.status === "completed")) {
             setDocumentTitle("");
             setSubject("");
@@ -232,6 +266,8 @@ export default function UploadPage() {
         }
     };
 
+    // --- HÀM HỖ TRỢ (UTILITIES) ---
+    // Trả về icon emoji tương ứng theo định dạng file
     const getFileIcon = (fileName) => {
         const ext = fileName.split(".").pop().toLowerCase();
         if (["jpg", "jpeg", "png", "webp"].includes(ext)) return "🖼️";
@@ -239,9 +275,10 @@ export default function UploadPage() {
         if (["doc", "docx"].includes(ext)) return "📝";
         if (["xls", "xlsx"].includes(ext)) return "📊";
         if (ext === "txt") return "📃";
-        return "📦";
+        return "📦"; // Default icon
     };
 
+    // Định dạng byte thành KB, MB, GB cho dễ đọc
     const formatFileSize = (bytes) => {
         if (bytes === 0) return "0 Bytes";
         const k = 1024;

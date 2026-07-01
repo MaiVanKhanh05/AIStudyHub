@@ -29,7 +29,7 @@ export async function uploadTempFile(req, res) {
 
   const mimeType = req.file.mimetype;
   const ext = path.extname(originalName).toLowerCase();
-  
+
   // Đảm bảo thư mục temp_uploads tồn tại
   const tempDir = path.join(process.cwd(), "temp_uploads");
   if (!fs.existsSync(tempDir)) {
@@ -103,14 +103,14 @@ async function callGemini(messages, systemInstruction) {
   // Định dạng lại các tin nhắn cho Gemini
   // Gemini chấp nhận định dạng: contents: [{ role: "user"|"model", parts: [{ text: "..." }] }]
   const contents = [];
-  
+
   // Tổng hợp lịch sử và các hướng dẫn
   for (const msg of messages) {
     let role = "user";
     if (msg.role === "assistant" || msg.role === "system") {
       role = "model";
     }
-    
+
     // Các vai trò (role) của Gemini phải luân phiên giữa user/model. Nếu các vai trò liên tiếp giống nhau, hãy gộp chúng lại.
     const lastContent = contents[contents.length - 1];
     if (lastContent && lastContent.role === role) {
@@ -276,40 +276,40 @@ export async function chatQuery(req, res) {
   // Intercept flashcard creation requests
   const messageLower = message.toLowerCase();
   const hasFlashcardKeyword = messageLower.includes("flashcard") ||
-                              messageLower.includes("flash card") ||
-                              messageLower.includes("flashard") || // common typo
-                              messageLower.includes("flash ard") || // common typo
-                              messageLower.includes("thẻ ghi nhớ") ||
-                              messageLower.includes("thẻ ôn tập") ||
-                              messageLower.includes("study card") ||
-                              messageLower.includes("revision card");
+    messageLower.includes("flash card") ||
+    messageLower.includes("flashard") || // common typo
+    messageLower.includes("flash ard") || // common typo
+    messageLower.includes("thẻ ghi nhớ") ||
+    messageLower.includes("thẻ ôn tập") ||
+    messageLower.includes("study card") ||
+    messageLower.includes("revision card");
 
   const hasCreateIntent = messageLower.includes("tạo") ||
-                          messageLower.includes("taoj") || // telex typo
-                          messageLower.includes("tao") || // unmarked
-                          messageLower.includes("làm") ||
-                          messageLower.includes("lam") ||
-                          messageLower.includes("sinh") ||
-                          messageLower.includes("học") ||
-                          messageLower.includes("hoc") ||
-                          messageLower.includes("ôn") ||
-                          messageLower.includes("on") ||
-                          messageLower.includes("create") ||
-                          messageLower.includes("generate") ||
-                          messageLower.includes("make") ||
-                          messageLower.includes("study") ||
-                          messageLower.includes("practice") ||
-                          messageLower.includes("review") ||
-                          messageLower.includes("revision") ||
-                          messageLower.includes("giúp tôi ôn tập");
+    messageLower.includes("taoj") || // telex typo
+    messageLower.includes("tao") || // unmarked
+    messageLower.includes("làm") ||
+    messageLower.includes("lam") ||
+    messageLower.includes("sinh") ||
+    messageLower.includes("học") ||
+    messageLower.includes("hoc") ||
+    messageLower.includes("ôn") ||
+    messageLower.includes("on") ||
+    messageLower.includes("create") ||
+    messageLower.includes("generate") ||
+    messageLower.includes("make") ||
+    messageLower.includes("study") ||
+    messageLower.includes("practice") ||
+    messageLower.includes("review") ||
+    messageLower.includes("revision") ||
+    messageLower.includes("giúp tôi ôn tập");
 
   const isFlashcardRequest = messageLower.includes("giúp tôi ôn tập tài liệu này") ||
-                             (hasFlashcardKeyword && hasCreateIntent);
+    (hasFlashcardKeyword && hasCreateIntent);
 
   if (isFlashcardRequest) {
     try {
       console.log("[Chat Query] Flashcard generation intent detected!");
-      
+
       if (!userId) {
         return res.status(401).json({ error: "Bạn cần đăng nhập để tạo thẻ ghi nhớ." });
       }
@@ -359,21 +359,21 @@ export async function chatQuery(req, res) {
   }
 
   // Intercept quiz creation requests
-  const hasQuizKeyword = messageLower.includes("quiz") || 
-                         messageLower.includes("quizz") || 
-                         messageLower.includes("trắc nghiệm") || 
-                         messageLower.includes("test my knowledge") || 
-                         messageLower.includes("kiểm tra kiến thức");
-                          
-  const isExplanationQuery = (messageLower.includes("giải thích") || messageLower.includes("tại sao") || messageLower.includes("vì sao") || messageLower.includes("sửa") || messageLower.includes("chữa")) && 
-                             (messageLower.includes("câu") || messageLower.includes("question") || messageLower.includes("đáp án"));
+  const hasQuizKeyword = messageLower.includes("quiz") ||
+    messageLower.includes("quizz") ||
+    messageLower.includes("trắc nghiệm") ||
+    messageLower.includes("test my knowledge") ||
+    messageLower.includes("kiểm tra kiến thức");
+
+  const isExplanationQuery = (messageLower.includes("giải thích") || messageLower.includes("tại sao") || messageLower.includes("vì sao") || messageLower.includes("sửa") || messageLower.includes("chữa")) &&
+    (messageLower.includes("câu") || messageLower.includes("question") || messageLower.includes("đáp án"));
 
   const isQuizRequest = hasQuizKeyword && !isExplanationQuery;
 
   if (isQuizRequest) {
     try {
       console.log("[Chat Query] Quiz generation intent detected!");
-      
+
       // Parse question count
       let count = 10;
       const countMatch = message.match(/(\d+)\s*(câu hỏi|câu|questions|question|q)/i);
@@ -481,26 +481,26 @@ export async function chatQuery(req, res) {
       const aiClient = initOpenAI();
       let ragContext = "";
       if (aiClient && process.env.OPENAI_API_KEY) {
-          try {
-              const embedResponse = await aiClient.embeddings.create({
-                  model: "text-embedding-3-small",
-                  input: searchContext.slice(-2000), // giới hạn độ dài string gửi lên OpenAI embed
-              });
-              const queryEmbedding = embedResponse.data[0].embedding;
-              const relevantChunks = await searchVectorDB(queryEmbedding, 6);
-              
-              if (relevantChunks && relevantChunks.length > 0) {
-                  ragContext = relevantChunks.map(chunk => chunk.chunk_text).join("\n\n---\n\n");
-                  additionalContext = `[NGỮ CẢNH TỪ HỆ THỐNG TÀI LIỆU]\n${ragContext}\n\n[HẾT NGỮ CẢNH HỆ THỐNG TÀI LIỆU]`;
-                  systemInstruction += "\n\nCRITICAL: Bạn đang đóng vai trò tìm kiếm tài liệu. Hãy trả lời câu hỏi dựa trên [NGỮ CẢNH TỪ HỆ THỐNG TÀI LIỆU] được trích xuất từ CSDL dưới đây. Trích dẫn đúng tên tài liệu nếu cần.";
-                  
-                  // Map chunk to suggested docs
-                  const docIds = [...new Set(relevantChunks.map(c => c.document_id))];
-                  suggestedDocs = allCommunityDocs.filter(d => docIds.includes(d.document_id)).slice(0, 3);
-              }
-          } catch (e) {
-              console.error("[Vector Search Error]", e);
+        try {
+          const embedResponse = await aiClient.embeddings.create({
+            model: "text-embedding-3-small",
+            input: searchContext.slice(-2000), // giới hạn độ dài string gửi lên OpenAI embed
+          });
+          const queryEmbedding = embedResponse.data[0].embedding;
+          const relevantChunks = await searchVectorDB(queryEmbedding, 6);
+
+          if (relevantChunks && relevantChunks.length > 0) {
+            ragContext = relevantChunks.map(chunk => chunk.chunk_text).join("\n\n---\n\n");
+            additionalContext = `[NGỮ CẢNH TỪ HỆ THỐNG TÀI LIỆU]\n${ragContext}\n\n[HẾT NGỮ CẢNH HỆ THỐNG TÀI LIỆU]`;
+            systemInstruction += "\n\nCRITICAL: Bạn đang đóng vai trò tìm kiếm tài liệu. Hãy trả lời câu hỏi dựa trên [NGỮ CẢNH TỪ HỆ THỐNG TÀI LIỆU] được trích xuất từ CSDL dưới đây. Trích dẫn đúng tên tài liệu nếu cần.";
+
+            // Map chunk to suggested docs
+            const docIds = [...new Set(relevantChunks.map(c => c.document_id))];
+            suggestedDocs = allCommunityDocs.filter(d => docIds.includes(d.document_id)).slice(0, 3);
           }
+        } catch (e) {
+          console.error("[Vector Search Error]", e);
+        }
       }
 
       // 3. Nếu Vector DB không tìm thấy (hoặc bị lỗi), fallback về keyword search truyền thống
@@ -512,18 +512,71 @@ export async function chatQuery(req, res) {
 
     // 3. Xây dựng mảng tin nhắn
     const queryMessages = [];
-    
-    // Chuyển đổi lịch sử yêu cầu sang định dạng của LLM
+
+    // Chuyển đổi lịch sử yêu cầu sang định dạng của LLM và tự động phân giải nội dung sự kiện
     for (const h of history) {
+      let content = h.text || "";
+      if (h.sender === "ai" && content.trim().startsWith("{") && content.trim().endsWith("}")) {
+        try {
+          const parsed = JSON.parse(content);
+          if (parsed.event === "flashcard_created" && parsed.setId) {
+            try {
+              const setRes = await pool.query(
+                `SELECT title, description, card_count FROM flashcard_sets WHERE set_id = $1`,
+                [parsed.setId]
+              );
+              if (setRes.rows.length > 0) {
+                const setInfo = setRes.rows[0];
+                const cardsRes = await pool.query(
+                  `SELECT front, back, card_type, topic FROM flashcards WHERE set_id = $1 AND status = 'ACTIVE' ORDER BY card_id ASC`,
+                  [parsed.setId]
+                );
+                let cardsText = cardsRes.rows.map((c, idx) => 
+                  `${idx + 1}. [${c.card_type}] Mặt trước: "${c.front}" -> Mặt sau: "${c.back}" (Chủ đề: ${c.topic})`
+                ).join("\n");
+                
+                content = `[HỆ THỐNG]: Đã tạo thành công bộ thẻ ghi nhớ (Flashcard) "${setInfo.title}" (${setInfo.card_count} câu).\nDưới đây là danh sách các thẻ ghi nhớ đã tạo:\n${cardsText}`;
+              }
+            } catch (err) {
+              console.error("Error enrichment history flashcard:", err);
+            }
+          } else if (parsed.event === "quiz_created" && parsed.quizId) {
+            try {
+              const quizRes = await pool.query(
+                `SELECT title FROM quizzes WHERE quiz_id = $1`,
+                [parsed.quizId]
+              );
+              if (quizRes.rows.length > 0) {
+                const quizInfo = quizRes.rows[0];
+                const qRes = await pool.query(
+                  `SELECT question_text, options, correct_answer, explanation, topic FROM quiz_questions WHERE quiz_id = $1 ORDER BY question_id ASC`,
+                  [parsed.quizId]
+                );
+                let qText = qRes.rows.map((q, idx) => {
+                  const opts = Array.isArray(q.options) ? q.options : JSON.parse(q.options || "[]");
+                  return `${idx + 1}. Câu hỏi: "${q.question_text}"\n   Các phương án: ${opts.join(", ")}\n   Đáp án đúng: Phương án chỉ số ${q.correct_answer} (Nội dung: ${opts[q.correct_answer]})\n   Giải thích: ${q.explanation}\n   Chủ đề: ${q.topic}`;
+                }).join("\n\n");
+                
+                content = `[HỆ THỐNG]: Đã tạo thành công bộ câu hỏi trắc nghiệm (Quiz) "${quizInfo.title}" (${qRes.rows.length} câu).\nDưới đây là chi tiết các câu hỏi đã tạo:\n${qText}`;
+              }
+            } catch (err) {
+              console.error("Error enrichment history quiz:", err);
+            }
+          }
+        } catch (e) {
+          // not a valid JSON event, keep original text
+        }
+      }
+
       queryMessages.push({
         role: h.sender === "ai" ? "assistant" : "user",
-        content: h.text || ""
+        content: content
       });
     }
 
     // Nối ngữ cảnh vào user message nếu có (chỉ khi có documentContext upload)
-    const currentQueryWithContext = additionalContext 
-      ? `${additionalContext}\n\nCâu hỏi của học viên: ${message}` 
+    const currentQueryWithContext = additionalContext
+      ? `${additionalContext}\n\nCâu hỏi của học viên: ${message}`
       : message;
 
     queryMessages.push({
@@ -551,7 +604,7 @@ export async function chatQuery(req, res) {
       });
     }
 
-    return res.json({ 
+    return res.json({
       response: finalResponseText
     });
   } catch (error) {

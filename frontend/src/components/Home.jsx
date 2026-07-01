@@ -760,6 +760,19 @@ export default function Home() {
   const [shareDescription, setShareDescription] = useState("");
   const [isSharing, setIsSharing] = useState(false);
   const [docManageMode, setDocManageMode] = useState("UPLOADED"); // "UPLOADED" | "BOOKMARKED"
+  const [personalSelectedFolder, setPersonalSelectedFolder] = useState(null);
+
+  useEffect(() => {
+    const handlePopState = (e) => {
+      if (!e.state || e.state.view !== 'folder') {
+        setPersonalSelectedFolder(null);
+      } else if (e.state && e.state.view === 'folder') {
+        setPersonalSelectedFolder(e.state.subj);
+      }
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
 
   useEffect(() => {
     const checkOpenDoc = async () => {
@@ -1607,20 +1620,20 @@ export default function Home() {
   const handleDobPartChange = (type, value) => {
     let parts = editProfileData.dob ? editProfileData.dob.split("-") : ["", "", ""];
     if (parts.length !== 3) parts = ["2000", "01", "01"];
-    
+
     let currentYear = parts[0] || "2000";
     let currentMonth = parts[1] || "01";
     let currentDay = parts[2] || "01";
-    
+
     if (type === "year") currentYear = value;
     if (type === "month") currentMonth = value;
     if (type === "day") currentDay = value;
-    
+
     const maxDays = getDaysInMonth(parseInt(currentMonth, 10), parseInt(currentYear, 10));
     if (parseInt(currentDay, 10) > maxDays) {
       currentDay = String(maxDays).padStart(2, "0");
     }
-    
+
     const newDob = `${currentYear}-${currentMonth}-${currentDay}`;
     setEditProfileData(prev => ({
       ...prev,
@@ -2570,11 +2583,11 @@ export default function Home() {
           });
 
           if (isHeader) {
-            const headerClasses = 
+            const headerClasses =
               headerLevel === 1 ? "block text-sm font-black text-slate-900 dark:text-white mt-3 mb-1" :
-              headerLevel === 2 ? "block text-[13px] font-extrabold text-slate-900 dark:text-white mt-2.5 mb-1" :
-              headerLevel === 3 ? "block text-xs font-extrabold text-slate-850 dark:text-slate-100 mt-2 mb-1" :
-              "block text-xs font-bold text-slate-800 dark:text-slate-200 mt-1.5 mb-0.5";
+                headerLevel === 2 ? "block text-[13px] font-extrabold text-slate-900 dark:text-white mt-2.5 mb-1" :
+                  headerLevel === 3 ? "block text-xs font-extrabold text-slate-850 dark:text-slate-100 mt-2 mb-1" :
+                    "block text-xs font-bold text-slate-800 dark:text-slate-200 mt-1.5 mb-0.5";
             return (
               <span key={lineIdx} className={`${headerClasses} select-text`}>
                 {formattedLine}
@@ -2935,9 +2948,8 @@ export default function Home() {
 
       {/* Floating Role Filter Sidebar strictly on the right side next to the scrollbar */}
       {activeTab === "Community" && communityFilterMode === "ALL" && (
-        <div className={`fixed right-0 z-[9999] flex flex-col items-end gap-2.5 bg-transparent select-none transition-all duration-500 ease-in-out ${
-          isScrolledDown ? "top-[110px] translate-y-0" : "top-1/2 -translate-y-1/2"
-        }`}>
+        <div className={`fixed right-0 z-[9999] flex flex-col items-end gap-2.5 bg-transparent select-none transition-all duration-500 ease-in-out ${isScrolledDown ? "top-[110px] translate-y-0" : "top-1/2 -translate-y-1/2"
+          }`}>
           <button
             onClick={() => {
               setCommunityRoleFilter(prev => prev === "STUDENT" ? "ALL" : "STUDENT");
@@ -2953,11 +2965,10 @@ export default function Home() {
                 }
               }, 100);
             }}
-            className={`px-3 py-3 rounded-l-[16px] text-xs font-black tracking-widest uppercase transition-all duration-300 cursor-pointer flex items-center justify-center text-center h-[48px] border border-r-0 shadow-[0_4px_12px_rgba(0,0,0,0.1)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.4)] whitespace-nowrap ${
-              communityRoleFilter === "STUDENT"
+            className={`px-3 py-3 rounded-l-[16px] text-xs font-black tracking-widest uppercase transition-all duration-300 cursor-pointer flex items-center justify-center text-center h-[48px] border border-r-0 shadow-[0_4px_12px_rgba(0,0,0,0.1)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.4)] whitespace-nowrap ${communityRoleFilter === "STUDENT"
                 ? "bg-gradient-to-br from-purple-600 to-indigo-600 border-purple-500 text-white scale-105 w-[160px]"
                 : "bg-white/95 dark:bg-[#090b16]/95 border-slate-200/50 dark:border-white/10 text-slate-650 dark:text-slate-355 hover:text-purple-600 dark:hover:text-purple-400 hover:bg-white/60 dark:hover:bg-[#090b16]/60 w-[130px]"
-            }`}
+              }`}
           >
             {language === "vi" ? "Sinh viên" : "Student"}
           </button>
@@ -2976,19 +2987,17 @@ export default function Home() {
                 }
               }, 100);
             }}
-            className={`px-3 py-3 rounded-l-[16px] text-xs font-black tracking-widest uppercase transition-all duration-300 cursor-pointer flex items-center justify-center text-center h-[48px] border border-r-0 shadow-[0_4px_12px_rgba(0,0,0,0.1)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.4)] whitespace-nowrap ${
-              communityRoleFilter === "LECTURER"
+            className={`px-3 py-3 rounded-l-[16px] text-xs font-black tracking-widest uppercase transition-all duration-300 cursor-pointer flex items-center justify-center text-center h-[48px] border border-r-0 shadow-[0_4px_12px_rgba(0,0,0,0.1)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.4)] whitespace-nowrap ${communityRoleFilter === "LECTURER"
                 ? "bg-gradient-to-br from-purple-600 to-indigo-600 border-purple-500 text-white scale-105 w-[160px]"
                 : "bg-white/95 dark:bg-[#090b16]/95 border-slate-200/50 dark:border-white/10 text-slate-655 dark:text-slate-355 hover:text-purple-600 dark:hover:text-purple-400 hover:bg-white/60 dark:hover:bg-[#090b16]/60 w-[130px]"
-            }`}
+              }`}
           >
             {language === "vi" ? "Giảng viên" : "Lecturer"}
           </button>
         </div>
       )}
-      <aside className={`h-full bg-white/35 dark:bg-[#0f111a]/40 backdrop-blur-xl border-r border-slate-200/40 dark:border-white/5 flex flex-col p-5 shrink-0 justify-between select-none z-10 shadow-[inset_-1px_0_0_rgba(255,255,255,0.25)] dark:shadow-none rounded-r-2xl transition-all duration-300 ease-in-out ${
-        isSidebarCollapsed ? "w-[76px] px-3.5" : "w-68"
-      }`}>
+      <aside className={`h-full bg-white/35 dark:bg-[#0f111a]/40 backdrop-blur-xl border-r border-slate-200/40 dark:border-white/5 flex flex-col p-5 shrink-0 justify-between select-none z-10 shadow-[inset_-1px_0_0_rgba(255,255,255,0.25)] dark:shadow-none rounded-r-2xl transition-all duration-300 ease-in-out ${isSidebarCollapsed ? "w-[76px] px-3.5" : "w-68"
+        }`}>
         <div className="flex flex-col gap-6 overflow-y-auto custom-scrollbar">
 
           {/* Logo Brand Header & Toggle Button */}
@@ -3007,9 +3016,8 @@ export default function Home() {
                   <BookOpen className="w-4 h-4" />
                 </div>
               )}
-              <div className={`flex flex-col transition-all duration-300 ease-in-out origin-left truncate ${
-                isSidebarCollapsed ? "opacity-0 max-w-0 scale-90 pointer-events-none overflow-hidden" : "opacity-100 max-w-[180px] scale-100"
-              }`}>
+              <div className={`flex flex-col transition-all duration-300 ease-in-out origin-left truncate ${isSidebarCollapsed ? "opacity-0 max-w-0 scale-90 pointer-events-none overflow-hidden" : "opacity-100 max-w-[180px] scale-100"
+                }`}>
                 <span className="text-xs font-black tracking-widest text-slate-900 dark:text-white uppercase leading-none">AIStudyHub</span>
                 <span className="text-[9px] text-purple-600 dark:text-purple-400 font-bold uppercase tracking-wider mt-0.5">Academic Portal</span>
               </div>
@@ -3029,17 +3037,15 @@ export default function Home() {
           <div className="relative flex justify-center w-full">
             <button
               onClick={() => setShowProfileDropdown(!showProfileDropdown)}
-              className={`flex items-center rounded-xl border transition-all duration-300 ease-in-out focus:outline-none cursor-pointer w-full h-12 ${
-                isSidebarCollapsed
+              className={`flex items-center rounded-xl border transition-all duration-300 ease-in-out focus:outline-none cursor-pointer w-full h-12 ${isSidebarCollapsed
                   ? "px-[7px] py-[7px] bg-transparent border-transparent shadow-none hover:bg-slate-100 dark:hover:bg-slate-800/40"
                   : "border-slate-200/40 dark:border-white/5 bg-white/40 dark:bg-[#0f111a]/45 backdrop-blur-md hover:bg-white/65 dark:hover:bg-[#0f111a]/60 shadow-[inset_0_1px_1px_rgba(255,255,255,0.2)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] p-2.5 justify-between text-left"
-              }`}
+                }`}
             >
               <div className="flex items-center min-w-0">
                 <div className="relative w-8.5 h-8.5 shrink-0">
-                  <div className={`w-full h-full rounded-xl flex items-center justify-center font-extrabold text-purple-700 dark:text-purple-300 overflow-hidden shadow-sm transition-all duration-300 ${
-                    user?.avatar_url ? "bg-transparent" : "bg-purple-100 dark:bg-purple-950/50"
-                  }`}>
+                  <div className={`w-full h-full rounded-xl flex items-center justify-center font-extrabold text-purple-700 dark:text-purple-300 overflow-hidden shadow-sm transition-all duration-300 ${user?.avatar_url ? "bg-transparent" : "bg-purple-100 dark:bg-purple-950/50"
+                    }`}>
                     {user?.avatar_url ? (
                       <img src={user.avatar_url} alt="Avatar" className="w-full h-full object-cover rounded-xl" />
                     ) : (
@@ -3048,28 +3054,25 @@ export default function Home() {
                   </div>
                   <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 border border-white dark:border-[#151722] z-10" />
                 </div>
-                <div className={`flex flex-col transition-all duration-300 ease-in-out origin-left ${
-                  isSidebarCollapsed
+                <div className={`flex flex-col transition-all duration-300 ease-in-out origin-left ${isSidebarCollapsed
                     ? "opacity-0 max-w-0 scale-90 pointer-events-none overflow-hidden ml-0"
                     : "opacity-100 max-w-[150px] scale-100 ml-2.5"
-                }`}>
+                  }`}>
                   <span className="text-xs font-bold text-slate-900 dark:text-slate-100 leading-tight truncate whitespace-nowrap">{fullName}</span>
                   <span className="text-[9px] text-slate-400 dark:text-slate-500 font-bold leading-none mt-1 whitespace-nowrap">
                     {user?.role === "ADMIN" ? (language === "vi" ? "Quản trị viên" : "Admin") : user?.role === "LECTURER" ? (language === "vi" ? "Giảng viên" : "Lecturer") : (language === "vi" ? "Học viên" : "Student")}
                   </span>
                 </div>
               </div>
-              <ChevronDown className={`text-slate-400 transition-all duration-300 shrink-0 ${
-                isSidebarCollapsed
+              <ChevronDown className={`text-slate-400 transition-all duration-300 shrink-0 ${isSidebarCollapsed
                   ? "opacity-0 w-0 h-0 scale-90 pointer-events-none overflow-hidden"
                   : "opacity-100 w-3.5 h-3.5 scale-100 ml-auto"
-              }`} />
+                }`} />
             </button>
 
             {showProfileDropdown && (
-              <div className={`absolute p-1 bg-white/85 dark:bg-[#0f111a]/90 backdrop-blur-lg border border-slate-200/40 dark:border-white/10 rounded-xl shadow-lg z-50 animate-in fade-in-50 slide-in-from-top-1 duration-150 ${
-                isSidebarCollapsed ? "bottom-12 left-12 w-48" : "top-full left-0 right-0 mt-1.5"
-              }`}>
+              <div className={`absolute p-1 bg-white/85 dark:bg-[#0f111a]/90 backdrop-blur-lg border border-slate-200/40 dark:border-white/10 rounded-xl shadow-lg z-50 animate-in fade-in-50 slide-in-from-top-1 duration-150 ${isSidebarCollapsed ? "bottom-12 left-12 w-48" : "top-full left-0 right-0 mt-1.5"
+                }`}>
                 {isSidebarCollapsed && (
                   <div className="px-3 py-2 border-b border-slate-100 dark:border-white/5 select-none">
                     <div className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">{fullName}</div>
@@ -3122,12 +3125,11 @@ export default function Home() {
                   className={`flex items-center rounded-xl text-xs font-bold transition-all duration-300 ease-in-out cursor-pointer select-none focus:outline-none w-full h-11 px-3.5 justify-start ${isActive
                     ? "bg-purple-600/10 dark:bg-purple-500/15 text-purple-700 dark:text-purple-300 shadow-[inset_0_1px_1px_rgba(255,255,255,0.15)] border border-purple-500/20"
                     : "text-slate-500 dark:text-slate-450 border border-transparent hover:bg-white/40 dark:hover:bg-[#0f111a]/30 hover:text-slate-800 dark:hover:text-slate-200"
-                  }`}
+                    }`}
                 >
                   <Icon className={`w-4.5 h-4.5 shrink-0 transition-all duration-300 ease-in-out ${isActive ? "text-purple-600 dark:text-purple-400" : "text-slate-450 dark:text-slate-500"}`} />
-                  <span className={`inline-block transition-all duration-300 ease-in-out origin-left truncate ${
-                    isSidebarCollapsed ? "opacity-0 max-w-0 ml-0 scale-90 pointer-events-none overflow-hidden" : "opacity-100 max-w-[180px] ml-3 scale-100"
-                  }`}>{item.label}</span>
+                  <span className={`inline-block transition-all duration-300 ease-in-out origin-left truncate ${isSidebarCollapsed ? "opacity-0 max-w-0 ml-0 scale-90 pointer-events-none overflow-hidden" : "opacity-100 max-w-[180px] ml-3 scale-100"
+                    }`}>{item.label}</span>
                 </button>
               );
             })}
@@ -3180,22 +3182,20 @@ export default function Home() {
                 <button
                   type="button"
                   onClick={() => setLanguage("vi")}
-                  className={`h-7 px-3 text-[10px] font-black rounded-lg transition-all duration-300 cursor-pointer ${
-                    language === "vi"
+                  className={`h-7 px-3 text-[10px] font-black rounded-lg transition-all duration-300 cursor-pointer ${language === "vi"
                       ? "bg-purple-600 dark:bg-purple-500 text-white shadow-sm"
                       : "text-purple-900/50 hover:text-purple-900 dark:text-purple-100/50 dark:hover:text-white bg-transparent"
-                  }`}
+                    }`}
                 >
                   VI
                 </button>
                 <button
                   type="button"
                   onClick={() => setLanguage("en")}
-                  className={`h-7 px-3 text-[10px] font-black rounded-lg transition-all duration-300 cursor-pointer ${
-                    language === "en"
+                  className={`h-7 px-3 text-[10px] font-black rounded-lg transition-all duration-300 cursor-pointer ${language === "en"
                       ? "bg-purple-600 dark:bg-purple-500 text-white shadow-sm"
                       : "text-purple-900/50 hover:text-purple-900 dark:text-purple-100/50 dark:hover:text-white bg-transparent"
-                  }`}
+                    }`}
                 >
                   EN
                 </button>
@@ -3209,9 +3209,8 @@ export default function Home() {
             className={`flex items-center rounded-xl text-xs font-bold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-white/40 dark:hover:bg-[#0f111a]/30 border border-transparent hover:border-slate-200/20 dark:hover:border-white/5 transition-all duration-300 ease-in-out focus:outline-none w-full h-11 px-3.5 justify-start`}
           >
             <Settings className="w-4.5 h-4.5 text-slate-400 shrink-0" />
-            <span className={`inline-block transition-all duration-300 ease-in-out origin-left truncate ${
-              isSidebarCollapsed ? "opacity-0 max-w-0 ml-0 scale-90 pointer-events-none overflow-hidden" : "opacity-100 max-w-[180px] ml-3 scale-100"
-            }`}>{t("dashboard.tabs.settings") || "Cài đặt & Bảo mật"}</span>
+            <span className={`inline-block transition-all duration-300 ease-in-out origin-left truncate ${isSidebarCollapsed ? "opacity-0 max-w-0 ml-0 scale-90 pointer-events-none overflow-hidden" : "opacity-100 max-w-[180px] ml-3 scale-100"
+              }`}>{t("dashboard.tabs.settings") || "Cài đặt & Bảo mật"}</span>
           </button>
         </div>
       </aside>
@@ -3598,11 +3597,10 @@ export default function Home() {
                         <div className="grid grid-cols-2 gap-3">
                           <div
                             onClick={() => setUploadVisibility("PRIVATE")}
-                            className={`flex items-center p-2.5 border rounded-xl cursor-pointer transition-all ${
-                              uploadVisibility === "PRIVATE"
+                            className={`flex items-center p-2.5 border rounded-xl cursor-pointer transition-all ${uploadVisibility === "PRIVATE"
                                 ? "border-purple-500 bg-purple-50 dark:bg-purple-900/30"
                                 : "border-slate-200 dark:border-slate-700 hover:border-purple-300"
-                            }`}
+                              }`}
                           >
                             <div className={`p-1.5 rounded-lg mr-2.5 ${uploadVisibility === "PRIVATE" ? "bg-purple-200 text-purple-700" : "bg-slate-100 text-slate-500"}`}>
                               <Lock size={16} />
@@ -3615,11 +3613,10 @@ export default function Home() {
 
                           <div
                             onClick={() => setUploadVisibility("PUBLIC")}
-                            className={`flex items-center p-2.5 border rounded-xl cursor-pointer transition-all ${
-                              uploadVisibility === "PUBLIC"
+                            className={`flex items-center p-2.5 border rounded-xl cursor-pointer transition-all ${uploadVisibility === "PUBLIC"
                                 ? "border-blue-500 bg-blue-50 dark:bg-blue-900/30"
                                 : "border-slate-200 dark:border-slate-700 hover:border-blue-300"
-                            }`}
+                              }`}
                           >
                             <div className={`p-1.5 rounded-lg mr-2.5 ${uploadVisibility === "PUBLIC" ? "bg-blue-200 text-blue-700" : "bg-slate-100 text-slate-500"}`}>
                               <Globe size={16} />
@@ -4028,356 +4025,420 @@ export default function Home() {
 
 
             {/* Documents filtering & Grid */}
-            <section ref={documentsSectionRef} className="flex flex-col gap-4 mt-2">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            {(() => {
+              const groupedPersonalDocs = {};
+              filteredDocuments.forEach(doc => {
+                const subj = doc.subject_code || "OTHER";
+                if (!groupedPersonalDocs[subj]) groupedPersonalDocs[subj] = [];
+                groupedPersonalDocs[subj].push(doc);
+              });
 
-                <h2 className="text-sm font-black text-black dark:text-white uppercase tracking-wider flex items-center gap-2">
-                  <span className="w-1 h-3.5 bg-purple-600 dark:bg-purple-500 rounded" />
-                  {t("myDocs.docs_title") || "Tài liệu đã tải lên"} ({personalRangeStart || searchQuery || selectedSubjectFilter !== "All" ? `${filteredDocuments.length}/${documents.length}` : documents.length})
-                </h2>
+              const isSearching = searchQuery.trim().length > 0 || selectedSubjectFilter !== "All" || personalRangeStart;
 
-                {/* Search & Filters */}
-                <div className="flex flex-col sm:flex-row items-center gap-4">
-                  <SearchBar
-                    search={searchQuery}
-                    setSearch={setSearchQuery}
-                    className="w-full sm:w-[250px]"
-                  />
+              const docsToShow = (personalSelectedFolder && !isSearching)
+                ? (groupedPersonalDocs[personalSelectedFolder] || [])
+                : filteredDocuments;
 
-                  <div className="flex items-center gap-2 relative">
-                    <span className="text-xs font-bold text-slate-500">{t("myDocs.filter_by") || "Lọc theo:"}</span>
-                    <div
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setShowSortMenu(!showSortMenu);
-                      }}
-                      className="flex items-center gap-2 bg-slate-100 dark:bg-[#151722] hover:bg-slate-200 dark:hover:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-1.5 text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer transition-colors"
-                    >
-                      <span>
-                        {sortConfig.key === "upload_date" && sortConfig.direction === "desc" && (t("myDocs.sort_upload_desc") || "Ngày tải lên (Mới nhất)")}
-                        {sortConfig.key === "upload_date" && sortConfig.direction === "asc" && (t("myDocs.sort_upload_asc") || "Ngày tải lên (Cũ nhất)")}
-                        {sortConfig.key === "file_size" && sortConfig.direction === "desc" && (t("myDocs.sort_size_desc") || "Kích cỡ (Lớn nhất)")}
-                        {sortConfig.key === "file_size" && sortConfig.direction === "asc" && (t("myDocs.sort_size_asc") || "Kích cỡ (Nhỏ nhất)")}
-                      </span>
-                      <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+              return (
+                <section ref={documentsSectionRef} className="flex flex-col gap-4 mt-2">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+
+                    <div className="flex items-center gap-3">
+                      {personalSelectedFolder && !isSearching && (
+                        <button
+                          onClick={() => {
+                            if (window.history.state && window.history.state.view === 'folder') {
+                              window.history.back();
+                            } else {
+                              setPersonalSelectedFolder(null);
+                            }
+                          }}
+                          className="p-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-lg text-slate-500 transition-colors"
+                          title="Quay lại danh mục"
+                        >
+                          <ChevronLeft className="w-5 h-5" />
+                        </button>
+                      )}
+                      <h2 className="text-sm font-black text-black dark:text-white uppercase tracking-wider flex items-center gap-2">
+                        <span className="w-1 h-3.5 bg-purple-600 dark:bg-purple-500 rounded" />
+                        {personalSelectedFolder && !isSearching
+                          ? `${t("myDocs.docs_title") || "Tài liệu đã tải lên"} - Môn: ${personalSelectedFolder}`
+                          : `${t("myDocs.docs_title") || "Tài liệu đã tải lên"} (${isSearching ? `${filteredDocuments.length}/${documents.length}` : documents.length})`}
+                      </h2>
                     </div>
 
-                    {showSortMenu && (
-                      <div
-                        onClick={(e) => e.stopPropagation()}
-                        className="absolute right-0 top-10 w-48 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.08)] z-30 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150 p-1 text-left"
-                      >
-                        {[
-                          { label: t("myDocs.sort_upload_desc") || "Ngày tải lên (Mới nhất)", key: "upload_date", direction: "desc" },
-                          { label: t("myDocs.sort_upload_asc") || "Ngày tải lên (Cũ nhất)", key: "upload_date", direction: "asc" },
-                          { label: t("myDocs.sort_size_desc") || "Kích cỡ (Lớn nhất)", key: "file_size", direction: "desc" },
-                          { label: t("myDocs.sort_size_asc") || "Kích cỡ (Nhỏ nhất)", key: "file_size", direction: "asc" }
-                        ].map((option, idx) => (
-                          <button
-                            key={idx}
-                            onClick={() => {
-                              setSortConfig({ key: option.key, direction: option.direction });
-                              setShowSortMenu(false);
-                            }}
-                            className={`w-full flex items-center text-left px-3 py-2.5 text-xs font-medium rounded-md transition-colors ${sortConfig.key === option.key && sortConfig.direction === option.direction
-                              ? "bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 font-bold"
-                              : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60"
-                              }`}
+                    {/* Search & Filters */}
+                    <div className="flex flex-col sm:flex-row items-center gap-4">
+                      <SearchBar
+                        search={searchQuery}
+                        setSearch={setSearchQuery}
+                        className="w-full sm:w-[250px]"
+                      />
+
+                      <div className="flex items-center gap-2 relative">
+                        <span className="text-xs font-bold text-slate-500">{t("myDocs.filter_by") || "Lọc theo:"}</span>
+                        <div
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShowSortMenu(!showSortMenu);
+                          }}
+                          className="flex items-center gap-2 bg-slate-100 dark:bg-[#151722] hover:bg-slate-200 dark:hover:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-1.5 text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer transition-colors"
+                        >
+                          <span>
+                            {sortConfig.key === "upload_date" && sortConfig.direction === "desc" && (t("myDocs.sort_upload_desc") || "Ngày tải lên (Mới nhất)")}
+                            {sortConfig.key === "upload_date" && sortConfig.direction === "asc" && (t("myDocs.sort_upload_asc") || "Ngày tải lên (Cũ nhất)")}
+                            {sortConfig.key === "file_size" && sortConfig.direction === "desc" && (t("myDocs.sort_size_desc") || "Kích cỡ (Lớn nhất)")}
+                            {sortConfig.key === "file_size" && sortConfig.direction === "asc" && (t("myDocs.sort_size_asc") || "Kích cỡ (Nhỏ nhất)")}
+                          </span>
+                          <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                        </div>
+
+                        {showSortMenu && (
+                          <div
+                            onClick={(e) => e.stopPropagation()}
+                            className="absolute right-0 top-10 w-48 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.08)] z-30 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150 p-1 text-left"
                           >
-                            {option.label}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {personalRangeStart && (
-                <div className="flex items-center justify-between p-3.5 bg-purple-500/10 dark:bg-purple-500/15 border border-purple-500/20 rounded-xl text-xs text-purple-900 dark:text-purple-250 select-none animate-in fade-in slide-in-from-top-2 duration-200">
-                  <div className="flex items-center gap-2 font-bold">
-                    <Calendar className="w-4 h-4 text-purple-550" />
-                    <span>
-                      {t("myDocs.filter_single") || "Đang lọc tài liệu tải lên"}{" "}
-                      {!personalRangeEnd || personalRangeStart.getTime() === personalRangeEnd.getTime() ? (
-                        <>{t("myDocs.filter_single") || "ngày"} <span className="underline decoration-purple-400 font-extrabold">{formatToDDMMYYYY(personalRangeStart)}</span></>
-                      ) : (
-                        <>{t("myDocs.filter_from") || "từ ngày"} <span className="underline decoration-purple-400 font-extrabold">{formatToDDMMYYYY(personalRangeStart)}</span> {t("myDocs.filter_to") || "đến ngày"} <span className="underline decoration-purple-400 font-extrabold">{formatToDDMMYYYY(personalRangeEnd)}</span></>
-                      )}{" "}
-                      ({filteredDocuments.length} {t("myDocs.filter_count") || "tài liệu"})
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPersonalRangeStart(null);
-                      setPersonalRangeEnd(null);
-                    }}
-                    className="p-1.5 rounded-lg hover:bg-purple-600/10 dark:hover:bg-purple-450/15 text-purple-750 dark:text-purple-305 active:scale-95 transition-all cursor-pointer"
-                    title="Xóa bộ lọc"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              )}
-
-              {/* Table List of documents */}
-              <div className="w-full">
-                <table className="w-full text-left border-collapse text-xs select-none">
-                  <thead>
-                    <tr className="border-b border-slate-200/30 dark:border-white/5 bg-slate-100/30 dark:bg-white/5 text-slate-450 dark:text-slate-400 font-bold text-[9px] uppercase tracking-widest">
-                      <th className="px-5 py-3.5">{t("myDocs.col_title") || "Tiêu đề học liệu"}</th>
-                      <th className="px-5 py-3.5">{t("myDocs.col_subject") || "Môn học"}</th>
-                      <th className="px-5 py-3.5">{t("myDocs.col_author") || "Tác giả"}</th>
-                      <th className="px-5 py-3.5">{t("myDocs.col_date") || "Ngày lưu trữ"}</th>
-                      <th className="px-5 py-3.5">{t("myDocs.col_size") || "Dung lượng"}</th>
-                      <th className="px-5 py-3.5 text-right">{t("myDocs.col_options") || "Tùy chọn"}</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80 font-medium text-slate-500 dark:text-slate-400">
-                    {loading ? (
-                      Array(3).fill(0).map((_, idx) => (
-                        <tr key={idx} className="animate-pulse">
-                          <td className="px-5 py-4"><div className="h-4 bg-slate-200 dark:bg-slate-800 rounded w-48" /></td>
-                          <td className="px-5 py-4"><div className="h-4 bg-slate-200 dark:bg-slate-800 rounded w-12" /></td>
-                          <td className="px-5 py-4"><div className="h-4 bg-slate-200 dark:bg-slate-800 rounded w-20" /></td>
-                          <td className="px-5 py-4"><div className="h-3 bg-slate-200 dark:bg-slate-800 rounded w-24" /></td>
-                          <td className="px-5 py-4"><div className="h-4 bg-slate-200 dark:bg-slate-800 rounded w-10" /></td>
-                          <td className="px-5 py-4"><div className="h-4 bg-slate-200 dark:bg-slate-800 rounded w-6 ml-auto" /></td>
-                        </tr>
-                      ))
-                    ) : filteredDocuments.length === 0 ? (
-                      <tr>
-                        <td colSpan="6" className="px-5 py-0">
-                          <div className="flex flex-col items-center justify-center py-16 gap-5 select-none">
-                            {/* Illustrated icon */}
-                            <div className="relative">
-                              <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-purple-100 to-purple-50 dark:from-purple-950/60 dark:to-purple-900/20 border border-purple-200/60 dark:border-purple-800/30 flex items-center justify-center shadow-sm">
-                                <svg className="w-10 h-10 text-purple-400 dark:text-purple-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                                  <polyline points="14,2 14,8 20,8" />
-                                  <line x1="12" y1="18" x2="12" y2="12" />
-                                  <line x1="9" y1="15" x2="15" y2="15" />
-                                </svg>
-                              </div>
-                              {/* floating dot decorations */}
-                              <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-purple-400/30 dark:bg-purple-500/30 animate-pulse" />
-                              <div className="absolute -bottom-1 -left-1 w-2 h-2 rounded-full bg-violet-400/40 dark:bg-violet-500/30 animate-pulse delay-300" />
-                            </div>
-
-                            {/* Text */}
-                            <div className="flex flex-col items-center gap-1.5 text-center max-w-xs">
-                              <span className="text-sm font-bold text-slate-700 dark:text-slate-200">
-                                {searchQuery || selectedSubjectFilter !== "All"
-                                  ? (t("myDocs.empty_title_search") || "Không tìm thấy tài liệu phù hợp")
-                                  : (t("myDocs.empty_title") || "Kho học liệu của bạn đang trống")}
-                              </span>
-                              <span className="text-xs text-slate-400 dark:text-slate-500 leading-relaxed">
-                                {searchQuery || selectedSubjectFilter !== "All"
-                                  ? "Thử thay đổi từ khóa hoặc bộ lọc để tìm tài liệu khác."
-                                  : "Điền thông tin bên trên và nhấn \"Lưu vào máy chủ\" để tải tài liệu đầu tiên lên kho học liệu cá nhân."}
-                              </span>
-                            </div>
-
-                            {/* CTA – only shown when truly empty (no filters) */}
-                            {!searchQuery && selectedSubjectFilter === "All" && (
-                              <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-purple-600/10 dark:bg-purple-500/10 border border-purple-300/30 dark:border-purple-500/20 text-xs font-bold text-purple-600 dark:text-purple-400">
-                                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                  <polyline points="16 17 21 12 16 7" />
-                                  <line x1="21" y1="12" x2="9" y2="12" />
-                                  <polyline points="3 12 3 18" />
-                                </svg>
-                                {t("myDocs.empty_cta") || "Kéo lên phía trên để bắt đầu tải học liệu"}
-                              </div>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ) : (
-                      filteredDocuments.slice((docManagePage - 1) * 9, docManagePage * 9).map((doc) => (
-                        <tr key={doc.document_id} onClick={() => handlePreviewClick(doc)} className="hover:bg-white/40 dark:hover:bg-white/5 transition-colors cursor-pointer group border-b border-slate-200/30 dark:border-white/5">
-                          <td className="px-5 py-3.5 flex items-center gap-2 text-slate-800 dark:text-slate-200 font-bold max-w-xs truncate">
-                            {getFileIcon(doc.file_type || getFileType(doc.file_url), "w-4 h-4 shrink-0")}
-                            <div className="flex flex-col min-w-0">
-                              <span className="truncate group-hover:text-purple-600 transition-colors">{doc.title}</span>
-                              {doc.tags && Array.isArray(doc.tags) && doc.tags.length > 0 && (
-                                <div className="flex flex-wrap gap-1 mt-1">
-                                  {doc.tags.map(t => (
-                                    <span key={t.tag_id || t.tag_name} className="px-1.5 py-0.5 rounded bg-purple-100/60 dark:bg-purple-950/40 text-[9px] font-bold text-purple-700 dark:text-purple-300 border border-purple-500/10">
-                                      {t.tag_name}
-                                    </span>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          </td>
-                          <td className="px-5 py-3.5 text-[10px] font-extrabold text-purple-600 dark:text-purple-400">
-                            {doc.subject_code}
-                          </td>
-                          <td className="px-5 py-3.5 text-xs text-slate-500 dark:text-slate-400">
-                            <div className="flex items-center gap-1.5">
-                              <span className="w-4 h-4 rounded bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 flex items-center justify-center font-bold text-[9px] shrink-0">
-                                {fullName.charAt(0)}
-                              </span>
-                              <span>{fullName}</span>
-                            </div>
-                          </td>
-                          <td className="px-5 py-3.5 font-bold">
-                            {new Date(doc.upload_date).toLocaleDateString("vi-VN", {
-                              month: "short",
-                              day: "numeric",
-                              year: "numeric"
-                            })}
-                          </td>
-                          <td className="px-5 py-3.5 font-bold text-slate-500 dark:text-slate-400">{formatFileSize(doc.file_size)}</td>
-
-                          <td className="px-5 py-3.5 text-right relative">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setOpenMenuId(openMenuId === doc.document_id ? null : doc.document_id);
-                              }}
-                              className="w-7 h-7 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-purple-600 flex items-center justify-center transition-colors font-bold ml-auto relative"
-                            >
-                              ⋯
-                            </button>
-
-                            {openMenuId === doc.document_id && (
-                              <div
-                                ref={(el) => {
-                                  if (!el) return;
-                                  const rect = el.getBoundingClientRect();
-                                  const viewportH = window.innerHeight;
-                                  if (rect.bottom > viewportH - 10) {
-                                    el.style.top = "auto";
-                                    el.style.bottom = "2.5rem";
-                                  }
+                            {[
+                              { label: t("myDocs.sort_upload_desc") || "Ngày tải lên (Mới nhất)", key: "upload_date", direction: "desc" },
+                              { label: t("myDocs.sort_upload_asc") || "Ngày tải lên (Cũ nhất)", key: "upload_date", direction: "asc" },
+                              { label: t("myDocs.sort_size_desc") || "Kích cỡ (Lớn nhất)", key: "file_size", direction: "desc" },
+                              { label: t("myDocs.sort_size_asc") || "Kích cỡ (Nhỏ nhất)", key: "file_size", direction: "asc" }
+                            ].map((option, idx) => (
+                              <button
+                                key={idx}
+                                onClick={() => {
+                                  setSortConfig({ key: option.key, direction: option.direction });
+                                  setShowSortMenu(false);
                                 }}
-                                onClick={(e) => e.stopPropagation()}
-                                className="absolute right-5 top-10 w-48 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.08)] z-30 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150 p-1 text-left"
+                                className={`w-full flex items-center text-left px-3 py-2.5 text-xs font-medium rounded-md transition-colors ${sortConfig.key === option.key && sortConfig.direction === option.direction
+                                  ? "bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 font-bold"
+                                  : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60"
+                                  }`}
                               >
+                                {option.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
 
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setOpenMenuId(null);
-                                    if (doc.file_url) {
-                                      (async () => {
-                                        try {
-                                          const response = await fetch(doc.file_url);
-                                          if (!response.ok) throw new Error("Network response was not ok");
-                                          const blob = await response.blob();
-                                          const blobUrl = URL.createObjectURL(blob);
+                  {personalRangeStart && (
+                    <div className="flex items-center justify-between p-3.5 bg-purple-500/10 dark:bg-purple-500/15 border border-purple-500/20 rounded-xl text-xs text-purple-900 dark:text-purple-250 select-none animate-in fade-in slide-in-from-top-2 duration-200">
+                      <div className="flex items-center gap-2 font-bold">
+                        <Calendar className="w-4 h-4 text-purple-550" />
+                        <span>
+                          {t("myDocs.filter_single") || "Đang lọc tài liệu tải lên"}{" "}
+                          {!personalRangeEnd || personalRangeStart.getTime() === personalRangeEnd.getTime() ? (
+                            <>{t("myDocs.filter_single") || "ngày"} <span className="underline decoration-purple-400 font-extrabold">{formatToDDMMYYYY(personalRangeStart)}</span></>
+                          ) : (
+                            <>{t("myDocs.filter_from") || "từ ngày"} <span className="underline decoration-purple-400 font-extrabold">{formatToDDMMYYYY(personalRangeStart)}</span> {t("myDocs.filter_to") || "đến ngày"} <span className="underline decoration-purple-400 font-extrabold">{formatToDDMMYYYY(personalRangeEnd)}</span></>
+                          )}{" "}
+                          ({filteredDocuments.length} {t("myDocs.filter_count") || "tài liệu"})
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPersonalRangeStart(null);
+                          setPersonalRangeEnd(null);
+                        }}
+                        className="p-1.5 rounded-lg hover:bg-purple-600/10 dark:hover:bg-purple-450/15 text-purple-750 dark:text-purple-305 active:scale-95 transition-all cursor-pointer"
+                        title="Xóa bộ lọc"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
 
-                                          const link = document.createElement("a");
-                                          link.href = blobUrl;
-                                          const urlExt = doc.file_url.split('.').pop().split('?')[0] || "pdf";
-                                          const cleanTitle = (doc.title || "download").endsWith("." + urlExt)
-                                            ? (doc.title || "download")
-                                            : `${doc.title || "download"}.${urlExt}`;
-                                          link.download = cleanTitle;
-                                          document.body.appendChild(link);
-                                          link.click();
-                                          document.body.removeChild(link);
-                                          URL.revokeObjectURL(blobUrl);
-                                        } catch (error) {
-                                          console.error("Direct download failed, falling back to new tab:", error);
-                                          window.open(doc.file_url, "_blank");
-                                        }
-                                      })();
-                                    } else {
-                                      toast.error(t("myDocs.toast_download_fail") || "Không tìm thấy đường dẫn tải xuống!");
-                                    }
-                                  }}
-                                  className="w-full flex items-center gap-2 text-left px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60 rounded-md transition-colors"
-                                >
-                                  <Download className="w-4 h-4 text-slate-400" />
-                                  {t("myDocs.download") || "Tải xuống"}
-                                </button>
+                  {/* Table List of documents */}
+                  {!personalSelectedFolder && !isSearching && Object.keys(groupedPersonalDocs).length > 0 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                      {Object.entries(groupedPersonalDocs).map(([subj, docs]) => (
+                        <div
+                          key={subj}
+                          onClick={() => {
+                            setPersonalSelectedFolder(subj);
+                            setDocManagePage(1);
+                            window.history.pushState({ view: 'folder', subj }, "");
+                          }}
+                          className="cursor-pointer bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 hover:border-purple-500 hover:shadow-lg transition-all group flex flex-col justify-between"
+                        >
+                          <div className="flex items-center justify-between mb-4">
+                            <div className="w-12 h-12 bg-purple-50 group-hover:bg-purple-100 dark:bg-purple-950/30 dark:group-hover:bg-purple-900/50 text-purple-600 dark:text-purple-400 rounded-xl flex items-center justify-center transition-colors">
+                              <FolderOpen className="w-6 h-6" />
+                            </div>
+                            <span className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[10px] font-bold px-3 py-1 rounded-full">
+                              {docs.length} tài liệu
+                            </span>
+                          </div>
+                          <div>
+                            <h3 className="font-bold text-slate-800 dark:text-slate-100 text-sm truncate group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">{subj}</h3>
+                            <p className="text-xs text-slate-500 mt-1 line-clamp-1">
+                              {subjectsList?.find(s => s.subject_code === subj)?.subject_name || (language === "vi" ? "Môn học khác" : "Other Subject")}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="w-full">
+                      <table className="w-full text-left border-collapse text-xs select-none">
+                        <thead>
+                          <tr className="border-b border-slate-200/30 dark:border-white/5 bg-slate-100/30 dark:bg-white/5 text-slate-450 dark:text-slate-400 font-bold text-[9px] uppercase tracking-widest">
+                            <th className="px-5 py-3.5">{t("myDocs.col_title") || "Tiêu đề học liệu"}</th>
+                            <th className="px-5 py-3.5">{t("myDocs.col_subject") || "Môn học"}</th>
+                            <th className="px-5 py-3.5">{t("myDocs.col_author") || "Tác giả"}</th>
+                            <th className="px-5 py-3.5">{t("myDocs.col_date") || "Ngày lưu trữ"}</th>
+                            <th className="px-5 py-3.5">{t("myDocs.col_size") || "Dung lượng"}</th>
+                            <th className="px-5 py-3.5 text-right">{t("myDocs.col_options") || "Tùy chọn"}</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80 font-medium text-slate-500 dark:text-slate-400">
+                          {loading ? (
+                            Array(3).fill(0).map((_, idx) => (
+                              <tr key={idx} className="animate-pulse">
+                                <td className="px-5 py-4"><div className="h-4 bg-slate-200 dark:bg-slate-800 rounded w-48" /></td>
+                                <td className="px-5 py-4"><div className="h-4 bg-slate-200 dark:bg-slate-800 rounded w-12" /></td>
+                                <td className="px-5 py-4"><div className="h-4 bg-slate-200 dark:bg-slate-800 rounded w-20" /></td>
+                                <td className="px-5 py-4"><div className="h-3 bg-slate-200 dark:bg-slate-800 rounded w-24" /></td>
+                                <td className="px-5 py-4"><div className="h-4 bg-slate-200 dark:bg-slate-800 rounded w-10" /></td>
+                                <td className="px-5 py-4"><div className="h-4 bg-slate-200 dark:bg-slate-800 rounded w-6 ml-auto" /></td>
+                              </tr>
+                            ))
+                          ) : docsToShow.length === 0 ? (
+                            <tr>
+                              <td colSpan="6" className="px-5 py-0">
+                                <div className="flex flex-col items-center justify-center py-16 gap-5 select-none">
+                                  {/* Illustrated icon */}
+                                  <div className="relative">
+                                    <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-purple-100 to-purple-50 dark:from-purple-950/60 dark:to-purple-900/20 border border-purple-200/60 dark:border-purple-800/30 flex items-center justify-center shadow-sm">
+                                      <svg className="w-10 h-10 text-purple-400 dark:text-purple-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                        <polyline points="14,2 14,8 20,8" />
+                                        <line x1="12" y1="18" x2="12" y2="12" />
+                                        <line x1="9" y1="15" x2="15" y2="15" />
+                                      </svg>
+                                    </div>
+                                    {/* floating dot decorations */}
+                                    <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-purple-400/30 dark:bg-purple-500/30 animate-pulse" />
+                                    <div className="absolute -bottom-1 -left-1 w-2 h-2 rounded-full bg-violet-400/40 dark:bg-violet-500/30 animate-pulse delay-300" />
+                                  </div>
 
-                                <button
+                                  {/* Text */}
+                                  <div className="flex flex-col items-center gap-1.5 text-center max-w-xs">
+                                    <span className="text-sm font-bold text-slate-700 dark:text-slate-200">
+                                      {searchQuery || selectedSubjectFilter !== "All"
+                                        ? (t("myDocs.empty_title_search") || "Không tìm thấy tài liệu phù hợp")
+                                        : (t("myDocs.empty_title") || "Kho học liệu của bạn đang trống")}
+                                    </span>
+                                    <span className="text-xs text-slate-400 dark:text-slate-500 leading-relaxed">
+                                      {searchQuery || selectedSubjectFilter !== "All"
+                                        ? "Thử thay đổi từ khóa hoặc bộ lọc để tìm tài liệu khác."
+                                        : "Điền thông tin bên trên và nhấn \"Lưu vào máy chủ\" để tải tài liệu đầu tiên lên kho học liệu cá nhân."}
+                                    </span>
+                                  </div>
+
+                                  {/* CTA – only shown when truly empty (no filters) */}
+                                  {!searchQuery && selectedSubjectFilter === "All" && (
+                                    <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-purple-600/10 dark:bg-purple-500/10 border border-purple-300/30 dark:border-purple-500/20 text-xs font-bold text-purple-600 dark:text-purple-400">
+                                      <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <polyline points="16 17 21 12 16 7" />
+                                        <line x1="21" y1="12" x2="9" y2="12" />
+                                        <polyline points="3 12 3 18" />
+                                      </svg>
+                                      {t("myDocs.empty_cta") || "Kéo lên phía trên để bắt đầu tải học liệu"}
+                                    </div>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          ) : (
+                            docsToShow.slice((docManagePage - 1) * 9, docManagePage * 9).map((doc) => (
+                              <tr key={doc.document_id} onClick={() => handlePreviewClick(doc)} className="hover:bg-white/40 dark:hover:bg-white/5 transition-colors cursor-pointer group border-b border-slate-200/30 dark:border-white/5">
+                                <td className="px-5 py-3.5 flex items-center gap-2 text-slate-800 dark:text-slate-200 font-bold max-w-xs truncate">
+                                  {getFileIcon(doc.file_type || getFileType(doc.file_url), "w-4 h-4 shrink-0")}
+                                  <div className="flex flex-col min-w-0">
+                                    <span className="truncate group-hover:text-purple-600 transition-colors">{doc.title}</span>
+                                    {doc.tags && Array.isArray(doc.tags) && doc.tags.length > 0 && (
+                                      <div className="flex flex-wrap gap-1 mt-1">
+                                        {doc.tags.map(t => (
+                                          <span key={t.tag_id || t.tag_name} className="px-1.5 py-0.5 rounded bg-purple-100/60 dark:bg-purple-950/40 text-[9px] font-bold text-purple-700 dark:text-purple-300 border border-purple-500/10">
+                                            {t.tag_name}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="px-5 py-3.5 text-[10px] font-extrabold text-purple-600 dark:text-purple-400">
+                                  {doc.subject_code}
+                                </td>
+                                <td className="px-5 py-3.5 text-xs text-slate-500 dark:text-slate-400">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="w-4 h-4 rounded bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 flex items-center justify-center font-bold text-[9px] shrink-0">
+                                      {fullName.charAt(0)}
+                                    </span>
+                                    <span>{fullName}</span>
+                                  </div>
+                                </td>
+                                <td className="px-5 py-3.5 font-bold">
+                                  {new Date(doc.upload_date).toLocaleDateString("vi-VN", {
+                                    month: "short",
+                                    day: "numeric",
+                                    year: "numeric"
+                                  })}
+                                </td>
+                                <td className="px-5 py-3.5 font-bold text-slate-500 dark:text-slate-400">{formatFileSize(doc.file_size)}</td>
+
+                                <td className="px-5 py-3.5 text-right relative">
+                                  <button
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      setOpenMenuId(null);
-                                      setShareModalDoc(doc);
-                                      setShareDescription(doc.description || "");
+                                      setOpenMenuId(openMenuId === doc.document_id ? null : doc.document_id);
                                     }}
-                                    className="w-full flex items-center gap-2 text-left px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60 rounded-md transition-colors"
+                                    className="w-7 h-7 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-purple-600 flex items-center justify-center transition-colors font-bold ml-auto relative"
                                   >
-                                    <Share2 className="w-4 h-4 text-slate-400" />
-                                    {t("myDocs.share") || "Chia sẻ"}
+                                    ⋯
                                   </button>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setOpenMenuId(null);
-                                    setEditModalDoc(doc);
-                                    setEditTitle(doc.title || doc.document_name || "");
-                                    setEditSubject(doc.subject_code || "");
-                                    setEditSubjectSearch(doc.subject_code || "");
-                                    const docTagNames = Array.isArray(doc.tags)
-                                      ? doc.tags.map(t => typeof t === "string" ? t : t.tag_name)
-                                      : [];
-                                    setEditTags(docTagNames);
-                                    setEditTagInput("");
-                                    setEditTagSuggestions([]);
-                                  }}
-                                  className="w-full flex items-center gap-2 text-left px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60 rounded-md transition-colors"
-                                >
-                                  <Pencil className="w-4 h-4 text-slate-400" />
-                                  {t("myDocs.edit") || "Chỉnh sửa"}
-                                </button>
 
-                                {doc.is_community ? (
-                                  <button
-                                    onClick={async (e) => {
-                                      e.stopPropagation();
-                                      setOpenMenuId(null);
-                                      setProcessingDocId(doc.document_id || doc.id);
-                                      try {
-                                        const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-                                        await axios.put(`http://localhost:5000/api/documents/${doc.document_id || doc.id}/unshare`, {}, {
-                                          headers: { Authorization: `Bearer ${token}` }
-                                        });
-                                        toast.success(t("myDocs.toast_unpost_success") || "Đã hủy đăng tài liệu khỏi cộng đồng!");
-                                        setDocuments(prev => prev.map(d => ((d.document_id && d.document_id === doc.document_id) || (d.id && d.id === doc.id)) ? { ...d, is_community: false } : d));
-                                      } catch (err) {
-                                        toast.error(t("myDocs.toast_unpost_fail") || "Không thể hủy đăng tài liệu khỏi cộng đồng.");
-                                      } finally {
-                                        setProcessingDocId(null);
-                                      }
-                                    }}
-                                    className="w-full flex items-center gap-2 text-left px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-md transition-colors"
-                                  >
-                                    <Globe className="w-4 h-4 text-red-500" />
-                                    {t("myDocs.unpost") || "Hủy đăng cộng đồng"}
-                                  </button>
-                                ) : (
-                                  <button
-                                    onClick={async (e) => {
-                                      e.stopPropagation();
-                                      setOpenMenuId(null);
-                                      setProcessingDocId(doc.document_id || doc.id);
-                                      try {
-                                        const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-                                        await axios.put(`http://localhost:5000/api/documents/${doc.document_id || doc.id}/share`, {}, {
-                                          headers: { Authorization: `Bearer ${token}` }
-                                        });
-                                        toast.success(t("myDocs.toast_post_success") || "Đã đăng tài liệu lên cộng đồng thành công!");
-                                        setDocuments(prev => prev.map(d => ((d.document_id && d.document_id === doc.document_id) || (d.id && d.id === doc.id)) ? { ...d, is_community: true } : d));
-                                      } catch (err) {
-                                        toast.error(t("myDocs.toast_post_fail") || "Không thể đăng tài liệu lên cộng đồng.");
-                                      } finally {
-                                        setProcessingDocId(null);
-                                      }
-                                    }}
-                                    className="w-full flex items-center gap-2 text-left px-3 py-2 text-xs font-medium text-purple-650 hover:bg-purple-50 dark:hover:bg-purple-950/20 rounded-md transition-colors"
-                                  >
-                                    <Globe className="w-4 h-4 text-purple-500" />
-                                    {t("myDocs.post_community") || "Đăng lên cộng đồng"}
-                                  </button>
-                                )}
-                                {/* <button
+                                  {openMenuId === doc.document_id && (
+                                    <div
+                                      ref={(el) => {
+                                        if (!el) return;
+                                        const rect = el.getBoundingClientRect();
+                                        const viewportH = window.innerHeight;
+                                        if (rect.bottom > viewportH - 10) {
+                                          el.style.top = "auto";
+                                          el.style.bottom = "2.5rem";
+                                        }
+                                      }}
+                                      onClick={(e) => e.stopPropagation()}
+                                      className="absolute right-5 top-10 w-48 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.08)] z-30 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150 p-1 text-left"
+                                    >
+
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setOpenMenuId(null);
+                                          if (doc.file_url) {
+                                            (async () => {
+                                              try {
+                                                const response = await fetch(doc.file_url);
+                                                if (!response.ok) throw new Error("Network response was not ok");
+                                                const blob = await response.blob();
+                                                const blobUrl = URL.createObjectURL(blob);
+
+                                                const link = document.createElement("a");
+                                                link.href = blobUrl;
+                                                const urlExt = doc.file_url.split('.').pop().split('?')[0] || "pdf";
+                                                const cleanTitle = (doc.title || "download").endsWith("." + urlExt)
+                                                  ? (doc.title || "download")
+                                                  : `${doc.title || "download"}.${urlExt}`;
+                                                link.download = cleanTitle;
+                                                document.body.appendChild(link);
+                                                link.click();
+                                                document.body.removeChild(link);
+                                                URL.revokeObjectURL(blobUrl);
+                                              } catch (error) {
+                                                console.error("Direct download failed, falling back to new tab:", error);
+                                                window.open(doc.file_url, "_blank");
+                                              }
+                                            })();
+                                          } else {
+                                            toast.error(t("myDocs.toast_download_fail") || "Không tìm thấy đường dẫn tải xuống!");
+                                          }
+                                        }}
+                                        className="w-full flex items-center gap-2 text-left px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60 rounded-md transition-colors"
+                                      >
+                                        <Download className="w-4 h-4 text-slate-400" />
+                                        {t("myDocs.download") || "Tải xuống"}
+                                      </button>
+
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setOpenMenuId(null);
+                                          setShareModalDoc(doc);
+                                          setShareDescription(doc.description || "");
+                                        }}
+                                        className="w-full flex items-center gap-2 text-left px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60 rounded-md transition-colors"
+                                      >
+                                        <Share2 className="w-4 h-4 text-slate-400" />
+                                        {t("myDocs.share") || "Chia sẻ"}
+                                      </button>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setOpenMenuId(null);
+                                          setEditModalDoc(doc);
+                                          setEditTitle(doc.title || doc.document_name || "");
+                                          setEditSubject(doc.subject_code || "");
+                                          setEditSubjectSearch(doc.subject_code || "");
+                                          const docTagNames = Array.isArray(doc.tags)
+                                            ? doc.tags.map(t => typeof t === "string" ? t : t.tag_name)
+                                            : [];
+                                          setEditTags(docTagNames);
+                                          setEditTagInput("");
+                                          setEditTagSuggestions([]);
+                                        }}
+                                        className="w-full flex items-center gap-2 text-left px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60 rounded-md transition-colors"
+                                      >
+                                        <Pencil className="w-4 h-4 text-slate-400" />
+                                        {t("myDocs.edit") || "Chỉnh sửa"}
+                                      </button>
+
+                                      {doc.is_community ? (
+                                        <button
+                                          onClick={async (e) => {
+                                            e.stopPropagation();
+                                            setOpenMenuId(null);
+                                            setProcessingDocId(doc.document_id || doc.id);
+                                            try {
+                                              const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+                                              await axios.put(`http://localhost:5000/api/documents/${doc.document_id || doc.id}/unshare`, {}, {
+                                                headers: { Authorization: `Bearer ${token}` }
+                                              });
+                                              toast.success(t("myDocs.toast_unpost_success") || "Đã hủy đăng tài liệu khỏi cộng đồng!");
+                                              setDocuments(prev => prev.map(d => ((d.document_id && d.document_id === doc.document_id) || (d.id && d.id === doc.id)) ? { ...d, is_community: false } : d));
+                                            } catch (err) {
+                                              toast.error(t("myDocs.toast_unpost_fail") || "Không thể hủy đăng tài liệu khỏi cộng đồng.");
+                                            } finally {
+                                              setProcessingDocId(null);
+                                            }
+                                          }}
+                                          className="w-full flex items-center gap-2 text-left px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-md transition-colors"
+                                        >
+                                          <Globe className="w-4 h-4 text-red-500" />
+                                          {t("myDocs.unpost") || "Hủy đăng cộng đồng"}
+                                        </button>
+                                      ) : (
+                                        <button
+                                          onClick={async (e) => {
+                                            e.stopPropagation();
+                                            setOpenMenuId(null);
+                                            setProcessingDocId(doc.document_id || doc.id);
+                                            try {
+                                              const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+                                              await axios.put(`http://localhost:5000/api/documents/${doc.document_id || doc.id}/share`, {}, {
+                                                headers: { Authorization: `Bearer ${token}` }
+                                              });
+                                              toast.success(t("myDocs.toast_post_success") || "Đã đăng tài liệu lên cộng đồng thành công!");
+                                              setDocuments(prev => prev.map(d => ((d.document_id && d.document_id === doc.document_id) || (d.id && d.id === doc.id)) ? { ...d, is_community: true } : d));
+                                            } catch (err) {
+                                              toast.error(t("myDocs.toast_post_fail") || "Không thể đăng tài liệu lên cộng đồng.");
+                                            } finally {
+                                              setProcessingDocId(null);
+                                            }
+                                          }}
+                                          className="w-full flex items-center gap-2 text-left px-3 py-2 text-xs font-medium text-purple-650 hover:bg-purple-50 dark:hover:bg-purple-950/20 rounded-md transition-colors"
+                                        >
+                                          <Globe className="w-4 h-4 text-purple-500" />
+                                          {t("myDocs.post_community") || "Đăng lên cộng đồng"}
+                                        </button>
+                                      )}
+                                      {/* <button
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     setOpenMenuId(null);
@@ -4398,43 +4459,46 @@ export default function Home() {
                                   Chỉnh sửa
                                 </button> */}
 
-                                <div className="h-px bg-slate-100 dark:bg-slate-800/60 my-1" />
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setOpenMenuId(null);
-                                    handleDeleteDocument(doc.document_id, e);
-                                  }}
-                                  className="w-full flex items-center gap-2 text-left px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-md transition-colors"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                  {t("myDocs.remove") || "Gỡ bỏ"}
-                                </button>
-                              </div>
-                            )}
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-              {Math.ceil(filteredDocuments.length / 9) > 1 && (
-                <div className="mt-4 flex justify-center">
-                  <Pagination
-                    page={docManagePage}
-                    totalPages={Math.ceil(filteredDocuments.length / 9)}
-                    setPage={setDocManagePage}
-                  />
-                </div>
-              )}
-            </section>
+                                      <div className="h-px bg-slate-100 dark:bg-slate-800/60 my-1" />
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setOpenMenuId(null);
+                                          handleDeleteDocument(doc.document_id, e);
+                                        }}
+                                        className="w-full flex items-center gap-2 text-left px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-md transition-colors"
+                                      >
+                                        <Trash2 className="w-4 h-4" />
+                                        {t("myDocs.remove") || "Gỡ bỏ"}
+                                      </button>
+                                    </div>
+                                  )}
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                  {(personalSelectedFolder || isSearching || Object.keys(groupedPersonalDocs).length === 0) && Math.ceil(docsToShow.length / 9) > 1 && (
+                    <div className="mt-4 flex justify-center">
+                      <Pagination
+                        page={docManagePage}
+                        totalPages={Math.ceil(docsToShow.length / 9)}
+                        setPage={setDocManagePage}
+                      />
+                    </div>
+                  )}
+                </section>
+              );
+            })()}
           </div>
         )}
 
         {activeTab === "Bookmarks" && (
           <div className="flex flex-col gap-6 max-w-5xl w-full mx-auto animate-spring-up">
-          <header className="flex flex-col gap-1 border-b border-slate-100 dark:border-slate-800/60 pb-5 select-none text-left">
+            <header className="flex flex-col gap-1 border-b border-slate-100 dark:border-slate-800/60 pb-5 select-none text-left">
               <span className="text-xs font-bold text-red-500 uppercase tracking-widest">{t("bookmarks.section_label") || "Bộ sưu tập của bạn"}</span>
               <h1 className="text-2xl md:text-3xl font-black text-black dark:text-white tracking-tight mt-1 flex items-center gap-2">
                 {t("bookmarks.title") || "Tài liệu Yêu thích"}
@@ -5369,7 +5433,7 @@ export default function Home() {
                         <div className="flex items-center gap-1.5"><Download className="w-4 h-4" /> {language === "vi" ? "Lượt tải:" : "Downloads:"} {doc.downloads}</div>
                       </div>
                     </div>
-                    
+
                     <div className="w-full md:w-auto flex flex-row md:flex-col gap-2 pt-2 md:pt-0 border-t md:border-t-0 border-slate-100 dark:border-slate-800">
                       <Button onClick={() => handleReviewHotDoc(doc.review_id, "APPROVED")} className="flex-1 md:flex-none bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl shadow-sm">
                         <CheckCircle className="w-4 h-4 mr-2" /> {language === "vi" ? "Phê duyệt" : "Approve"}
@@ -5986,10 +6050,10 @@ export default function Home() {
                     disabled={changePasswordLoading}
                     className="bg-purple-600 hover:bg-purple-700 text-white font-extrabold text-xs tracking-wider px-8 py-5 rounded-xl shadow-sm transition-transform active:scale-95"
                   >
-                    {changePasswordLoading 
-                      ? (language === "vi" ? "Đang xử lý..." : "Processing...") 
-                      : isResettingPasswordWithOtp 
-                        ? (language === "vi" ? "Đặt lại mật khẩu" : "Reset Password") 
+                    {changePasswordLoading
+                      ? (language === "vi" ? "Đang xử lý..." : "Processing...")
+                      : isResettingPasswordWithOtp
+                        ? (language === "vi" ? "Đặt lại mật khẩu" : "Reset Password")
                         : (t("profile.update_password") || "Cập nhật mật khẩu")}
                   </Button>
                 </div>

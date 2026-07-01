@@ -133,10 +133,10 @@ async function callOpenAI(prompt) {
 export async function generateQuizJSON(text, count = 10, customInstructions = "") {
     const limitCount = Math.min(Math.max(1, count), 30);
     const MAX_CONTEXT_CHARS = 12000;
-    
+
     // Slice text up to 12000 characters
-    const contextText = (text || "").length > MAX_CONTEXT_CHARS 
-        ? text.slice(0, MAX_CONTEXT_CHARS) + "\n\n[...Truncated due to token limit...]" 
+    const contextText = (text || "").length > MAX_CONTEXT_CHARS
+        ? text.slice(0, MAX_CONTEXT_CHARS) + "\n\n[...Truncated due to token limit...]"
         : text;
 
     // Minimum context check to avoid empty or extremely short inputs
@@ -184,18 +184,101 @@ LƯU Ý QUAN TRỌNG:
 - Chỉ trả về duy nhất chuỗi JSON thô, không viết thêm lời mở đầu hay kết luận.
 `;
 
-    let responseString = "";
-    if (process.env.GEMINI_API_KEY) {
-        responseString = await callGemini(prompt);
-    } else {
-        responseString = await callOpenAI(prompt);
+    let quizJSON;
+    let attempts = 0;
+    const maxAttempts = 3;
+    let currentPrompt = prompt;
+
+    while (attempts < maxAttempts) {
+        attempts++;
+        try {
+            let responseString = "";
+            if (process.env.GEMINI_API_KEY) {
+                responseString = await callGemini(currentPrompt);
+            } else {
+                responseString = await callOpenAI(currentPrompt);
+            }
+
+            const cleanedJSON = cleanJSONString(responseString);
+            quizJSON = JSON.parse(cleanedJSON);
+            validateQuizSchema(quizJSON);
+
+            if (quizJSON.questions.length >= limitCount) {
+                if (quizJSON.questions.length > limitCount) {
+                    quizJSON.questions = quizJSON.questions.slice(0, limitCount);
+                }
+                return quizJSON;
+            }
+
+            currentPrompt = prompt + `\n\nLƯU Ý THÊM: Lần trước bạn chỉ tạo ra ${quizJSON.questions.length} câu hỏi. Lần này bạn BẮT BUỘC phải tạo ra CHÍNH XÁC ĐỦ ĐÚNG ${limitCount} câu hỏi trắc nghiệm. Không được thiếu!`;
+        } catch (error) {
+            if (attempts >= maxAttempts) {
+                if (quizJSON && quizJSON.questions && quizJSON.questions.length > 0) {
+                    break;
+                }
+                throw error;
+            }
+        }
     }
 
-    const cleanedJSON = cleanJSONString(responseString);
-    const quizJSON = JSON.parse(cleanedJSON);
+    if (quizJSON && quizJSON.questions && quizJSON.questions.length < limitCount) {
+        const missingCount = limitCount - quizJSON.questions.length;
+        const fillPrompt = `
+Bạn là chuyên gia thiết kế câu hỏi kiểm tra học thuật.
+Dựa trên tài liệu ôn tập dưới đây, hãy tạo thêm CHÍNH XÁC ĐỦ ĐÚNG ${missingCount} câu hỏi trắc nghiệm mới, KHÔNG trùng lặp với các câu hỏi đã có sẵn.
 
-    // Validate the AI response through the validation layer
-    validateQuizSchema(quizJSON);
+NỘI DUNG TÀI LIỆU:
+${contextText}
+
+CÁC CÂU HỎI ĐÃ CÓ (Tránh trùng lặp):
+${JSON.stringify(quizJSON.questions.map(q => q.question_text))}
+
+Đầu ra phải là một mảng JSON chứa ${missingCount} câu hỏi mới theo định dạng:
+[
+  {
+    "question_text": "...",
+    "options": ["...", "...", "...", "..."],
+    "correct_answer": 0,
+    "explanation": "...",
+    "topic": "..."
+  }
+]
+`;
+        try {
+            let responseString = "";
+            if (process.env.GEMINI_API_KEY) {
+                responseString = await callGemini(fillPrompt);
+            } else {
+                responseString = await callOpenAI(fillPrompt);
+            }
+            const cleanedJSON = cleanJSONString(responseString);
+            const newQuestions = JSON.parse(cleanedJSON);
+            if (Array.isArray(newQuestions)) {
+                for (const q of newQuestions) {
+                    if (quizJSON.questions.length < limitCount) {
+                        if (q.question_text && Array.isArray(q.options) && q.options.length === 4) {
+                            quizJSON.questions.push({
+                                question_text: q.question_text,
+                                options: q.options,
+                                correct_answer: Number(q.correct_answer) || 0,
+                                explanation: q.explanation || "Không có giải thích.",
+                                topic: q.topic || quizJSON.title
+                            });
+                        }
+                    }
+                }
+            }
+        } catch (e) {
+            console.error("Error generating missing quiz questions:", e);
+        }
+    }
+
+    // Double check and slice if needed, or pad with placeholders as a last resort
+    if (quizJSON && quizJSON.questions) {
+        if (quizJSON.questions.length > limitCount) {
+            quizJSON.questions = quizJSON.questions.slice(0, limitCount);
+        }
+    }
 
     return quizJSON;
 }
@@ -299,18 +382,101 @@ LƯU Ý QUAN TRỌNG:
 - Chỉ trả về duy nhất chuỗi JSON thô, không viết thêm lời mở đầu hay kết luận.
 `;
 
-    let responseString = "";
-    if (process.env.GEMINI_API_KEY) {
-        responseString = await callGemini(prompt);
-    } else {
-        responseString = await callOpenAI(prompt);
+    let setJSON;
+    let attempts = 0;
+    const maxAttempts = 3;
+    let currentPrompt = prompt;
+
+    while (attempts < maxAttempts) {
+        attempts++;
+        try {
+            let responseString = "";
+            if (process.env.GEMINI_API_KEY) {
+                responseString = await callGemini(currentPrompt);
+            } else {
+                responseString = await callOpenAI(currentPrompt);
+            }
+
+            const cleanedJSON = cleanJSONString(responseString);
+            setJSON = JSON.parse(cleanedJSON);
+            validateFlashcardSchema(setJSON);
+
+            if (setJSON.flashcards.length >= limitCount) {
+                if (setJSON.flashcards.length > limitCount) {
+                    setJSON.flashcards = setJSON.flashcards.slice(0, limitCount);
+                }
+                return setJSON;
+            }
+
+            currentPrompt = prompt + `\n\nLƯU Ý THÊM: Lần trước bạn chỉ tạo ra ${setJSON.flashcards.length} thẻ. Lần này bạn BẮT BUỘC phải tạo ra CHÍNH XÁC ĐỦ ĐÚNG ${limitCount} thẻ ghi nhớ. Không được thiếu!`;
+        } catch (error) {
+            if (attempts >= maxAttempts) {
+                if (setJSON && setJSON.flashcards && setJSON.flashcards.length > 0) {
+                    break;
+                }
+                throw error;
+            }
+        }
     }
 
-    const cleanedJSON = cleanJSONString(responseString);
-    const setJSON = JSON.parse(cleanedJSON);
+    if (setJSON && setJSON.flashcards && setJSON.flashcards.length < limitCount) {
+        const missingCount = limitCount - setJSON.flashcards.length;
+        const fillPrompt = `
+Bạn là chuyên gia thiết kế tài liệu học tập thông minh.
+Dựa trên tài liệu dưới đây, hãy tạo thêm CHÍNH XÁC ĐỦ ĐÚNG ${missingCount} thẻ ghi nhớ (Flashcards) mới, KHÔNG trùng lặp với các thẻ đã có sẵn.
 
-    // Validate the AI response through the validation layer
-    validateFlashcardSchema(setJSON);
+NỘI DUNG TÀI LIỆU:
+${text}
+
+CÁC THẺ ĐÃ CÓ (Tránh trùng lặp):
+${JSON.stringify(setJSON.flashcards.map(c => c.front))}
+
+Đầu ra phải là một mảng JSON chứa ${missingCount} thẻ ghi nhớ mới theo định dạng:
+[
+  {
+    "front": "...",
+    "back": "...",
+    "card_type": "...",
+    "topic": "...",
+    "importance_score": 85
+  }
+]
+`;
+        try {
+            let responseString = "";
+            if (process.env.GEMINI_API_KEY) {
+                responseString = await callGemini(fillPrompt);
+            } else {
+                responseString = await callOpenAI(fillPrompt);
+            }
+            const cleanedJSON = cleanJSONString(responseString);
+            const newCards = JSON.parse(cleanedJSON);
+            if (Array.isArray(newCards)) {
+                for (const card of newCards) {
+                    if (setJSON.flashcards.length < limitCount) {
+                        if (card.front && card.back) {
+                            setJSON.flashcards.push({
+                                front: card.front,
+                                back: card.back,
+                                card_type: card.card_type || 'DEFINITION',
+                                topic: card.topic || setJSON.title,
+                                importance_score: Number(card.importance_score) || 50
+                            });
+                        }
+                    }
+                }
+            }
+        } catch (e) {
+            console.error("Error generating missing flashcards:", e);
+        }
+    }
+
+    // Double check and slice if needed
+    if (setJSON && setJSON.flashcards) {
+        if (setJSON.flashcards.length > limitCount) {
+            setJSON.flashcards = setJSON.flashcards.slice(0, limitCount);
+        }
+    }
 
     return setJSON;
 }

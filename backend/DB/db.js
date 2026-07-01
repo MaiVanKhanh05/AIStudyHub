@@ -15,7 +15,7 @@ const pool = new Pool({
             host: process.env.POSTGRES_HOST || "localhost",
             port: Number(process.env.PORT_DB) || 5432,
             user: process.env.POSTGRES_USER,
-            password: process.env.POSTGRES_PASSWORD,
+            password: process.env.POSTGRES_PASSWORD || "dummy_password_to_avoid_pg_crash",
             database: process.env.POSTGRES_DB,
         }),
     ssl: (process.env.DATABASE_URL || (process.env.POSTGRES_HOST && process.env.POSTGRES_HOST !== "localhost"))
