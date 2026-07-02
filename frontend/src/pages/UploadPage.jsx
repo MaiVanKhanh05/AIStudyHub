@@ -1,5 +1,5 @@
-import { useState, useRef } from "react";
-import { Upload, X, CheckCircle, AlertCircle, Loader } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { Upload, X, CheckCircle, AlertCircle, Loader, Globe, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { uploadFileToSupabase } from "@/lib/supabase";
@@ -14,6 +14,33 @@ export default function UploadPage() {
     const [documentTitle, setDocumentTitle] = useState("");
     const [subject, setSubject] = useState("");
     const [description, setDescription] = useState("");
+    const [visibility, setVisibility] = useState("PRIVATE");
+
+    const userStr = localStorage.getItem("user") || sessionStorage.getItem("user");
+    const user = userStr ? JSON.parse(userStr) : null;
+    const userRole = user?.role || "STUDENT";
+    
+    const [currentStorageUsage, setCurrentStorageUsage] = useState(0);
+    const storageLimit = user?.max_storage_bytes || 2147483648; // default 2GB
+
+    useEffect(() => {
+        const fetchStorage = async () => {
+            try {
+                const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+                if (!token) return;
+                const res = await fetch("http://localhost:5000/api/documents/dashboard", {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    setCurrentStorageUsage(data.storageUsage || 0);
+                }
+            } catch (err) {
+                console.error("Error fetching storage:", err);
+            }
+        };
+        fetchStorage();
+    }, []);
 
     const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
     const ALLOWED_TYPES = [
@@ -100,11 +127,20 @@ export default function UploadPage() {
             return;
         }
 
+        const pendingFiles = files.filter((f) => f.status === "pending");
+        if (pendingFiles.length === 0) return;
+
+        // TÍNH TOÁN DUNG LƯỢNG (Check storage limit)
+        const totalNewBytes = pendingFiles.reduce((acc, f) => acc + f.file.size, 0);
+        if (currentStorageUsage + totalNewBytes > storageLimit) {
+            toast.error("Dung lượng lưu trữ của bạn đã đầy. Không thể tải lên tài liệu mới.");
+            return;
+        }
+
         isUploadingRef.current = true;
         setUploading(true);
 
-        const uploadPromises = files
-            .filter((f) => f.status === "pending")
+        const uploadPromises = pendingFiles
             .map(async (fileItem) => {
                 try {
                     // Update file status
@@ -142,6 +178,7 @@ export default function UploadPage() {
                                 file_name: fileItem.file.name,
                                 file_type: fileItem.file.type,
                                 file_size: result.size,
+                                visibility: userRole === "LECTURER" ? visibility : "PRIVATE"
                             }),
                         });
 
@@ -316,6 +353,50 @@ export default function UploadPage() {
                                 className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
                             />
                         </div>
+
+                        {/* Visibility Selection for Lecturer */}
+                        {userRole === "LECTURER" && (
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    Phạm vi chia sẻ (Giảng viên)
+                                </label>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div
+                                        onClick={() => setVisibility("PRIVATE")}
+                                        className={`flex items-center p-4 border rounded-xl cursor-pointer transition-all ${
+                                            visibility === "PRIVATE"
+                                                ? "border-purple-500 bg-purple-50 dark:bg-purple-900/30"
+                                                : "border-gray-200 dark:border-gray-700 hover:border-purple-300"
+                                        }`}
+                                    >
+                                        <div className={`p-2 rounded-lg mr-3 ${visibility === "PRIVATE" ? "bg-purple-200 text-purple-700" : "bg-gray-100 text-gray-500"}`}>
+                                            <Lock size={20} />
+                                        </div>
+                                        <div>
+                                            <p className="font-semibold text-gray-900 dark:text-white">Cá nhân</p>
+                                            <p className="text-xs text-gray-500">Chỉ mình tôi xem được</p>
+                                        </div>
+                                    </div>
+
+                                    <div
+                                        onClick={() => setVisibility("PUBLIC")}
+                                        className={`flex items-center p-4 border rounded-xl cursor-pointer transition-all ${
+                                            visibility === "PUBLIC"
+                                                ? "border-blue-500 bg-blue-50 dark:bg-blue-900/30"
+                                                : "border-gray-200 dark:border-gray-700 hover:border-blue-300"
+                                        }`}
+                                    >
+                                        <div className={`p-2 rounded-lg mr-3 ${visibility === "PUBLIC" ? "bg-blue-200 text-blue-700" : "bg-gray-100 text-gray-500"}`}>
+                                            <Globe size={20} />
+                                        </div>
+                                        <div>
+                                            <p className="font-semibold text-gray-900 dark:text-white">Cộng đồng</p>
+                                            <p className="text-xs text-gray-500">Tất cả sinh viên đều xem được</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     {/* Files List */}

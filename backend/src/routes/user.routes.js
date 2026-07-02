@@ -2,6 +2,7 @@ import { Router } from "express";
 import * as userController from "../controllers/user.controller.js";
 import multer from "multer";
 import path from "path";
+import { authenticateToken } from "../middlewares/validation.middleware.js";
 
 const router = Router();
 
@@ -24,5 +25,6 @@ const upload = multer({
 router.post("/find-by-email", userController.getUserByEmail);
 router.post("/avatar", upload.single("avatar"), userController.uploadAvatar);
 router.put("/profile", userController.updateProfile);
+router.get("/search", authenticateToken, userController.searchUsers);
 
 export default router;

@@ -1,4 +1,6 @@
 import * as documentService from "../services/document.service.js";
+import * as documentPermissionRepository from "../repositories/documentPermission.repository.js";
+import * as userRepository from "../repositories/user.repository.js";
 
 // GET /api/documents/dashboard
 export const getDashboard = async (req, res) => {
@@ -19,7 +21,8 @@ export const getDashboard = async (req, res) => {
 // GET /api/documents/community
 export const getCommunityDocs = async (req, res) => {
     try {
-        const docs = await documentService.getCommunityDocs();
+        const userId = req.userId || req.query.userId || null;
+        const docs = await documentService.getCommunityDocs(userId);
         return res.json(docs);
     } catch (error) {
         console.error("Error loading community documents:", error);
@@ -39,6 +42,16 @@ export const createNewDoc = async (req, res) => {
 
         if (!title || !file_url) {
             return res.status(400).json({ error: "Title and file_url are required" });
+        }
+
+        const size = file_size || 0;
+
+        // Check storage limits
+        const storageInfo = await userRepository.getUserStorageInfo(userId);
+        if (storageInfo) {
+            if (storageInfo.used + size > storageInfo.max) {
+                return res.status(400).json({ error: "Dung lượng lưu trữ của bạn đã đầy. Không thể tải lên tài liệu mới." });
+            }
         }
 
         const docData = {
@@ -116,8 +129,6 @@ export const increaseDownload = async (req, res) => {
     }
 };
 
-
-
 // PUT /api/documents/:id/share
 export const shareDoc = async (req, res) => {
     try {
@@ -141,24 +152,149 @@ export const shareDoc = async (req, res) => {
     }
 };
 
+// PUT /api/documents/:id/unshare
+export const unshareDoc = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const userId = req.userId;
+        
+        if (!id || !userId) {
+            return res.status(400).json({ error: "Missing document or user information" });
+        }
+        
+        const updatedDoc = await documentService.unshareDocument(Number(id), userId);
+        if (updatedDoc) {
+            return res.json({ message: "Document unshared successfully", document: updatedDoc });
+        } else {
+            return res.status(404).json({ error: "Document not found or permission denied" });
+        }
+    } catch (error) {
+        console.error("Error unsharing document:", error);
+        return res.status(500).json({ error: "Failed to unshare document" });
+    }
+};
+
 // GET /api/documents/:id
+// Access control:
+//   PUBLIC  → anyone can view (logged in or not)
+//   RESTRICTED → owner or users with explicit permission in document_permissions
+//   PRIVATE → owner only
 export const getDocById = async (req, res) => {
     try {
         const { id } = req.params;
-        const userId = req.userId; // from optionalAuthenticateToken
+        const userId = req.userId; // may be undefined if not logged in (optionalAuthenticateToken)
         
         const doc = await documentService.getDocumentById(id);
         if (!doc) {
             return res.status(404).json({ error: "Document not found" });
         }
-        
-        if (doc.visibility === "PRIVATE" && doc.user_id !== userId) {
-            return res.status(403).json({ error: "Access denied. This document is private." });
+
+        // PUBLIC or community documents → anyone can view
+        if (doc.visibility === "PUBLIC" || doc.is_community === true) {
+            return res.json({ document: doc });
         }
         
-        return res.json({ document: doc });
+        // From here, document is RESTRICTED or PRIVATE — require authentication
+        if (!userId) {
+            return res.status(403).json({ error: "Tài liệu này yêu cầu đăng nhập để xem." });
+        }
+
+        // Owner always has access
+        if (doc.user_id === userId) {
+            return res.json({ document: doc });
+        }
+
+        // RESTRICTED: check if user has explicit permission
+        if (doc.visibility === "RESTRICTED") {
+            const permission = await documentPermissionRepository.getPermission(Number(id), userId);
+            if (permission && ["EDITOR", "VIEWER"].includes(permission.role)) {
+                return res.json({ document: doc });
+            }
+        }
+
+        // No access
+        return res.status(403).json({ error: "Access denied. You do not have permission to view this document." });
     } catch (error) {
         console.error("Error fetching document by ID:", error);
         return res.status(500).json({ error: "Failed to fetch document" });
     }
 };
+
+export const editDoc = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const userId = req.userId || req.body?.userId || req.query?.userId;
+        const { title, subject, tags, description } = req.body;
+        
+        if (!title) {
+            return res.status(400).json({ error: "Title is required" });
+        }
+        
+        const updatedDoc = await documentService.editDocument(id, userId, { title, subject, tags, description });
+        return res.json(updatedDoc);
+    } catch (error) {
+        console.error("Error editing document:", error);
+        if (error.message === "Document not found or unauthorized") {
+            return res.status(403).json({ error: error.message });
+        }
+        return res.status(500).json({ error: "Failed to edit document" });
+    }
+};
+
+// POST /api/documents/:id/bookmark
+export const toggleBookmark = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const userId = req.userId;
+        if (!id || !userId) {
+            return res.status(400).json({ error: "Missing document or user information" });
+        }
+        const result = await documentService.toggleBookmark(userId, id);
+        return res.json({ success: true, bookmarked: result.bookmarked });
+    } catch (error) {
+        console.error("Error toggling bookmark:", error);
+        return res.status(500).json({ error: "Failed to toggle bookmark" });
+    }
+};
+
+// GET /api/documents/bookmarks
+export const getBookmarks = async (req, res) => {
+    try {
+        const userId = req.userId;
+        if (!userId) {
+            return res.status(400).json({ error: "Missing user information" });
+        }
+        const docs = await documentService.getBookmarkedDocuments(userId);
+        return res.json(docs);
+    } catch (error) {
+        console.error("Error fetching bookmarked documents:", error);
+        return res.status(500).json({ error: "Failed to load bookmarks" });
+    }
+};
+
+// GET /api/documents
+export const getAllDocuments = async (req, res) => {
+    try {
+        const docs = await documentService.getAllDocuments();
+        return res.json(docs);
+    } catch (error) {
+        console.error("Error loading all documents:", error);
+        return res.status(500).json({ error: "Failed to load documents" });
+    }
+};
+
+// GET /api/documents/:id (Basic fallback)
+export const getDocumentById = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const doc = await documentService.getDocumentById(id);
+        if (!doc) {
+            return res.status(404).json({ error: "Document not found" });
+        }
+        return res.json(doc);
+    } catch (error) {
+        console.error("Error fetching document by ID:", error);
+        return res.status(500).json({ error: "Failed to fetch document" });
+    }
+};
+
