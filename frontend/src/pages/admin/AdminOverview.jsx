@@ -1,10 +1,9 @@
 import { useState, useEffect } from "react";
 import { Users, BookOpen, HardDrive, GraduationCap, Mic2, ClipboardList, TrendingUp, Eye, Download } from "lucide-react";
-import AdminSystemLog from "./AdminSystemLog";
 import AdminAnalyticsCharts from "./AdminAnalyticsCharts";
 
 // BR-AM-08: Dashboard phải hiển thị tổng user, tài liệu, storage
-export default function AdminOverview() {
+export default function AdminOverview({ onNavigate }) {
   const [stats, setStats] = useState(null);
   const [popularDocs, setPopularDocs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -31,18 +30,6 @@ export default function AdminOverview() {
         });
         setLoading(false);
       });
-
-    // Lấy top 10 tài liệu
-    fetch("http://localhost:5000/api/admin/popular-documents", {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then(r => r.json())
-      .then(data => {
-        if (Array.isArray(data)) setPopularDocs(data);
-        setLoadingDocs(false);
-      })
-      .catch(() => setLoadingDocs(false));
-
   }, []);
 
   const storagePercent = stats
@@ -107,17 +94,30 @@ export default function AdminOverview() {
 
       {/* ── Stats Grid ── */}
       <div className="grid grid-cols-4 gap-4 mb-6">
-        {statCards.map(({ key, label, value, icon: Icon, accent, bg, border, top }) => (
-          <div
-            key={key}
-            className={`bg-white rounded-xl border ${border} shadow-sm relative overflow-hidden
-              hover:shadow-md transition-shadow duration-200 group`}
-          >
-            {/* Top accent bar */}
-            <div className={`h-[3px] ${top} w-full`} />
+        {statCards.map(({ key, label, value, icon: Icon, accent, bg, border, top }) => {
+          const isStorage = key === "storage";
+          const isStudents = key === "students";
+          const isLecturers = key === "lecturers";
+          const isClickable = isStorage || isStudents || isLecturers;
 
-            <div className="p-5">
-              {key === "storage" ? (
+          const handleClick = () => {
+            if (isStorage && onNavigate) onNavigate("storage");
+            if (isStudents && onNavigate) onNavigate("users", "STUDENT");
+            if (isLecturers && onNavigate) onNavigate("users", "LECTURER");
+          };
+
+          return (
+            <div
+              key={key}
+              onClick={handleClick}
+              className={`bg-white rounded-xl border ${border} shadow-sm relative overflow-hidden
+                hover:shadow-md transition-shadow duration-200 group ${isClickable ? "cursor-pointer" : ""}`}
+            >
+              {/* Top accent bar */}
+              <div className={`h-[3px] ${top} w-full`} />
+
+              <div className="p-5">
+                {isStorage ? (
                 /* Storage card — custom layout */
                 <div>
                   <div className="flex items-start justify-between mb-3">
@@ -171,82 +171,11 @@ export default function AdminOverview() {
               )}
             </div>
           </div>
-        ))}
+        )})}
       </div>
 
       {/* ── Analytics Charts ── */}
       <AdminAnalyticsCharts />
-
-      {/* ── Top 10 Tài Liệu Nổi Bật ── */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden mb-6">
-        <div className="flex items-center gap-2 px-5 py-4 border-b border-gray-200 bg-slate-50">
-          <div className="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center flex-shrink-0">
-            <TrendingUp size={16} className="text-orange-600" />
-          </div>
-          <div>
-            <h2 className="text-[14px] font-bold text-slate-800">Top 10 Tài Liệu Được Quan Tâm Nhất</h2>
-            <p className="text-[11.5px] text-slate-500 font-medium mt-0.5">Dựa trên tổng lượt xem và lượt tải xuống trong cộng đồng</p>
-          </div>
-        </div>
-        
-        {loadingDocs ? (
-          <div className="py-12 text-center text-[13px] text-slate-400 font-semibold animate-pulse">
-            Đang tải dữ liệu...
-          </div>
-        ) : popularDocs.length === 0 ? (
-          <div className="py-12 text-center">
-            <BookOpen size={36} className="mx-auto mb-3 text-slate-300" />
-            <p className="text-[13px] text-slate-400 font-semibold">Chưa có tài liệu nào</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse">
-              <thead>
-                <tr>
-                  <th className="px-5 py-2.5 text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest bg-white border-b border-gray-200 w-12 text-center">#</th>
-                  <th className="px-5 py-2.5 text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest bg-white border-b border-gray-200">Tên tài liệu</th>
-                  <th className="px-5 py-2.5 text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest bg-white border-b border-gray-200">Môn học</th>
-                  <th className="px-5 py-2.5 text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest bg-white border-b border-gray-200">Người đăng</th>
-                  <th className="px-5 py-2.5 text-right text-[11px] font-bold text-slate-400 uppercase tracking-widest bg-white border-b border-gray-200">Lượt tương tác</th>
-                </tr>
-              </thead>
-              <tbody>
-                {popularDocs.map((doc, index) => (
-                  <tr key={doc.document_id} className="hover:bg-slate-50/70 transition-colors border-b border-gray-100 last:border-0">
-                    <td className="px-5 py-3.5 text-[13px] font-black text-slate-400 text-center">
-                      {index + 1}
-                    </td>
-                    <td className="px-5 py-3.5">
-                      <p className="text-[13.5px] font-semibold text-slate-700 line-clamp-1" title={doc.title}>{doc.title}</p>
-                    </td>
-                    <td className="px-5 py-3.5">
-                      <span className="inline-flex px-2 py-0.5 rounded text-[11px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
-                        {doc.subject_code || "Khác"}
-                      </span>
-                    </td>
-                    <td className="px-5 py-3.5 text-[12.5px] text-slate-500 font-medium">
-                      {doc.uploader}
-                    </td>
-                    <td className="px-5 py-3.5">
-                      <div className="flex justify-end gap-3 text-[12.5px] font-semibold">
-                        <div className="flex items-center gap-1.5 text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-100">
-                          <Eye size={13} /> {doc.views || 0}
-                        </div>
-                        <div className="flex items-center gap-1.5 text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100">
-                          <Download size={13} /> {doc.downloads || 0}
-                        </div>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {/* ── System Log ── */}
-      <AdminSystemLog />
     </div>
   );
 }

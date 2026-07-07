@@ -298,3 +298,31 @@ export const getDocumentById = async (req, res) => {
     }
 };
 
+// GET /api/documents/search?q=...&tags=...&fileTypes=...&dateFrom=...&dateTo=...&author=...
+export const searchDocuments = async (req, res) => {
+    try {
+        const { q, tags, fileTypes, dateFrom, dateTo, author } = req.query;
+        const userId = req.userId || null;
+
+        // Parse comma-separated lists
+        const tagList    = tags      ? tags.split(",").map(t => t.trim()).filter(Boolean) : [];
+        const typeList   = fileTypes ? fileTypes.split(",").map(t => t.trim()).filter(Boolean) : [];
+
+        const results = await documentService.fullTextSearch({ q, tags: tagList, fileTypes: typeList, dateFrom, dateTo, author, userId });
+        return res.json(results);
+    } catch (error) {
+        console.error("Error in searchDocuments controller:", error);
+        return res.status(500).json({ error: "Search failed" });
+    }
+};
+
+// GET /api/documents/tag-cloud — public tag cloud for community docs
+export const getTagCloud = async (req, res) => {
+    try {
+        const cloud = await documentService.getCommunityTagCloud();
+        return res.json(cloud);
+    } catch (error) {
+        console.error("Error in getTagCloud controller:", error);
+        return res.status(500).json({ error: "Failed to get tag cloud" });
+    }
+};

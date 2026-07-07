@@ -9,8 +9,6 @@ import AdminDashboard from "./pages/admin/AdminDashboard";
 import DocumentList from "./pages/DocumentList";
 import UploadPage from "./pages/UploadPage";
 import PreviewPage from "./pages/PreviewPage";
-import QuizPage from "./pages/QuizPage";
-import FlashcardStudyPage from "./pages/FlashcardStudyPage";
 import { Button } from "@/components/ui/button";
 import { LogOut, Home as HomeIcon, User as UserIcon, BookOpen, FolderOpen, Upload } from "lucide-react";
 import { Toaster } from "sonner";
@@ -20,7 +18,7 @@ function AppLayout() {
   const { t, language, setLanguage } = useLanguage();
   const location = useLocation();
   const navigate = useNavigate();
-  const hideNav = ["/login", "/register", "/forgot-password", "/reset-password", "/", "/oauth-callback"].includes(location.pathname) || location.pathname.startsWith("/admin") || location.pathname.startsWith("/preview") || location.pathname.startsWith("/quiz") || location.pathname.startsWith("/flashcards");
+  const hideNav = ["/login", "/register", "/forgot-password", "/reset-password", "/", "/oauth-callback"].includes(location.pathname) || location.pathname.startsWith("/admin") || location.pathname.startsWith("/preview");
 
   // Retrieve user session
   const token = localStorage.getItem("token") || sessionStorage.getItem("token");
@@ -126,8 +124,6 @@ function AppLayout() {
         <Route path="/oauth-callback" element={<OAuthCallback />} />
         <Route path="/admin/*" element={<AdminDashboard />} />
         <Route path="/preview/:id" element={<PreviewPage />} />
-        <Route path="/quiz/:id" element={<QuizPage />} />
-        <Route path="/flashcards/:id" element={<FlashcardStudyPage />} />
       </Routes>
     </>
   );

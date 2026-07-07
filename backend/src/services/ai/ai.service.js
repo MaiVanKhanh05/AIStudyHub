@@ -480,3 +480,62 @@ ${JSON.stringify(setJSON.flashcards.map(c => c.front))}
 
     return setJSON;
 }
+
+/**
+ * Use Gemini AI to cluster a list of subjects into high-level topic groups
+ * @param {Array<{subject_code: string, subject_name: string}>} subjects
+ * @returns {Promise<Array>} topics array for clearAndRebuildTopics()
+ */
+export async function generateTopicsFromSubjects(subjects) {
+    const apiKey = process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY;
+    if (!apiKey) throw new Error("Không tìm thấy API Key của AI.");
+    if (!subjects || subjects.length === 0) return [];
+
+    const subjectList = subjects
+        .map(s => `- ${s.subject_code}: ${s.subject_name || s.subject_code}`)
+        .join("\n");
+
+    const prompt = `
+Bạn là một chuyên gia thiết kế chương trình học đại học.
+Dưới đây là danh sách các môn học (mã môn: tên môn) tại một trường đại học Việt Nam:
+
+${subjectList}
+
+Hãy phân loại tất cả các môn học trên vào các nhóm chủ đề lớn (tối đa 8-10 chủ đề).
+Mỗi môn học CHỈ được thuộc đúng 1 chủ đề.
+Đặc biệt lưu ý: Các môn học liên quan đến nhau nhưng có mã khác nhau (có số hoặc không có số) cần được gom chung. Ví dụ: 'CSD', 'CSD211', 'DSA' đều phải thuộc chung chủ đề 'Cấu trúc dữ liệu và thuật toán'. Các môn chỉ có tên mà không có số cũng phải được phân loại theo ngữ nghĩa vào đúng chủ đề.
+Những môn học không rõ ràng hãy gom vào chủ đề "Khác".
+
+Yêu cầu đầu ra là JSON hợp lệ theo schema sau:
+{
+  "topics": [
+    {
+      "name": "Tên chủ đề ngắn gọn bằng tiếng Việt (ví dụ: Lập trình, Toán học, Tiếng Anh)",
+      "description": "Mô tả ngắn 1 dòng về nhóm chủ đề này",
+      "icon": "1 emoji đại diện (ví dụ: 💻 cho Lập trình, 📐 cho Toán)",
+      "color": "Mã màu HEX hợp lệ (ví dụ: #7c3aed)",
+      "subjects": ["SUBJECT_CODE_1", "SUBJECT_CODE_2"]
+    }
+  ]
+}
+
+Chỉ trả về chuỗi JSON thô, không viết thêm lời mở đầu hay kết luận.
+`;
+
+    let responseString = "";
+    if (process.env.GEMINI_API_KEY) {
+        responseString = await callGemini(prompt);
+    } else {
+        responseString = await callOpenAI(prompt);
+    }
+
+    const cleaned = cleanJSONString(responseString);
+    const parsed = JSON.parse(cleaned);
+
+    if (!Array.isArray(parsed.topics)) {
+        throw new Error("AI không trả về định dạng topics hợp lệ.");
+    }
+
+    return parsed.topics;
+}
+

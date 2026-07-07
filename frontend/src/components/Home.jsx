@@ -62,7 +62,12 @@ import {
   RotateCcw,
   Camera,
   Flame,
-  Loader
+  Loader,
+  Hash,
+  Layers,
+  Folder,
+  RefreshCw,
+  ArrowRight
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -76,8 +81,6 @@ import { getSimulatedContent } from "../utils/documentUtils";
 import SearchBar from "./SearchBar";
 import Pagination from "./Pagination";
 import ShareDocumentModal from "./ShareDocumentModal";
-import QuizCard from "./QuizCard";
-import FlashcardSetCard from "./FlashcardSetCard";
 
 function getFileIcon(fileType = "", className = "w-5 h-5") {
   const type = fileType.toLowerCase();
@@ -297,26 +300,28 @@ function InlinedDocumentCard({ docId, onPreview }) {
 
   return (
     <div
-      className="my-2 flex items-center gap-3 px-3.5 py-3 bg-white/70 dark:bg-[#0f111a]/70 border border-slate-200/70 dark:border-slate-700/50 rounded-2xl shadow-sm hover:shadow-md hover:border-purple-400/30 dark:hover:border-purple-500/30 transition-all duration-200 group max-w-sm w-full cursor-pointer"
+      className="my-1.5 flex items-center gap-3.5 px-4 py-3 bg-white dark:bg-[#131522] border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-sm hover:shadow-md hover:border-purple-300 dark:hover:border-purple-500/50 transition-all duration-200 group max-w-[450px] w-full cursor-pointer"
       onClick={() => onPreview && onPreview(doc)}
       title="Nhấn để xem tài liệu"
     >
       {/* File type badge */}
-      <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-[9px] uppercase tracking-wider shrink-0 select-none ${typeBadge} border border-current/10`}>
+      <div className={`w-10 h-10 rounded-full flex items-center justify-center font-black text-[9px] uppercase tracking-wider shrink-0 select-none ${typeBadge} border border-current/10`}>
         {fileType || 'FILE'}
       </div>
 
       {/* Info */}
       <div className="flex-1 min-w-0 text-left">
-        <p className="text-[11px] font-bold text-slate-850 dark:text-slate-100 truncate leading-snug group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors" title={doc.title}>
+        <p className="text-[12px] font-bold text-slate-850 dark:text-slate-100 truncate leading-snug group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors" title={doc.title}>
           {doc.title}
         </p>
-        <p className="text-[9.5px] font-semibold text-slate-400 dark:text-slate-500 mt-0.5 truncate">
+        <p className="text-[10px] font-semibold text-slate-450 dark:text-slate-500 mt-0.5 truncate">
           {subject}
         </p>
-        <div className="flex items-center gap-1.5 mt-1">
-          <span className="text-[9.5px] font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1 truncate">
-            <span className="text-slate-400">👤</span>
+        <div className="flex items-center gap-1.5 mt-1.5">
+          <span className="text-[10px] font-extrabold text-slate-600 dark:text-slate-300 flex items-center gap-1.5 truncate">
+            <svg className="w-2.5 h-2.5 text-slate-700 dark:text-slate-300" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+            </svg>
             <span className="truncate">{author}</span>
           </span>
           {isLecturer && (
@@ -543,9 +548,7 @@ export default function Home() {
   const [notificationsLoading, setNotificationsLoading] = useState(false);
   const unreadNotificationsCount = useMemo(() => notificationsList.filter(n => !n.is_read).length, [notificationsList]);
 
-  // Lecturer Hot Docs
-  const [pendingHotDocs, setPendingHotDocs] = useState([]);
-  const [pendingHotDocsLoading, setPendingHotDocsLoading] = useState(false);
+  // States for dynamic documents and storage usage
 
   // States for dynamic documents and storage usage
   const [documents, setDocuments] = useState([]);
@@ -564,13 +567,53 @@ export default function Home() {
   const [communityLoading, setCommunityLoading] = useState(false);
   const [communityFilterMode, setCommunityFilterMode] = useState("ALL");
   const [communityRoleFilter, setCommunityRoleFilter] = useState("ALL"); // "STUDENT", "LECTURER", or "ALL"
+  const [communityTagFilter, setCommunityTagFilter] = useState(null); // tag_name string or null
+
+  // AI Topics States
+  const [communityViewMode, setCommunityViewMode] = useState("TOPICS"); // TOPICS | DOCS
+  const [communityTopics, setCommunityTopics] = useState([]);
+  const [communityTopicsLoading, setCommunityTopicsLoading] = useState(false);
+  const [selectedCommunityTopicId, setSelectedCommunityTopicId] = useState(null);
+  const [selectedCommunitySubjectCode, setSelectedCommunitySubjectCode] = useState(null);
+
+  const fetchCommunityTopics = async () => {
+    setCommunityTopicsLoading(true);
+    try {
+      const res = await axios.get("http://localhost:5000/api/topics");
+      setCommunityTopics(res.data || []);
+    } catch (err) {
+      console.error("Error loading topics:", err);
+    } finally {
+      setCommunityTopicsLoading(false);
+    }
+  };
+
+  const regenerateCommunityTopics = async () => {
+    setCommunityTopicsLoading(true);
+    try {
+      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+      const res = await axios.post("http://localhost:5000/api/topics/regenerate", {}, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      });
+      setCommunityTopics(res.data.topics || []);
+    } catch (err) {
+      console.error("Error regenerating topics:", err);
+    } finally {
+      setCommunityTopicsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCommunityTopics();
+  }, []);
 
   useEffect(() => {
     setCommunityPage(1);
-  }, [communityRoleFilter]);
+  }, [communityRoleFilter, communityTagFilter]);
 
   useEffect(() => {
     setCommunityRoleFilter("ALL");
+    setCommunityTagFilter(null);
   }, [activeTab]);
 
   const [isScrolledDown, setIsScrolledDown] = useState(false);
@@ -673,6 +716,17 @@ export default function Home() {
   const sourceCommunityDocs = communityFilterMode === "ALL" ? communityDocs : mySharedCommunityDocs;
 
   const filteredCommunityDocs = sourceCommunityDocs.filter((doc) => {
+    // Tag filter
+    if (communityTagFilter) {
+      const docTags = (doc.tags || []).map(t => t.tag_name);
+      if (!docTags.includes(communityTagFilter)) return false;
+    }
+
+    // Topic Subject filter
+    if (selectedCommunitySubjectCode) {
+      if (doc.subject_code !== selectedCommunitySubjectCode) return false;
+    }
+
     let matchesRole = true;
     if (communityFilterMode === "ALL") {
       if (communityRoleFilter === "LECTURER") {
@@ -1075,27 +1129,46 @@ export default function Home() {
 
   const deleteChat = async (chatId, e) => {
     e.stopPropagation();
-    const nextChats = chats.filter(c => c.id !== chatId);
-    setChats(nextChats);
-    if (currentChatId === chatId) {
-      handleNewChat();
-    }
+    const chatIdStr = String(chatId);
+
+    // Optimistically remove from list using functional updater to avoid stale closure
+    setChats(prev => prev.filter(c => String(c.id) !== chatIdStr));
 
     try {
       const token = localStorage.getItem("token") || sessionStorage.getItem("token");
       await axios.delete(`http://localhost:5000/api/chat/history/${chatId}`, {
         headers: { "Authorization": `Bearer ${token}` }
       });
-      toast.success("Đã xóa cuộc trò chuyện.");
+      
+      // Reload from server to confirm sync
+      const res = await axios.get("http://localhost:5000/api/chat/history", {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      const formatted = (res.data || []).map(c => ({
+        ...c,
+        id: String(c.id),
+        messages: (c.messages || []).map(m => ({ ...m, id: String(m.id) }))
+      }));
+      setChats(formatted);
+      // Switch to new chat if deleted the current one
+      if (String(currentChatId) === chatIdStr) {
+        setTimeout(() => handleNewChat(), 50);
+      }
     } catch (err) {
       console.error("Lỗi khi xóa cuộc trò chuyện:", err);
       toast.error("Không thể xóa cuộc trò chuyện.");
+      // Rollback: reload from server
       if (user) {
         const token = localStorage.getItem("token") || sessionStorage.getItem("token");
         const res = await axios.get("http://localhost:5000/api/chat/history", {
           headers: { "Authorization": `Bearer ${token}` }
         });
-        setChats(res.data || []);
+        const formatted = (res.data || []).map(c => ({
+          ...c,
+          id: String(c.id),
+          messages: (c.messages || []).map(m => ({ ...m, id: String(m.id) }))
+        }));
+        setChats(formatted);
       }
     }
   };
@@ -1340,7 +1413,7 @@ export default function Home() {
                 }}
                 className={`w-[240px] h-[58px] border rounded-2xl flex items-center justify-between px-3 py-2 gap-3 relative shadow-sm cursor-pointer transition-all duration-200 shrink-0 ${file.isExceededLimit
                   ? "opacity-50 blur-[0.3px] border-red-300 dark:border-red-950/80 bg-red-50/10 dark:bg-red-950/10 hover:bg-red-50/20"
-                  : "bg-slate-50/50 dark:bg-slate-900/40 border-slate-150 dark:border-slate-850 hover:bg-slate-100/60 dark:hover:bg-slate-800/60"
+                  : "bg-slate-50/50 dark:bg-slate-900/40 border-purple-300 dark:border-purple-800/50 hover:bg-slate-100/60 dark:hover:bg-slate-800/60"
                   }`}
               >
                 {/* Left Mini Icon Badge */}
@@ -1376,17 +1449,23 @@ export default function Home() {
                       <RotateCcw className="w-3.5 h-3.5 text-white stroke-[3]" />
                     </button>
                   )}
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setAttachedFiles((prev) => prev.filter((f) => f.id !== file.id));
-                    }}
-                    className="w-5 h-5 rounded-full bg-black dark:bg-white flex items-center justify-center cursor-pointer transition-transform hover:scale-110 active:scale-90 shadow-sm shrink-0"
-                    title="Xóa tệp"
-                  >
-                    <X className="w-3.5 h-3.5 text-white dark:text-black stroke-[3]" />
-                  </button>
+                  {file.isUploading ? (
+                    <div className="w-5 h-5 rounded-full flex items-center justify-center shrink-0" title="Đang xử lý tài liệu...">
+                      <div className="w-3.5 h-3.5 border-2 border-slate-200 dark:border-slate-700 border-t-purple-600 dark:border-t-purple-400 rounded-full animate-spin"></div>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setAttachedFiles((prev) => prev.filter((f) => f.id !== file.id));
+                      }}
+                      className="w-5 h-5 rounded-full bg-purple-100 hover:bg-purple-200 dark:bg-purple-900/40 dark:hover:bg-purple-800/60 flex items-center justify-center cursor-pointer transition-transform hover:scale-110 active:scale-90 shadow-sm shrink-0 group"
+                      title="Xóa tệp"
+                    >
+                      <X className="w-3.5 h-3.5 text-purple-600 dark:text-purple-300 group-hover:text-purple-700 dark:group-hover:text-purple-200 stroke-[3]" />
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
@@ -1395,18 +1474,18 @@ export default function Home() {
 
         {/* Input & Controls Row */}
         <div className="flex items-center gap-2 w-full relative">
-          {/* Left Plus button - Gray circular shape to match image */}
+          {/* Left Add File button - Gray circular shape to match image */}
           <button
             type="button"
             onClick={(e) => {
               e.stopPropagation();
-              setShowToolMenu(!showToolMenu);
+              fileInputRef.current?.click();
             }}
-            disabled={isParsingFile || isAiTyping}
+            disabled={isAiTyping}
             className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-purple-600 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors flex items-center justify-center shrink-0 disabled:opacity-50 cursor-pointer"
-            title="Đính kèm và Công cụ"
+            title="Tải lên tài liệu"
           >
-            <Plus className="w-4.5 h-4.5 stroke-[2.5]" />
+            <Paperclip className="w-4.5 h-4.5 stroke-[2.5]" />
           </button>
 
           {/* Input field */}
@@ -1421,7 +1500,7 @@ export default function Home() {
                 handleSendChatMessage();
               }
             }}
-            disabled={isAiTyping || isParsingFile}
+            disabled={isAiTyping}
             rows={1}
             className="flex-grow bg-transparent border-none outline-none text-xs placeholder:text-slate-400 text-slate-855 dark:text-slate-100 py-1.5 px-1.5 resize-none max-h-40 custom-scrollbar leading-relaxed"
             style={{ height: "auto" }}
@@ -1441,8 +1520,8 @@ export default function Home() {
             {/* Lavender circular submit button with white airplane icon to match mockup */}
             <button
               type="submit"
-              disabled={isAiTyping || isParsingFile || (!chatInput.trim() && !attachedFiles.some(f => !f.isExceededLimit))}
-              className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 shadow-sm shrink-0 ${(chatInput.trim().length > 0 || attachedFiles.some(f => !f.isExceededLimit)) && !isAiTyping && !isParsingFile
+              disabled={isAiTyping || isParsingFile || attachedFiles.some(f => f.isUploading) || (!chatInput.trim() && !attachedFiles.some(f => !f.isExceededLimit))}
+              className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 shadow-sm shrink-0 ${(chatInput.trim().length > 0 || attachedFiles.some(f => !f.isExceededLimit)) && !isAiTyping && !isParsingFile && !attachedFiles.some(f => f.isUploading)
                 ? "bg-purple-600 hover:bg-purple-700 text-white cursor-pointer hover:scale-105 active:scale-95"
                 : "bg-purple-100 dark:bg-slate-800 text-purple-300 dark:text-slate-500 cursor-not-allowed opacity-60"
                 }`}
@@ -1452,49 +1531,13 @@ export default function Home() {
             </button>
           </div>
 
-          {/* Floating Tool and File Upload Menu inside container */}
-          {showToolMenu && (
-            <div
-              ref={toolMenuRef}
-              className="absolute bottom-12 left-0 w-64 bg-white dark:bg-[#131522] border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-2xl p-4 z-50 flex flex-col gap-3 animate-in fade-in slide-in-from-bottom-2 duration-200 text-left"
-            >
-              <div>
-                <span className="text-[9px] font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-widest block mb-2 px-1">Tệp đính kèm</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowToolMenu(false);
-                    fileInputRef.current?.click();
-                  }}
-                  className="w-full flex items-center gap-2.5 p-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-250 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors cursor-pointer"
-                >
-                  <div className="w-7 h-7 rounded-lg bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
-                    <Paperclip className="w-4 h-4" />
-                  </div>
-                  <div className="flex flex-col text-left">
-                    <span className="font-bold text-slate-855 dark:text-slate-200 leading-snug">Tải lên tài liệu</span>
-                    <span className="text-[9.5px] text-slate-400 dark:text-slate-500 font-medium">Tải lên tài liệu từ máy bạn</span>
-                  </div>
-                </button>
-              </div>
-            </div>
-          )}
+
         </div>
       </form>
     );
   };
 
-  useEffect(() => {
-    function handleClickOutside(event) {
-      if (toolMenuRef.current && !toolMenuRef.current.contains(event.target)) {
-        setShowToolMenu(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, []);
+
 
   // Change Password States
   const [currentPassword, setCurrentPassword] = useState("");
@@ -1741,41 +1784,6 @@ export default function Home() {
       fetchDashboard();
     }
   }, [navigate, user?.user_id, activeTab]);
-
-  const fetchPendingHotDocs = async () => {
-    if (user?.role !== "LECTURER") return;
-    try {
-      setPendingHotDocsLoading(true);
-      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-      const res = await axios.get("http://localhost:5000/api/lecturer/hot-docs/pending", {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setPendingHotDocs(res.data);
-    } catch (error) {
-      console.error("Error fetching pending hot docs:", error);
-    } finally {
-      setPendingHotDocsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (activeTab === "Hot Docs Review") {
-      fetchPendingHotDocs();
-    }
-  }, [activeTab]);
-
-  const handleReviewHotDoc = async (reviewId, status) => {
-    try {
-      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-      await axios.patch(`http://localhost:5000/api/lecturer/hot-docs/${reviewId}/review`, { status }, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      toast.success(status === "APPROVED" ? "Đã duyệt tài liệu Hot" : "Đã từ chối tài liệu Hot");
-      fetchPendingHotDocs();
-    } catch (error) {
-      toast.error("Có lỗi xảy ra khi xử lý yêu cầu.");
-    }
-  };
 
   const fetchNotifications = async (isFirstLoad = false) => {
     try {
@@ -2036,9 +2044,44 @@ export default function Home() {
     const file = e.target.files[0];
     if (file) {
       setSelectedFile(file);
-      setUploadTitle(file.name);
+      setUploadTitle(file.name.replace(/\.[^/.]+$/, "")); // Also strip extension for cleaner title
     }
   };
+
+  // ── Auto-detect subject from upload title ──────────────────────────────────
+  useEffect(() => {
+    if (!uploadTitle || !subjectsList || subjectsList.length === 0) return;
+    // Don't auto-detect if the user has already manually selected a real subject
+    if (uploadSubject && uploadSubject !== "OTHER" && uploadSubject !== "Chọn môn học") return;
+
+    const timeoutId = setTimeout(() => {
+      const titleLower = uploadTitle.toLowerCase();
+      
+      // 1. Check for exact code match (e.g. SWP391, SWP 391, SWP-391)
+      // Capture letters and numbers separately, allowing optional space, underscore, or dash in between
+      const codeMatch = uploadTitle.match(/(?:^|[^A-Za-z0-9])([A-Za-z]{2,4})[\s_\-]?(\d{2,4})(?:[^A-Za-z0-9]|$)/);
+      if (codeMatch) {
+        const code = (codeMatch[1] + codeMatch[2]).toUpperCase();
+        const found = subjectsList.find(s => s.subject_code === code);
+        if (found && uploadSubject !== found.subject_code) {
+          setUploadSubject(found.subject_code);
+          return;
+        }
+      }
+
+      // 2. Check if title contains subject name
+      const foundByName = subjectsList.find(s => {
+        if (!s.subject_name || s.subject_name.length < 4) return false; 
+        return titleLower.includes(s.subject_name.toLowerCase());
+      });
+      
+      if (foundByName && uploadSubject !== foundByName.subject_code) {
+        setUploadSubject(foundByName.subject_code);
+      }
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [uploadTitle, subjectsList, uploadSubject]);
 
   const handleLogout = () => {
     localStorage.clear();
@@ -2210,9 +2253,14 @@ export default function Home() {
 
   // Send AI Chat Message action
   const handleSendChatMessage = async (textToSend, filesOverride) => {
+    if (isParsingFile || attachedFiles.some(f => f.isUploading)) {
+      toast.warning("Vui lòng đợi tài liệu tải lên hoàn tất trước khi gửi tin nhắn.");
+      return;
+    }
+
     const text = textToSend !== undefined ? textToSend : chatInput;
     const rawTargetFiles = filesOverride !== undefined ? filesOverride : attachedFiles;
-    const targetFiles = rawTargetFiles.filter(f => !f.isExceededLimit);
+    const targetFiles = rawTargetFiles.filter(f => !f.isExceededLimit && !f.isUploading);
     if (!text.trim() && targetFiles.length === 0) return;
 
     const finalQueryText = text.trim() || `Phân tích tài liệu: ${targetFiles.map(f => f.name).join(", ")}`;
@@ -2244,10 +2292,14 @@ export default function Home() {
     try {
       const token = localStorage.getItem("token") || sessionStorage.getItem("token");
 
+      const documentIds = targetFiles.map(f => f.documentId).filter(Boolean);
+
       const payload = {
         message: finalQueryText,
         history: aiMessages,
-        aiMode: aiMode,
+        aiMode: documentIds.length > 0 ? "UPLOADED_DOCUMENT" : aiMode, // Override to force local search if files are attached
+        documentId: documentIds.length > 0 ? documentIds[0] : null,
+        documentIds: documentIds,
         useWeb: useWeb,
         useScholar: useScholar,
         deepResearch: deepResearch,
@@ -2265,7 +2317,8 @@ export default function Home() {
       const aiMsg = {
         id: String(Date.now() + 1),
         sender: "ai",
-        text: res.data.response || "Không nhận được phản hồi từ AI."
+        text: res.data.response || "Không nhận được phản hồi từ AI.",
+        suggestedDocs: res.data.suggestedDocs || []
       };
 
       setAiMessages((prev) => {
@@ -2408,7 +2461,8 @@ export default function Home() {
       const aiMsg = {
         id: String(Date.now() + 1),
         sender: "ai",
-        text: res.data.response || "Không nhận được phản hồi từ AI."
+        text: res.data.response || "Không nhận được phản hồi từ AI.",
+        suggestedDocs: res.data.suggestedDocs || []
       };
 
       setAiMessages((prev) => {
@@ -2474,12 +2528,25 @@ export default function Home() {
     setIsParsingFile(true);
     const token = localStorage.getItem("token") || sessionStorage.getItem("token");
 
+    // Tạo placeholder cho UI để hiện file đang tải lên (vòng tròn loading)
+    const placeholders = filesToUpload.map(file => ({
+      id: Date.now() + Math.random(),
+      name: file.name,
+      size: file.size,
+      type: file.name.split('.').pop().toUpperCase() || "FILE",
+      content: "",
+      isUploading: true
+    }));
+
+    // Cập nhật UI ngay lập tức
+    setAttachedFiles((prev) => [...prev, ...exceededFiles, ...placeholders]);
+
     try {
-      const parsedFiles = [];
       const errors = [];
 
       await Promise.all(
-        filesToUpload.map(async (file) => {
+        filesToUpload.map(async (file, index) => {
+          const placeholder = placeholders[index];
           try {
             const formData = new FormData();
             formData.append("file", file);
@@ -2491,22 +2558,30 @@ export default function Home() {
               }
             });
 
-            parsedFiles.push({
-              id: Date.now() + Math.random(),
-              name: res.data.fileName,
-              size: res.data.fileSize,
-              type: res.data.fileType,
-              content: res.data.extractedText
-            });
+            // Cập nhật đúng file đã tải xong, xóa trạng thái isUploading
+            setAttachedFiles((prev) => prev.map(f => {
+              if (f.id === placeholder.id) {
+                return {
+                  id: f.id,
+                  name: res.data.fileName,
+                  size: res.data.fileSize,
+                  type: res.data.fileType,
+                  content: res.data.extractedText,
+                  documentId: res.data.documentId,
+                  chatMode: res.data.chatMode
+                };
+              }
+              return f;
+            }));
           } catch (err) {
             console.error(`Failed to upload ${file.name}:`, err);
             const errMsg = err.response?.data?.error || err.message || "Không thể tải lên.";
             errors.push(`${file.name}: ${errMsg}`);
+            // Gỡ bỏ file khỏi giao diện nếu bị lỗi
+            setAttachedFiles((prev) => prev.filter(f => f.id !== placeholder.id));
           }
         })
       );
-
-      setAttachedFiles((prev) => [...prev, ...parsedFiles, ...exceededFiles]);
 
       if (errors.length > 0) {
         toast.error(`Một số tệp tải lên thất bại:\n${errors.join("\n")}`);
@@ -2545,9 +2620,7 @@ export default function Home() {
       { text: "Hãy tóm tắt nội dung chính của tài liệu này.", label: "Tóm tắt nội dung" },
       { text: "Hãy giải thích nội dung chi tiết từng chương của tài liệu này.", label: "Giải thích từng chương" },
       { text: "Hãy trích xuất toàn bộ các công thức quan trọng, định lý từ tài liệu.", label: "Trích công thức" },
-      { text: "Hãy tạo danh sách các câu hỏi tự luận để ôn tập kiến thức từ tài liệu này.", label: "Tạo câu hỏi ôn tập" },
-      { text: "Hãy tạo 5 câu trắc nghiệm (quiz) kèm đáp án để kiểm tra kiến thức từ tài liệu.", label: "Tạo quiz học tập" },
-      { text: "Hãy tạo các cặp flashcard (Thuật ngữ - Định nghĩa) để học nhanh tài liệu.", label: "Tạo flashcard" }
+      { text: "Hãy tạo danh sách các câu hỏi tự luận để ôn tập kiến thức từ tài liệu này.", label: "Tạo câu hỏi ôn tập" }
     ];
   };
 
@@ -2618,21 +2691,6 @@ export default function Home() {
 
   const renderMessageText = (text) => {
     if (!text) return null;
-
-    // Check if the message is a Quiz or Flashcard event card
-    if (typeof text === "string" && text.trim().startsWith("{")) {
-      try {
-        const parsed = JSON.parse(text.trim());
-        if (parsed.event === "quiz_created" && parsed.quizId) {
-          return <QuizCard quizId={parsed.quizId} />;
-        }
-        if (parsed.event === "flashcard_created" && parsed.setId) {
-          return <FlashcardSetCard setId={parsed.setId} />;
-        }
-      } catch (e) {
-        // Fall back
-      }
-    }
 
     // Step 1: Split by code blocks first
     const codeParts = text.split(/(```[\s\S]*?```)/g);
@@ -2852,7 +2910,6 @@ export default function Home() {
     { name: "AI Assistant", icon: Bot, label: t("dashboard.ai_assistant") || "Trợ lý Nghiên cứu AI" },
     { name: "Community", icon: Users, label: t("dashboard.tabs.community") || "Cộng đồng" },
     { name: "Notifications", icon: Bell, label: t("dashboard.tabs.notifications") || "Thông báo học thuật" },
-    ...(user?.role === "LECTURER" ? [{ name: "Hot Docs Review", icon: Flame, label: language === "vi" ? "Duyệt tài liệu Hot" : "Review Hot Docs" }] : []),
     { name: "Personal Profile", icon: UserIcon, label: t("dashboard.tabs.settings") || "Hồ sơ & Bảo mật" }
   ];
 
@@ -5274,32 +5331,107 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* Stats */}
-              <div className="h-10 flex items-center justify-center select-none">
-                {!communityLoading && (communitySearch || rangeStart) && (
-                  <div className="px-3.5 py-1.5 bg-purple-500/8 dark:bg-purple-500/12 text-purple-750 dark:text-purple-300 rounded-full border border-purple-500/10 text-[10px] font-bold uppercase tracking-wider animate-in fade-in zoom-in-95 duration-200 flex items-center gap-2">
-                    <span>{t("community.found_label") || "Tìm thấy"} {filteredCommunityDocs.length} {t("community.docs_label") || "tài liệu học tập"}</span>
-                    {rangeStart && (
-                      <span className="bg-purple-500/20 px-2 py-0.5 rounded text-[9px] font-extrabold text-purple-700 dark:text-purple-300">
-                        {language === "vi" ? "Lọc ngày:" : "Date Filter:"} {rangeStart.toLocaleDateString(language === "vi" ? "vi-VN" : "en-US")} {rangeEnd && `- ${rangeEnd.toLocaleDateString(language === "vi" ? "vi-VN" : "en-US")}`}
-                      </span>
-                    )}
-                  </div>
+
+
+              {/* ── View Mode Selector & Back Button ── */}
+              <div className="flex items-center justify-between mb-4 mt-2">
+                <div className="flex items-center gap-1">
+                  {/* Toggle buttons removed as requested by user */}
+                </div>
+
+                {/* Back button when inside a subject */}
+                {selectedCommunitySubjectCode && (
+                  <button
+                    onClick={() => { setSelectedCommunitySubjectCode(null); setCommunityPage(1); }}
+                    className="flex items-center gap-1 text-[11px] font-bold text-violet-600 bg-violet-50 hover:bg-violet-100 px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer mr-1"
+                  >
+                    <ChevronLeft size={14} /> Quay lại
+                  </button>
                 )}
               </div>
 
-              {/* Loading & Grid Section */}
+              {/* Loading & Grid/Topic Section */}
               {communityLoading ? (
                 <div className="flex flex-col justify-center items-center py-20 space-y-4">
                   <div className="w-8 h-8 border-4 border-purple-500/20 border-t-purple-600 rounded-full animate-spin" />
                   <span className="text-xs font-bold text-slate-400 dark:text-slate-500 tracking-wider uppercase animate-pulse">
-                    {t("community.loading") || "Đang tải danh mục cộng đồng..."}
+                    Đang tải danh mục cộng đồng...
                   </span>
                 </div>
               ) : (
-                /* Layout: Document List takes full width */
                 <div className="w-full flex flex-col space-y-6">
-                  {filteredCommunityDocs.length > 0 ? (
+                  {!communitySearch && !communityTagFilter && !rangeStart && !selectedCommunitySubjectCode ? (
+                    /* TOPICS VIEW */
+                    (() => {
+                      if (communityTopicsLoading) return (
+                        <div className="flex flex-col items-center justify-center py-20 space-y-3">
+                          <div className="w-6 h-6 border-2 border-violet-500/20 border-t-violet-600 rounded-full animate-spin" />
+                          <span className="text-xs font-bold text-slate-400">Đang tải chủ đề...</span>
+                        </div>
+                      );
+
+                      if (communityTopics.length === 0) return (
+                        <div className="text-center py-16 bg-white/40 dark:bg-white/5 rounded-2xl border border-dashed border-slate-200 dark:border-white/10">
+                          <Layers size={32} className="mx-auto text-slate-300 mb-3" />
+                          <p className="text-sm font-bold text-slate-500">Chưa có chủ đề nào</p>
+                        </div>
+                      );
+
+                                            return (
+                        <div className="space-y-0 bg-white/60 dark:bg-[#0f111a]/60 rounded-2xl border border-slate-200/80 dark:border-white/5 overflow-hidden divide-y divide-slate-100 dark:divide-white/5 shadow-sm">
+                                                    {communityTopics.map((topic) => {
+                            const topicColor = topic.color || '#8b5cf6';
+                            const totalDocs = (topic.subjects || []).reduce((s, sub) => s + (Number(sub.doc_count) || 0), 0);
+                            return (
+                              <div
+                                key={topic.topic_id}
+                                className="flex items-center gap-5 px-5 py-4 hover:bg-white/80 dark:hover:bg-white/10 transition-colors group"
+                              >
+                                {/* Icon */}
+                                <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 shadow-sm group-hover:scale-105 transition-transform border" style={{ backgroundColor: `${topicColor}15`, borderColor: `${topicColor}30`, color: topicColor }}>
+                                  <Folder size={24} />
+                                </div>
+
+                                {/* Left: name + description + subject badges */}
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-black text-slate-800 dark:text-slate-100 text-sm transition-colors" style={{ color: topicColor }}>{topic.name}</p>
+                                  {topic.description && <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5 truncate">{topic.description}</p>}
+                                  <div className="flex flex-wrap gap-1.5 mt-2">
+                                    {(topic.subjects || []).map(s => (
+                                      <button
+                                        key={s.subject_code}
+                                        onClick={() => { setSelectedCommunityTopicId(topic.topic_id); setSelectedCommunitySubjectCode(s.subject_code); setCommunityPage(1); }}
+                                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold cursor-pointer hover:opacity-80 hover:shadow-sm active:scale-95 transition-all"
+                                        style={{ backgroundColor: `${topicColor}15`, color: topicColor }}
+                                      >
+                                        <Folder size={10} /> {s.subject_code}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+
+                                {/* Right: stats */}
+                                <div className="shrink-0 flex gap-5 text-center">
+                                  <div>
+                                    <p className="text-base font-black" style={{ color: topicColor }}>{(topic.subjects || []).length}</p>
+                                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Môn học</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-base font-black" style={{ color: topicColor }}>{totalDocs}</p>
+                                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Tài liệu</p>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                          
+                          
+                        </div>
+                      );
+                    })()
+                  ) : (
+                    /* DOCS GRID (or inside subject) */
+                    filteredCommunityDocs.length > 0 ? (
                     <>
                       {/* Pinned Documents */}
                       {pinnedCommunityDocs.length > 0 && (
@@ -5375,79 +5507,13 @@ export default function Home() {
                         {language === "vi" ? "Vui lòng thử tìm kiếm bằng một từ khóa khác hoặc xóa bộ lọc ngày." : "Please try searching with another keyword or clear the date filter."}
                       </p>
                     </div>
+                  )
                   )}
                 </div>
               )}
             </div>
           );
         })()}
-
-        {activeTab === "Hot Docs Review" && (
-          <div className="w-full max-w-[1200px] mx-auto pb-24 space-y-6">
-            <div className="flex items-center justify-between mb-8">
-              <div>
-                <h1 className="text-2xl font-bold text-slate-800 dark:text-white flex items-center gap-3">
-                  <Flame className="w-7 h-7 text-red-500" />
-                  {language === "vi" ? "Duyệt Tài Liệu Hot" : "Review Hot Documents"}
-                </h1>
-                <p className="text-slate-500 dark:text-slate-400 mt-1">
-                  {language === "vi" ? "Đánh giá và ưu tiên các tài liệu chất lượng cao cho cộng đồng." : "Review and prioritize high-quality documents for the community."}
-                </p>
-              </div>
-            </div>
-
-            {pendingHotDocsLoading ? (
-              <div className="text-center py-20">
-                <Loader className="w-8 h-8 animate-spin mx-auto text-purple-500" />
-              </div>
-            ) : pendingHotDocs.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-24 text-center">
-                <div className="w-20 h-20 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-4">
-                  <CheckCircle className="w-10 h-10 text-emerald-500" />
-                </div>
-                <h3 className="text-lg font-bold text-slate-800 dark:text-white">{language === "vi" ? "Không có tài liệu nào chờ duyệt" : "No documents pending review"}</h3>
-                <p className="text-slate-500 max-w-md mx-auto mt-2">{language === "vi" ? "Tuyệt vời! Bạn đã hoàn thành tất cả các yêu cầu đánh giá tài liệu." : "Great! You have completed all document review requests."}</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {pendingHotDocs.map(doc => (
-                  <div key={doc.review_id} className="bg-white dark:bg-[#1a1d27] p-5 rounded-2xl border border-slate-200 dark:border-white/10 flex flex-col md:flex-row gap-5 items-start">
-                    <div className="flex-1">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="px-2 py-0.5 rounded-full bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-400 text-xs font-bold flex items-center gap-1">
-                              <Flame className="w-3 h-3" /> Score: {doc.hot_score}
-                            </span>
-                            <span className="text-xs font-medium text-slate-500">
-                              {language === "vi" ? "Yêu cầu bởi:" : "Requested by:"} <span className="font-bold text-slate-700 dark:text-slate-300">{doc.sent_by_name}</span>
-                            </span>
-                          </div>
-                          <h3 className="text-lg font-bold text-slate-900 dark:text-white mt-2">{doc.title}</h3>
-                          <p className="text-sm text-slate-600 dark:text-slate-400 mt-1 line-clamp-2">{doc.description || (language === "vi" ? "Không có mô tả" : "No description")}</p>
-                        </div>
-                      </div>
-                      <div className="flex flex-wrap gap-4 mt-4 text-xs font-medium text-slate-500 dark:text-slate-400">
-                        <div className="flex items-center gap-1.5"><FileText className="w-4 h-4" /> {doc.file_type || (language === "vi" ? "Tài liệu" : "Document")}</div>
-                        <div className="flex items-center gap-1.5"><Heart className="w-4 h-4" /> {language === "vi" ? "Lượt xem:" : "Views:"} {doc.views}</div>
-                        <div className="flex items-center gap-1.5"><Download className="w-4 h-4" /> {language === "vi" ? "Lượt tải:" : "Downloads:"} {doc.downloads}</div>
-                      </div>
-                    </div>
-
-                    <div className="w-full md:w-auto flex flex-row md:flex-col gap-2 pt-2 md:pt-0 border-t md:border-t-0 border-slate-100 dark:border-slate-800">
-                      <Button onClick={() => handleReviewHotDoc(doc.review_id, "APPROVED")} className="flex-1 md:flex-none bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl shadow-sm">
-                        <CheckCircle className="w-4 h-4 mr-2" /> {language === "vi" ? "Phê duyệt" : "Approve"}
-                      </Button>
-                      <Button onClick={() => handleReviewHotDoc(doc.review_id, "REJECTED")} variant="outline" className="flex-1 md:flex-none border-red-200 text-red-600 hover:bg-red-50 dark:border-red-500/30 dark:hover:bg-red-500/10 rounded-xl">
-                        <X className="w-4 h-4 mr-2" /> {language === "vi" ? "Từ chối" : "Reject"}
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
 
         {/* ── SCREEN 5: NOTIFICATIONS TIMELINE ── */}
         {activeTab === "Notifications" && (() => {

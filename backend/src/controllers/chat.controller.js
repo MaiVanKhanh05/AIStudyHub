@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { getCommunityDocumentCatalog, searchCommunityDocsByKeyword } from "../repositories/document.repository.js";
+import pool from "../../DB/db.js";
 
 import {
   parsePDF,
@@ -10,8 +11,16 @@ import {
   parseZip,
   parseImageViaLLM
 } from "../services/ai/documentParser.service.js";
-import { searchVectorDB, initOpenAI } from "../services/ai/chat.service.js";
-import pool from "../../DB/db.js";
+import { extractContext } from "../services/chat/conversationContext.service.js";
+import { detectIntent } from "../services/chat/intentDetection.service.js";
+import { recognizeEntities } from "../services/chat/entityRecognition.service.js";
+import { rewriteQuery } from "../services/chat/queryRewrite.service.js";
+import { retrieveContext } from "../services/chat/retrieval.service.js";
+import { buildPrompt } from "../services/chat/promptBuilder.service.js";
+import { planResponse } from "../services/chat/responsePlanning.service.js";
+import { chunkText, generateEmbeddings } from "../services/ai/embedding.service.js";
+import { storeTemporaryDocument } from "../services/chat/tempDocumentStore.service.js";
+import { detectSource } from "../services/chat/sourceDetection.service.js";
 
 // Đường dẫn API: POST /api/chat/upload-temp
 export async function uploadTempFile(req, res) {
@@ -74,11 +83,26 @@ export async function uploadTempFile(req, res) {
       }
     }
 
+    // --- CHUNKING & EMBEDDING CHO UPLOAD PIPELINE ---
+    const textChunks = chunkText(extractedText, 1000, 200);
+    const embeddings = await generateEmbeddings(textChunks);
+    
+    const chunksWithEmbeddings = textChunks.map((text, i) => ({
+      text,
+      embedding: embeddings[i] || []
+    }));
+
+    // Lấy sessionId (nếu đã đăng nhập, dùng userId để bảo mật Ownership)
+    const sessionId = req.userId ? String(req.userId) : "anonymous_session";
+    const tempDocId = storeTemporaryDocument(sessionId, originalName, chunksWithEmbeddings);
+
     return res.json({
       fileName: originalName,
       fileSize: req.file.size,
       fileType: ext.replace(".", "").toUpperCase(),
-      extractedText: extractedText
+      extractedText: extractedText,
+      documentId: tempDocId,
+      chatMode: "UPLOADED_DOCUMENT"
     });
   } catch (error) {
     console.error("Error parsing upload file:", error);
@@ -195,34 +219,41 @@ async function searchRelevantDocs(message, allDocs) {
   if (!allDocs || allDocs.length === 0) return [];
 
   const msg = message.toLowerCase();
+  const msgWords = msg.split(/[\s\-_.,]+/).filter(w => w.length > 1);
 
   // Tính điểm liên quan cho từng tài liệu
   const scored = allDocs.map(d => {
     let score = 0;
     const title = (d.title || '').toLowerCase();
-    const subject = (d.subject_name || d.subject_code || '').toLowerCase();
+    const subject = (d.subject_name || '').toLowerCase();
+    const subjectCode = (d.subject_code || '').toLowerCase();
     const desc = (d.description || '').toLowerCase();
 
-    // Khớp chính xác tên môn học hoặc mã môn → điểm cao
-    if (subject && msg.includes(subject)) score += 10;
-    if (d.subject_code && msg.includes(d.subject_code.toLowerCase())) score += 10;
+    // 1. Match chính xác mã môn hoặc tên môn trong toàn bộ câu query
+    if (subjectCode && msg.includes(subjectCode)) score += 50;
+    if (subject && msg.includes(subject)) score += 40;
 
-    // Ưu tiên tài liệu AI Hot Docs
-    if (d.is_ai_featured) score += 15;
-
-    // Khớp từng từ trong title
-    const titleWords = title.split(/[\s\-_.,]+/).filter(w => w.length > 2);
-    titleWords.forEach(word => {
-      if (msg.includes(word)) score += 3;
+    // 2. Tách từ khóa để match từng phần
+    msgWords.forEach(word => {
+      // Ưu tiên cực cao nếu từ khóa khớp mã môn (ví dụ: user gõ 'swt', subject_code là 'swt301')
+      if (subjectCode && subjectCode.includes(word) && word.length >= 2) {
+        score += 20;
+      }
+      // Khớp tên môn
+      if (subject && subject.includes(word) && word.length >= 3) {
+        score += 15;
+      }
+      // Khớp title
+      if (title.includes(word) && word.length >= 3) {
+        score += 5;
+      }
+      // Khớp description
+      if (desc.includes(word) && word.length >= 4) {
+        score += 2;
+      }
     });
 
-    // Khớp trong description
-    const descWords = desc.split(/[\s\-_.,]+/).filter(w => w.length > 3);
-    descWords.forEach(word => {
-      if (msg.includes(word)) score += 1;
-    });
-
-    // Từ khóa chuyên ngành CNTT chung → gợi ý tài liệu liên quan lĩnh vực
+    // 3. Khớp nhóm từ khóa CNTT chung (chỉ cộng điểm nhẹ)
     const itKeywords = ['tài liệu', 'document', 'học', 'môn', 'bài', 'slide', 'lab', 'assignment',
       'software', 'web', 'programming', 'lập trình', 'kỹ thuật', 'phần mềm',
       'testing', 'kiểm thử', 'database', 'cơ sở dữ liệu', 'java', 'python',
@@ -231,24 +262,27 @@ async function searchRelevantDocs(message, allDocs) {
       if (msg.includes(kw) && (title.includes(kw) || subject.includes(kw))) score += 2;
     });
 
+    // 4. Ưu tiên tài liệu AI Hot Docs CHỈ KHI tài liệu đó ĐÃ CÓ sự liên quan (score > 0)
+    // Tránh việc recommend tài liệu không liên quan chỉ vì nó là Hot Docs
+    if (score > 0 && d.is_ai_featured) {
+      score += 10;
+    }
+
     return { doc: d, score };
   });
 
-  // Lọc và sắp xếp theo điểm
+  // Lọc và sắp xếp theo điểm (chỉ lấy tài liệu có điểm >= 15 để đảm bảo tính chính xác)
   const relevant = scored
-    .filter(s => s.score > 0)
+    .filter(s => s.score >= 15)
     .sort((a, b) => b.score - a.score)
     .slice(0, 5) // tối đa 5 tài liệu gợi ý
     .map(s => s.doc);
-
-  // Bỏ đi fallback trả về top 3 tài liệu ngẫu nhiên vì nó gây khó hiểu cho người dùng
-  // (ví dụ trả về bài văn "Đồng Chí" khi đang nói về kiểm thử phần mềm)
 
   return relevant;
 }
 
 export async function chatQuery(req, res) {
-  const { message, history = [], aiMode = "General AI", documentId = null } = req.body;
+  const { message, history = [], aiMode = "General AI", documentId = null, documentIds = [] } = req.body;
   const userId = req.userId;
   let documentContext = req.body.documentContext || "";
 
@@ -272,6 +306,61 @@ export async function chatQuery(req, res) {
   if (!message) {
     return res.status(400).json({ error: "Câu hỏi không được để trống." });
   }
+
+  try {
+    // 1. Source Detection
+    const sourceData = detectSource(aiMode, documentId, documentIds);
+    sourceData.sessionId = req.userId ? String(req.userId) : "anonymous_session";
+
+    const context = await extractContext(history, message);
+    context.documentContextStr = documentContext;
+    const intentData = await detectIntent(context, message);
+    context.intent = intentData.intent;
+    const entities = await recognizeEntities(context, message);
+    
+    // Nếu intent là tạo bài tập, đẩy xuống logic Flashcard/Quiz cũ
+    if (!["GENERATE_FLASHCARD", "GENERATE_QUIZ"].includes(intentData.intent)) {
+        const rewritten = await rewriteQuery(context, message);
+        const retrievalData = await retrieveContext(rewritten, intentData.intent, entities, sourceData);
+
+        // Error Handling: Không Fallback nếu SYSTEM / UPLOAD bị lỗi (Timeout / Empty)
+        if (retrievalData.fallbackUsed && (sourceData.sourceType === "UPLOADED_DOCUMENT" || sourceData.sourceType === "SYSTEM_DOCUMENT")) {
+            return res.json({ response: "Không thể truy xuất tài liệu hiện tại, vui lòng thử lại." });
+        }
+
+        const prompt = buildPrompt(context, retrievalData, message, sourceData);
+        
+        const queryMessages = history.map(h => ({
+          role: h.sender === "ai" ? "assistant" : "user",
+          content: h.text || ""
+        }));
+        queryMessages.push({ role: "user", content: rewritten });
+        
+        let responseText = "";
+        if (process.env.GEMINI_API_KEY) {
+          responseText = await callGemini(queryMessages, prompt);
+        } else {
+          responseText = await callOpenAI(queryMessages, prompt);
+        }
+        
+        const finalResponse = planResponse(responseText, context, retrievalData, sourceData);
+        
+        let finalResponseText = finalResponse.text;
+        if (finalResponse.suggestedDocs && finalResponse.suggestedDocs.length > 0) {
+          finalResponseText += "\n\n";
+          // Nối link document để frontend render UI thẻ tài liệu
+          finalResponse.suggestedDocs.forEach(d => {
+            finalResponseText += `http://localhost:3000/preview/${d.document_id}\n`;
+          });
+        }
+        
+        return res.json({ response: finalResponseText });
+    }
+  } catch (err) {
+    console.error("[NEW PIPELINE ERROR]", err);
+    return res.status(500).json({ error: "Đã xảy ra lỗi trong quá trình xử lý Context-Aware RAG." });
+  }
+
 
   // Intercept flashcard creation requests
   const messageLower = message.toLowerCase();
@@ -417,200 +506,6 @@ export async function chatQuery(req, res) {
     }
   }
 
-  const apiKey = process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    return res.json({
-      response: "⚠️ **[LỖI CẤU HÌNH HỆ THỐNG]**\nChưa phát hiện thấy API Key của AI trên máy chủ.\n\nVui lòng làm theo hướng dẫn sau:\n1. Mở tệp `.env` tại thư mục `/backend` của dự án.\n2. Cấu hình khóa học thuật của bạn bằng cách bổ sung dòng:\n   `GEMINI_API_KEY=your_gemini_api_key` hoặc `OPENAI_API_KEY=your_openai_api_key`\n3. Khởi động lại máy chủ backend để áp dụng cấu hình."
-    });
-  }
-
-  try {
-    let systemInstruction = "";
-    let additionalContext = "";
-
-    // 1. Thiết lập các hướng dẫn theo chế độ (mode)
-    const modeInstructions = {
-      "Scholar": "Bạn là Học giả AI (Scholar Core). Hãy giải thích kiến thức theo phong cách sư phạm học thuật, bài bản, khoa học nhưng cực kỳ dễ hiểu, diễn giải chi tiết các định nghĩa khó và cung cấp ví dụ thực tiễn trực quan.",
-      "Research": "Bạn là Nhà nghiên cứu AI (Research Expert). Hãy tìm kiếm, tổng hợp và đối chiếu thông tin từ các nguồn học thuật uy tín. Trình bày chặt chẽ, khách quan và trích dẫn trực tiếp nguồn tham khảo rõ ràng.",
-      "Coding": "Bạn là Chuyên gia Lập trình AI (Coding Agent). Hãy tạo code chất lượng cao, tối ưu, sạch sẽ, debug lỗi chi tiết và giải thích cấu trúc lập trình rõ ràng từng dòng lệnh.",
-      "Summarize": "Bạn là Chuyên gia Tóm tắt AI. Hãy phân tích tài liệu hoặc nội dung được cung cấp, tóm tắt cực kỳ súc tích, cô đọng các ý chính, số liệu và kiến trúc tổng quan dưới dạng danh sách.",
-      "Translation": "Bạn là Chuyên gia Dịch thuật AI. Hãy dịch thuật chính xác, tự nhiên giữa các ngôn ngữ, đảm bảo truyền tải đúng sắc thái và thuật ngữ chuyên ngành học thuật.",
-      "General AI": "Bạn là Trợ lý Học tập AIStudyHub đa năng. Hãy trò chuyện thân thiện, cởi mở, giải đáp chung các vấn đề học tập và hỗ trợ tư duy học viên."
-    };
-
-    systemInstruction = modeInstructions[aiMode] || modeInstructions["General AI"];
-
-    // 2. Phục hồi documentContext từ lịch sử nếu người dùng không upload file mới nhưng đã upload file trước đó trong cùng phiên chat
-    if (!documentContext && history && history.length > 0) {
-      const historyFiles = [];
-      for (const h of history) {
-        if (h.sender === "user" && h.files && h.files.length > 0) {
-          h.files.forEach(f => {
-            historyFiles.push(`--- TẬP TIN (Từ lịch sử): ${f.name} ---\n${f.content || ""}`);
-          });
-        }
-      }
-      if (historyFiles.length > 0) {
-        documentContext = historyFiles.join("\n\n");
-      }
-    }
-
-    // 3. Kiểm tra xem chat có bị giới hạn trong ngữ cảnh tài liệu hay không
-    let suggestedDocs = []; // Danh sách tài liệu gợi ý trả về cho frontend
-
-    if (documentContext) {
-      systemInstruction += "\n\nCRITICAL: Bạn phải TRẢ LỜI CÂU HỎI CHỈ DỰA TRÊN ngữ cảnh tài liệu đã tải lên dưới đây. Tuyệt đối không dùng thông tin hoặc kiến thức bên ngoài tài liệu. Nếu câu hỏi nằm ngoài tài liệu, hãy trả lời lịch sự rằng thông tin này không có trong tài liệu và khuyên người dùng tập trung vào chủ đề của file.";
-      additionalContext = `[NGỮ CẢNH TÀI LIỆU ĐÃ UPLOAD]\n${documentContext}\n\n[HẾT NGỮ CẢNH TÀI LIỆU - Vui lòng trả lời câu hỏi dựa trên nội dung này]`;
-    } else {
-      // 1. Tạo Context tìm kiếm từ lịch sử chat để RAG hiểu được ý định "tài liệu trên nói về gì"
-      let searchContext = message;
-      if (history && history.length > 0) {
-        const lastFewUserMsgs = history
-          .filter(h => h.sender === "user" || h.sender === "ai")
-          .slice(-3) // lấy 3 tin nhắn gần nhất để lấy bối cảnh
-          .map(h => h.text)
-          .join("\n");
-        searchContext = lastFewUserMsgs + "\nCâu hỏi hiện tại: " + message;
-      }
-
-      // Lấy catalog tài liệu cộng đồng để map ID sang Docs
-      const allCommunityDocs = await getCommunityDocumentCatalog();
-      console.log(`[AI CHAT] Catalog: ${allCommunityDocs.length} docs | Query: "${message.slice(0, 80)}"`);
-
-      // 2. Vector Search (RAG)
-      const aiClient = initOpenAI();
-      let ragContext = "";
-      if (aiClient && process.env.OPENAI_API_KEY) {
-        try {
-          const embedResponse = await aiClient.embeddings.create({
-            model: "text-embedding-3-small",
-            input: searchContext.slice(-2000), // giới hạn độ dài string gửi lên OpenAI embed
-          });
-          const queryEmbedding = embedResponse.data[0].embedding;
-          const relevantChunks = await searchVectorDB(queryEmbedding, 6);
-
-          if (relevantChunks && relevantChunks.length > 0) {
-            ragContext = relevantChunks.map(chunk => chunk.chunk_text).join("\n\n---\n\n");
-            additionalContext = `[NGỮ CẢNH TỪ HỆ THỐNG TÀI LIỆU]\n${ragContext}\n\n[HẾT NGỮ CẢNH HỆ THỐNG TÀI LIỆU]`;
-            systemInstruction += "\n\nCRITICAL: Bạn đang đóng vai trò tìm kiếm tài liệu. Hãy trả lời câu hỏi dựa trên [NGỮ CẢNH TỪ HỆ THỐNG TÀI LIỆU] được trích xuất từ CSDL dưới đây. Trích dẫn đúng tên tài liệu nếu cần.";
-
-            // Map chunk to suggested docs
-            const docIds = [...new Set(relevantChunks.map(c => c.document_id))];
-            suggestedDocs = allCommunityDocs.filter(d => docIds.includes(d.document_id)).slice(0, 3);
-          }
-        } catch (e) {
-          console.error("[Vector Search Error]", e);
-        }
-      }
-
-      // 3. Nếu Vector DB không tìm thấy (hoặc bị lỗi), fallback về keyword search truyền thống
-      if (!ragContext && allCommunityDocs.length > 0) {
-        suggestedDocs = await searchRelevantDocs(searchContext, allCommunityDocs);
-        systemInstruction += `\n\nHệ thống AIStudyHub có ${allCommunityDocs.length} tài liệu cộng đồng. Hãy trả lời câu hỏi của học viên một cách hữu ích.`;
-      }
-    }
-
-    // 3. Xây dựng mảng tin nhắn
-    const queryMessages = [];
-
-    // Chuyển đổi lịch sử yêu cầu sang định dạng của LLM và tự động phân giải nội dung sự kiện
-    for (const h of history) {
-      let content = h.text || "";
-      if (h.sender === "ai" && content.trim().startsWith("{") && content.trim().endsWith("}")) {
-        try {
-          const parsed = JSON.parse(content);
-          if (parsed.event === "flashcard_created" && parsed.setId) {
-            try {
-              const setRes = await pool.query(
-                `SELECT title, description, card_count FROM flashcard_sets WHERE set_id = $1`,
-                [parsed.setId]
-              );
-              if (setRes.rows.length > 0) {
-                const setInfo = setRes.rows[0];
-                const cardsRes = await pool.query(
-                  `SELECT front, back, card_type, topic FROM flashcards WHERE set_id = $1 AND status = 'ACTIVE' ORDER BY card_id ASC`,
-                  [parsed.setId]
-                );
-                let cardsText = cardsRes.rows.map((c, idx) => 
-                  `${idx + 1}. [${c.card_type}] Mặt trước: "${c.front}" -> Mặt sau: "${c.back}" (Chủ đề: ${c.topic})`
-                ).join("\n");
-                
-                content = `[HỆ THỐNG]: Đã tạo thành công bộ thẻ ghi nhớ (Flashcard) "${setInfo.title}" (${setInfo.card_count} câu).\nDưới đây là danh sách các thẻ ghi nhớ đã tạo:\n${cardsText}`;
-              }
-            } catch (err) {
-              console.error("Error enrichment history flashcard:", err);
-            }
-          } else if (parsed.event === "quiz_created" && parsed.quizId) {
-            try {
-              const quizRes = await pool.query(
-                `SELECT title FROM quizzes WHERE quiz_id = $1`,
-                [parsed.quizId]
-              );
-              if (quizRes.rows.length > 0) {
-                const quizInfo = quizRes.rows[0];
-                const qRes = await pool.query(
-                  `SELECT question_text, options, correct_answer, explanation, topic FROM quiz_questions WHERE quiz_id = $1 ORDER BY question_id ASC`,
-                  [parsed.quizId]
-                );
-                let qText = qRes.rows.map((q, idx) => {
-                  const opts = Array.isArray(q.options) ? q.options : JSON.parse(q.options || "[]");
-                  return `${idx + 1}. Câu hỏi: "${q.question_text}"\n   Các phương án: ${opts.join(", ")}\n   Đáp án đúng: Phương án chỉ số ${q.correct_answer} (Nội dung: ${opts[q.correct_answer]})\n   Giải thích: ${q.explanation}\n   Chủ đề: ${q.topic}`;
-                }).join("\n\n");
-                
-                content = `[HỆ THỐNG]: Đã tạo thành công bộ câu hỏi trắc nghiệm (Quiz) "${quizInfo.title}" (${qRes.rows.length} câu).\nDưới đây là chi tiết các câu hỏi đã tạo:\n${qText}`;
-              }
-            } catch (err) {
-              console.error("Error enrichment history quiz:", err);
-            }
-          }
-        } catch (e) {
-          // not a valid JSON event, keep original text
-        }
-      }
-
-      queryMessages.push({
-        role: h.sender === "ai" ? "assistant" : "user",
-        content: content
-      });
-    }
-
-    // Nối ngữ cảnh vào user message nếu có (chỉ khi có documentContext upload)
-    const currentQueryWithContext = additionalContext
-      ? `${additionalContext}\n\nCâu hỏi của học viên: ${message}`
-      : message;
-
-    queryMessages.push({
-      role: "user",
-      content: currentQueryWithContext
-    });
-
-    // 4. Gọi LLM đã được chọn
-    let responseText = "";
-    if (process.env.GEMINI_API_KEY) {
-      responseText = await callGemini(queryMessages, systemInstruction);
-    } else {
-      responseText = await callOpenAI(queryMessages, systemInstruction);
-    }
-
-    // 5. Nối các link tài liệu gợi ý vào cuối câu trả lời của AI
-    // Việc này giúp frontend (đã có hàm extractDocumentLinks) tự động nhận diện
-    // và biến đổi các link này thành các Document Card đẹp mắt, đồng thời
-    // cũng giúp lưu lịch sử chat vào DB dễ dàng dưới dạng văn bản.
-    let finalResponseText = responseText;
-    if (suggestedDocs && suggestedDocs.length > 0) {
-      finalResponseText += "\n\n";
-      suggestedDocs.forEach(d => {
-        finalResponseText += `http://localhost:3000/preview/${d.document_id}\n`;
-      });
-    }
-
-    return res.json({
-      response: finalResponseText
-    });
-  } catch (error) {
-    console.error("Chat Query Error:", error);
-    return res.status(500).json({ error: `Lỗi kết nối AI: ${error.message}` });
-  }
 }
 
 // Đường dẫn API: GET /api/chat/history
