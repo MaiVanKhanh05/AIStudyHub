@@ -3,8 +3,6 @@ import { useMemo, useState } from "react";
 import { useLanguage } from "../context/LanguageContext";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
-import QuizCard from "./QuizCard";
-import FlashcardSetCard from "./FlashcardSetCard";
 
 const IMAGE_EXTENSIONS = ["jpg", "jpeg", "png", "gif", "webp", "bmp", "svg"];
 const OFFICE_EXTENSIONS = ["doc", "docx", "xls", "xlsx", "ppt", "pptx"];
@@ -173,118 +171,6 @@ export default function DocumentPreviewModal({ doc, onClose, currentUserId, onSh
     }
   };
 
-  const handleGenerateQuiz = async () => {
-    if (isTyping) return;
-
-    const userMsg = {
-      id: Date.now(),
-      sender: "user",
-      text: language === "vi" ? "Tạo câu hỏi trắc nghiệm ôn tập (Quiz) từ tài liệu này." : "Generate revision Quiz from this document."
-    };
-    setMessages((prev) => [...prev, userMsg]);
-    setIsTyping(true);
-
-    try {
-      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-      const response = await fetch("http://localhost:5000/api/chat", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          message: language === "vi" ? "Tạo 20 câu hỏi trắc nghiệm ôn tập (Quiz) từ tài liệu này" : "Generate 20 revision Quiz questions from this document",
-          documentContext: doc?.extracted_content || doc?.content || doc?.simulated_content || "",
-          documentId: doc?.document_id || doc?.id || null
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error("API call failed");
-      }
-
-      const data = await response.json();
-      const aiText = data.response || (language === "vi" ? "Không thể tạo bộ câu hỏi." : "Failed to generate the Quiz.");
-
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: Date.now() + 1,
-          sender: "ai",
-          text: aiText
-        }
-      ]);
-    } catch (err) {
-      console.error(err);
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: Date.now() + 1,
-          sender: "ai",
-          text: language === "vi" ? "Đã xảy ra lỗi khi kết nối tới Trợ lý AI để tạo quiz ôn tập." : "An error occurred connecting to the AI Assistant to generate the Quiz."
-        }
-      ]);
-    } finally {
-      setIsTyping(false);
-    }
-  };
-
-  const handleGenerateFlashcards = async () => {
-    if (isTyping) return;
-
-    const userMsg = {
-      id: Date.now(),
-      sender: "user",
-      text: language === "vi" ? "Tạo bộ thẻ ghi nhớ Flashcard ôn tập từ tài liệu này." : "Generate revision Flashcards from this document."
-    };
-    setMessages((prev) => [...prev, userMsg]);
-    setIsTyping(true);
-
-    try {
-      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-      const response = await fetch("http://localhost:5000/api/chat", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          message: language === "vi" ? "Tạo bộ thẻ ghi nhớ Flashcard ôn tập từ tài liệu này" : "Generate revision Flashcards from this document",
-          documentContext: doc?.extracted_content || doc?.content || doc?.simulated_content || "",
-          documentId: doc?.document_id || doc?.id || null
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error("API call failed");
-      }
-
-      const data = await response.json();
-      const aiText = data.response || (language === "vi" ? "Không thể tạo bộ thẻ ghi nhớ." : "Failed to generate Flashcards.");
-
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: Date.now() + 1,
-          sender: "ai",
-          text: aiText
-        }
-      ]);
-    } catch (err) {
-      console.error(err);
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: Date.now() + 1,
-          sender: "ai",
-          text: language === "vi" ? "Đã xảy ra lỗi khi kết nối tới Trợ lý AI để tạo bộ thẻ ghi nhớ." : "An error occurred connecting to the AI Assistant to generate Flashcards."
-        }
-      ]);
-    } finally {
-      setIsTyping(false);
-    }
-  };
-
   const fileUrl = doc?.file_url || doc?.url || doc?.document_url || doc?.public_url || "";
   const title = doc?.document_name || doc?.file_name || doc?.title || "Document Preview";
   const previewType = useMemo(() => getPreviewType(doc, fileUrl), [doc, fileUrl]);
@@ -443,24 +329,7 @@ export default function DocumentPreviewModal({ doc, onClose, currentUserId, onSh
                     <span className="text-[8px] font-extrabold uppercase tracking-widest opacity-60 mb-1.5 block">
                       {msg.sender === "ai" ? "🤖 AI ACADEMIC CORE" : (language === "vi" ? "👤 BẠN" : "👤 YOU")}
                     </span>
-                    {msg.sender === "ai" && typeof msg.text === "string" && msg.text.trim().startsWith("{") ? (
-                      (() => {
-                        try {
-                          const parsed = JSON.parse(msg.text.trim());
-                          if (parsed.event === "quiz_created" && parsed.quizId) {
-                            return <QuizCard quizId={parsed.quizId} />;
-                          }
-                          if (parsed.event === "flashcard_created" && parsed.setId) {
-                            return <FlashcardSetCard setId={parsed.setId} />;
-                          }
-                        } catch (e) {
-                          // Not valid JSON, fall back
-                        }
-                        return <p className="font-bold whitespace-pre-line leading-relaxed">{msg.text}</p>;
-                      })()
-                    ) : (
-                      <p className="font-bold whitespace-pre-line leading-relaxed">{msg.text}</p>
-                    )}
+                    <p className="font-bold whitespace-pre-line leading-relaxed">{msg.text}</p>
                   </div>
                 ))}
                 {isTyping && (
@@ -480,22 +349,6 @@ export default function DocumentPreviewModal({ doc, onClose, currentUserId, onSh
                   className="flex-1 py-1.5 px-2 rounded-lg border border-purple-500/20 dark:border-purple-450/20 bg-purple-500/5 hover:bg-purple-500/10 text-purple-750 dark:text-purple-300 font-extrabold text-[9px] uppercase tracking-wider transition-all duration-150 cursor-pointer flex items-center justify-center gap-1 active:scale-[0.98] disabled:opacity-50 hover:scale-[1.01]"
                 >
                   {language === "vi" ? "Tóm tắt" : "Summarize"}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleGenerateQuiz}
-                  disabled={isTyping}
-                  className="flex-1 py-1.5 px-2 rounded-lg border border-blue-500/20 dark:border-blue-450/20 bg-blue-500/5 hover:bg-blue-500/10 text-blue-750 dark:text-blue-300 font-extrabold text-[9px] uppercase tracking-wider transition-all duration-150 cursor-pointer flex items-center justify-center gap-1 active:scale-[0.98] disabled:opacity-50 hover:scale-[1.01]"
-                >
-                  Quiz
-                </button>
-                <button
-                  type="button"
-                  onClick={handleGenerateFlashcards}
-                  disabled={isTyping}
-                  className="flex-1 py-1.5 px-2 rounded-lg border border-emerald-500/20 dark:border-emerald-450/20 bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-750 dark:text-emerald-300 font-extrabold text-[9px] uppercase tracking-wider transition-all duration-150 cursor-pointer flex items-center justify-center gap-1 active:scale-[0.98] disabled:opacity-50 hover:scale-[1.01]"
-                >
-                  Flashcard
                 </button>
               </div>
 
@@ -595,7 +448,7 @@ function PreviewMessage({ message, fileUrl }) {
             rel="noreferrer"
             className="inline-flex items-center gap-2 mt-4 text-sm font-semibold text-purple-600 dark:text-purple-400 hover:underline"
           >
-            {language === "vi" ? "Mở file trong tab mới" : "Open file in a new tab"}
+            Mở file trong tab mới
             <ExternalLink className="w-4 h-4" />
           </a>
         )}

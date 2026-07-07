@@ -16,20 +16,25 @@ export const initOpenAI = () => {
  * @param {number} topK 
  * @returns {Array<Object>} List of relevant chunks
  */
-export const searchVectorDB = async (queryEmbedding, topK = 5) => {
+export const searchVectorDB = async (queryEmbedding, topK = 5, documentId = null) => {
     try {
         const embeddingString = `[${queryEmbedding.join(',')}]`;
         
-        // Use pgvector's <=> operator for Cosine Distance
-        // The smaller the distance, the more similar the vectors are.
-        const query = `
+        let query = `
             SELECT document_id, chunk_text, 1 - (embedding <=> $1::vector) AS similarity
             FROM document_chunks
             WHERE 1 - (embedding <=> $1::vector) > 0.35
-            ORDER BY embedding <=> $1::vector
-            LIMIT $2;
         `;
-        const { rows } = await pool.query(query, [embeddingString, topK]);
+        const queryParams = [embeddingString, topK];
+
+        if (documentId !== null && documentId !== undefined) {
+            query += ` AND document_id = $3`;
+            queryParams.push(documentId);
+        }
+
+        query += ` ORDER BY embedding <=> $1::vector LIMIT $2;`;
+
+        const { rows } = await pool.query(query, queryParams);
         return rows;
     } catch (error) {
         console.error("[Chat Service] Error querying vector database:", error);

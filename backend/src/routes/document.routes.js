@@ -15,6 +15,12 @@ router.get("/community", authenticateToken, documentController.getCommunityDocs)
 // GET /api/documents/bookmarks
 router.get("/bookmarks", authenticateToken, documentController.getBookmarks);
 
+// GET /api/documents/search — full-text search (must be before /:id)
+router.get("/search", optionalAuthenticateToken, documentController.searchDocuments);
+
+// GET /api/documents/tag-cloud — community tag cloud
+router.get("/tag-cloud", documentController.getTagCloud);
+
 // POST /api/documents/upload
 router.post("/upload", authenticateToken, documentController.createNewDoc);
 

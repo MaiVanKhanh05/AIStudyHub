@@ -226,3 +226,20 @@ export const getAllDocuments = async () => {
     }
 };
 
+// Full-text search with multi-filter support
+export const fullTextSearch = async (params) => {
+    try {
+        return await documentRepository.fullTextSearchDocuments(params);
+    } catch (error) {
+        throw error;
+    }
+};
+
+// Tag cloud for community documents
+export const getCommunityTagCloud = async () => {
+    try {
+        return await documentRepository.getCommunityTagCloud();
+    } catch (error) {
+        throw error;
+    }
+};

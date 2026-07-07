@@ -400,6 +400,138 @@ export const updateDocumentCommunityStatus = async (documentId, isCommunity) => 
     }
 };
 
+/**
+ * Full-text search across community/public documents.
+ * Params: { q, tags[], fileType[], dateFrom, dateTo, author, scope }
+ * scope: "community" (default) | "all" (requires userId check upstream)
+ */
+export const fullTextSearchDocuments = async ({ q = "", tags = [], fileTypes = [], dateFrom, dateTo, author, userId = null } = {}) => {
+    try {
+        const conditions = [];
+        const params = [];
+        let idx = 1;
+
+        // Scope: community + public + lecturer docs (same as getCommunityDocuments)
+        const scopeConditions = [`(d.is_community = TRUE OR d.visibility = 'PUBLIC' OR u.role = 'LECTURE'`];
+        if (userId) {
+            scopeConditions.push(` OR d.user_id = $${idx}`);
+            params.push(userId);
+            idx++;
+        }
+        scopeConditions.push(`)`);
+        conditions.push(scopeConditions.join(""));
+
+        // Keyword search across title, description, extracted_content, subject_name
+        if (q && q.trim()) {
+            const kw = q.trim();
+            conditions.push(`(
+                LOWER(d.title) LIKE LOWER($${idx})
+                OR LOWER(COALESCE(d.description,'')) LIKE LOWER($${idx})
+                OR LOWER(COALESCE(d.extracted_content,'')) LIKE LOWER($${idx})
+                OR LOWER(COALESCE(s.subject_name,'')) LIKE LOWER($${idx})
+                OR LOWER(COALESCE(s.subject_code,'')) LIKE LOWER($${idx})
+                OR LOWER(CONCAT(u.last_name,' ',u.first_name)) LIKE LOWER($${idx})
+            )`);
+            params.push(`%${kw}%`);
+            idx++;
+        }
+
+        // File type filter
+        if (fileTypes && fileTypes.length > 0) {
+            const placeholders = fileTypes.map(() => `$${idx++}`).join(", ");
+            conditions.push(`LOWER(d.file_type) IN (${placeholders})`);
+            params.push(...fileTypes.map(ft => ft.toLowerCase()));
+        }
+
+        // Date range filter
+        if (dateFrom) {
+            conditions.push(`d.upload_date >= $${idx}`);
+            params.push(dateFrom);
+            idx++;
+        }
+        if (dateTo) {
+            conditions.push(`d.upload_date <= $${idx}::date + INTERVAL '1 day'`);
+            params.push(dateTo);
+            idx++;
+        }
+
+        // Author filter
+        if (author && author.trim()) {
+            conditions.push(`LOWER(CONCAT(u.last_name,' ',u.first_name)) LIKE LOWER($${idx})`);
+            params.push(`%${author.trim()}%`);
+            idx++;
+        }
+
+        // Tags filter (document must have ALL specified tags)
+        if (tags && tags.length > 0) {
+            for (const tagName of tags) {
+                conditions.push(`EXISTS (
+                    SELECT 1 FROM document_tags dt2
+                    JOIN tags t2 ON dt2.tag_id = t2.tag_id
+                    WHERE dt2.document_id = d.document_id
+                    AND LOWER(t2.tag_name) = LOWER($${idx})
+                )`);
+                params.push(tagName.trim().toLowerCase());
+                idx++;
+            }
+        }
+
+        const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+
+        // Snippet: first 300 chars of extracted_content; highlight position computed in JS
+        const { rows } = await pool.query(
+            `SELECT
+                d.document_id, d.title, d.description, d.file_type, d.file_size,
+                d.upload_date, d.views, d.downloads, d.visibility, d.is_community,
+                d.subject_code,
+                s.subject_name,
+                (u.last_name || ' ' || u.first_name) as author,
+                u.role as uploader_role,
+                LEFT(COALESCE(d.extracted_content, d.description, ''), 400) as snippet,
+                COALESCE(
+                    (SELECT json_agg(json_build_object('tag_id', t.tag_id, 'tag_name', t.tag_name))
+                     FROM tags t
+                     JOIN document_tags dt ON t.tag_id = dt.tag_id
+                     WHERE dt.document_id = d.document_id),
+                    '[]'::json
+                ) as tags
+             FROM document d
+             JOIN users u ON d.user_id = u.user_id
+             LEFT JOIN subject s ON d.subject_code = s.subject_code
+             ${whereClause}
+             ORDER BY d.upload_date DESC
+             LIMIT 60`,
+            params
+        );
+        return rows;
+    } catch (error) {
+        console.error("Error in fullTextSearchDocuments:", error);
+        throw error;
+    }
+};
+
+/**
+ * Get all unique tags used across community documents (for tag cloud)
+ */
+export const getCommunityTagCloud = async () => {
+    try {
+        const { rows } = await pool.query(
+            `SELECT t.tag_id, t.tag_name, COUNT(dt.document_id)::int as doc_count
+             FROM tags t
+             JOIN document_tags dt ON t.tag_id = dt.tag_id
+             JOIN document d ON dt.document_id = d.document_id
+             WHERE d.is_community = TRUE OR d.visibility = 'PUBLIC'
+             GROUP BY t.tag_id, t.tag_name
+             ORDER BY doc_count DESC
+             LIMIT 30`
+        );
+        return rows;
+    } catch (error) {
+        console.error("Error in getCommunityTagCloud:", error);
+        return [];
+    }
+};
+
 // Store AI-extracted text content for RAG/search pipeline
 export const updateExtractedContent = async (documentId, extractedContent) => {
     try {

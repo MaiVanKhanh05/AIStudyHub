@@ -7,4 +7,8 @@ const router = Router();
 // GET /api/subjects - Get all subjects or search by query
 router.get("/", authenticateToken, subjectController.getSubjects);
 
+// POST /api/subjects - Create a new subject (Admin only)
+import { requireAdmin } from "../middlewares/validation.middleware.js";
+router.post("/", authenticateToken, requireAdmin, subjectController.createSubject);
+
 export default router;

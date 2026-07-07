@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  LayoutDashboard, HardDrive, UserCog, User,
+  LayoutDashboard, HardDrive, UserCog, User, Folder,
   Settings, LogOut, GraduationCap, Mic2, BookOpen, ShieldCheck, Globe
 } from "lucide-react";
 import { useLanguage } from "../../context/LanguageContext";
@@ -23,16 +23,13 @@ export default function AdminSidebar({ activeSection, onNavigate }) {
       label: language === "vi" ? "Quản trị" : "Administration",
       items: [
         { key: "dashboard", label: t("admin.sidebar.overview") || "Overview",          icon: LayoutDashboard },
-        { key: "student",   label: language === "vi" ? "Sinh viên" : "Students",           icon: GraduationCap },
-        { key: "lecture",   label: language === "vi" ? "Giảng viên" : "Lecturers",          icon: Mic2 },
         { key: "users",     label: t("admin.sidebar.users") || "User Management",  icon: UserCog },
       ],
     },
     {
       label: language === "vi" ? "Nội dung" : "Content",
       items: [
-        { key: "documents", label: language === "vi" ? "Tài liệu" : "Documents",   icon: BookOpen },
-        { key: "storage",   label: t("admin.sidebar.storage") || "Storage Management",    icon: HardDrive },
+        { key: "topics",    label: language === "vi" ? "Chủ đề (Topics)" : "Topics", icon: Folder },        { key: "storage",   label: t("admin.sidebar.storage") || "Storage Management",    icon: HardDrive },
       ],
     },
   ];

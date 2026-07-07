@@ -4,6 +4,7 @@ import AdminSidebar from "./AdminSidebar";
 import AdminOverview from "./AdminOverview";
 import AdminUserManagement from "./AdminUserManagement";
 import AdminDocumentManagement from "./AdminDocumentManagement";
+import AdminTopicManagement from "./AdminTopicManagement";
 import AdminStorageManagement from "./AdminStorageManagement";
 import AdminPersonalProfile from "./AdminPersonalProfile";
 
@@ -11,6 +12,12 @@ import AdminPersonalProfile from "./AdminPersonalProfile";
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const [activeSection, setActiveSection] = useState("dashboard");
+  const [userRoleFilter, setUserRoleFilter] = useState("all");
+
+  const handleNavigate = (section, filter = "all") => {
+    setActiveSection(section);
+    if (section === "users") setUserRoleFilter(filter);
+  };
 
   useEffect(() => {
     const token = localStorage.getItem("token") || sessionStorage.getItem("token");
@@ -29,20 +36,19 @@ export default function AdminDashboard() {
 
   const renderSection = () => {
     switch (activeSection) {
-      case "dashboard":  return <AdminOverview />;
-      case "student":    return <AdminUserManagement roleFilter="STUDENT" />;
-      case "lecture":    return <AdminUserManagement roleFilter="LECTURER" />;
+      case "dashboard":  return <AdminOverview onNavigate={handleNavigate} />;
+      case "topics":     return <AdminTopicManagement />;
       case "storage":    return <AdminStorageManagement />;
-      case "users":      return <AdminUserManagement roleFilter="all" />;
+      case "users":      return <AdminUserManagement roleFilter={userRoleFilter} />;
       case "profile":    return <AdminPersonalProfile />;
       case "documents":  return <AdminDocumentManagement />;
-      default:           return <AdminOverview />;
+      default:           return <AdminOverview onNavigate={handleNavigate} />;
     }
   };
 
   return (
     <div className="flex min-h-screen bg-slate-100 font-sans">
-      <AdminSidebar activeSection={activeSection} onNavigate={setActiveSection} />
+      <AdminSidebar activeSection={activeSection} onNavigate={handleNavigate} />
       <main className="flex-1 min-w-0 p-7 overflow-x-hidden">
         {renderSection()}
       </main>

@@ -16,3 +16,29 @@ export const getSubjects = async (req, res) => {
         return res.status(500).json({ error: "Failed to load subjects" });
     }
 };
+
+// POST /api/subjects - Create a new subject
+export const createSubject = async (req, res) => {
+    try {
+        const { subject_code, subject_name } = req.body;
+        if (!subject_code || !subject_name) {
+            return res.status(400).json({ error: "Missing subject_code or subject_name" });
+        }
+        
+        // getOrCreateSubject will create it or return the existing one.
+        // We can check if it already existed by a separate query, but getOrCreateSubject is fine.
+        const code = subject_code.trim().toUpperCase();
+        const existing = await subjectRepository.searchSubjects(code);
+        const exactMatch = existing.find(s => s.subject_code.toUpperCase() === code);
+        
+        if (exactMatch) {
+            return res.status(409).json({ error: "Subject code already exists" });
+        }
+
+        const newSubject = await subjectRepository.getOrCreateSubject(code, subject_name);
+        return res.status(201).json(newSubject);
+    } catch (error) {
+        console.error("Error in createSubject controller:", error);
+        return res.status(500).json({ error: "Failed to create subject" });
+    }
+};

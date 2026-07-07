@@ -8,7 +8,7 @@ import pool from "../../DB/db.js";
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 // Helpers for 6-Digit OTP Verification
-const generateOTP = () => {
+export const generateOTP = () => {
     return Math.floor(100000 + Math.random() * 900000).toString();
 };
 
