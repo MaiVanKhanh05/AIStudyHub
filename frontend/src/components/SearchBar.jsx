@@ -58,6 +58,7 @@ export default function SearchBar({
   onFiltersChange,
   userId      = null,
   placeholder,
+  resultCount = null,
   className   = "max-w-2xl mx-auto",
 }) {
   const { t, language } = useLanguage();
@@ -337,6 +338,13 @@ export default function SearchBar({
 
         {/* Right controls */}
         <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 z-10">
+          {/* Result count badge */}
+          {resultCount !== null && inputValue && (
+            <span className="flex items-center gap-1 h-5 px-2 rounded-md bg-violet-600 text-white text-[9px] font-bold whitespace-nowrap animate-in fade-in zoom-in-95 duration-150">
+              {resultCount} tài liệu
+            </span>
+          )}
+
           {/* Clear */}
           {inputValue && (
             <button
@@ -371,6 +379,7 @@ export default function SearchBar({
             )}
           </button>
         </div>
+
       </div>
 
       {/* ── Dropdown ─────────────────────────────────────────────────────── */}
@@ -476,9 +485,9 @@ export default function SearchBar({
             )}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* File types */}
-            <div>
+            <div className="md:row-span-2">
               <div className="flex items-center gap-1.5 mb-2">
                 <FileText className="w-3 h-3 text-slate-400" />
                 <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Loại file</span>
@@ -494,7 +503,7 @@ export default function SearchBar({
                       className={[
                         "flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-black border transition-all duration-200 cursor-pointer active:scale-95",
                         active
-                          ? `${ft.color} text-white border-transparent shadow-sm`
+                           ? `${ft.color} text-white border-transparent shadow-sm`
                           : "bg-slate-50 dark:bg-white/5 text-slate-500 dark:text-slate-400 border-slate-200/60 dark:border-white/10 hover:border-violet-300",
                       ].join(" ")}
                     >
@@ -506,8 +515,31 @@ export default function SearchBar({
               </div>
             </div>
 
+            {/* Date range */}
+            <div className="md:col-span-2">
+              <div className="flex items-center gap-1.5 mb-2">
+                <Calendar className="w-3 h-3 text-slate-400" />
+                <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Khoảng thời gian</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="date"
+                  value={dateFrom}
+                  onChange={e => { setDateFrom(e.target.value); emitFilters({ dateFrom: e.target.value }); }}
+                  className="flex-1 min-w-0 rounded-lg bg-slate-50 dark:bg-white/5 border border-slate-200/60 dark:border-white/10 px-2.5 py-1.5 text-[10px] text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-violet-500/40 cursor-pointer"
+                />
+                <span className="text-[10px] text-slate-400 shrink-0">→</span>
+                <input
+                  type="date"
+                  value={dateTo}
+                  onChange={e => { setDateTo(e.target.value); emitFilters({ dateTo: e.target.value }); }}
+                  className="flex-1 min-w-0 rounded-lg bg-slate-50 dark:bg-white/5 border border-slate-200/60 dark:border-white/10 px-2.5 py-1.5 text-[10px] text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-violet-500/40 cursor-pointer"
+                />
+              </div>
+            </div>
+
             {/* Tags input */}
-            <div>
+            <div className="md:col-span-1">
               <div className="flex items-center gap-1.5 mb-2">
                 <Hash className="w-3 h-3 text-slate-400" />
                 <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Tags</span>
@@ -560,31 +592,8 @@ export default function SearchBar({
               </div>
             </div>
 
-            {/* Date range */}
-            <div>
-              <div className="flex items-center gap-1.5 mb-2">
-                <Calendar className="w-3 h-3 text-slate-400" />
-                <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Khoảng thời gian</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <input
-                  type="date"
-                  value={dateFrom}
-                  onChange={e => { setDateFrom(e.target.value); emitFilters({ dateFrom: e.target.value }); }}
-                  className="flex-1 rounded-lg bg-slate-50 dark:bg-white/5 border border-slate-200/60 dark:border-white/10 px-2.5 py-1.5 text-[10px] text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-violet-500/40 cursor-pointer"
-                />
-                <span className="text-[10px] text-slate-400 shrink-0">→</span>
-                <input
-                  type="date"
-                  value={dateTo}
-                  onChange={e => { setDateTo(e.target.value); emitFilters({ dateTo: e.target.value }); }}
-                  className="flex-1 rounded-lg bg-slate-50 dark:bg-white/5 border border-slate-200/60 dark:border-white/10 px-2.5 py-1.5 text-[10px] text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-violet-500/40 cursor-pointer"
-                />
-              </div>
-            </div>
-
             {/* Author */}
-            <div>
+            <div className="md:col-span-1">
               <div className="flex items-center gap-1.5 mb-2">
                 <User className="w-3 h-3 text-slate-400" />
                 <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Tác giả</span>

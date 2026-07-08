@@ -487,55 +487,246 @@ ${JSON.stringify(setJSON.flashcards.map(c => c.front))}
  * @returns {Promise<Array>} topics array for clearAndRebuildTopics()
  */
 export async function generateTopicsFromSubjects(subjects) {
-    const apiKey = process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY;
-    if (!apiKey) throw new Error("Không tìm thấy API Key của AI.");
     if (!subjects || subjects.length === 0) return [];
 
-    const subjectList = subjects
-        .map(s => `- ${s.subject_code}: ${s.subject_name || s.subject_code}`)
-        .join("\n");
+    const PREDEFINED_TOPICS = [
+      {
+        name: "Lập trình",
+        description: "Các môn học nền tảng về tư duy lập trình và các ngôn ngữ lập trình phổ biến.",
+        icon: "💻",
+        color: "#3b82f6",
+        subjects: ["PFP191", "PRF192", "PRO191", "PRO192", "PRN211", "PRN212", "PRN221", "PRN231", "PRN232", "JSC301"]
+      },
+      {
+        name: "Thuật toán & Cấu trúc dữ liệu",
+        description: "Nghiên cứu về cấu trúc lưu trữ dữ liệu và các thuật toán tối ưu hóa hiệu năng phần mềm.",
+        icon: "📊",
+        color: "#ef4444",
+        subjects: ["CSD201", "CSD202", "CSD203"]
+      },
+      {
+        name: "Toán học",
+        description: "Trang bị các kiến thức toán học cần thiết cho khoa học máy tính và kỹ thuật.",
+        icon: "📐",
+        color: "#10b981",
+        subjects: ["MAE101", "MAD101", "MAS202", "MAS291"]
+      },
+      {
+        name: "Kiến trúc máy tính",
+        description: "Tìm hiểu về cấu trúc phần cứng, vi xử lý và nguyên lý hoạt động của máy tính.",
+        icon: "🖥️",
+        color: "#f59e0b",
+        subjects: ["CEA201", "CSI104", "CSI105", "CSI106"]
+      },
+      {
+        name: "Hệ điều hành",
+        description: "Tìm hiểu về nguyên lý quản lý tiến trình, bộ nhớ và tài nguyên của hệ điều hành.",
+        icon: "💿",
+        color: "#6b7280",
+        subjects: ["OSG202", "OSG203"]
+      },
+      {
+        name: "Mạng máy tính",
+        description: "Các giao thức truyền thông, kiến trúc mạng và bảo mật kết nối mạng.",
+        icon: "🌐",
+        color: "#06b6d4",
+        subjects: ["NWC203c", "NWC204", "NWC303", "SDN301m"]
+      },
+      {
+        name: "Cơ sở dữ liệu",
+        description: "Thiết kế, quản trị và truy vấn các hệ thống cơ sở dữ liệu quan hệ và phi quan hệ.",
+        icon: "🗄️",
+        color: "#8b5cf6",
+        subjects: ["DBI202", "DBM301", "DBW301"]
+      },
+      {
+        name: "Phát triển Web",
+        description: "Xây dựng các ứng dụng web hiện đại từ giao diện người dùng đến hệ thống máy chủ.",
+        icon: "🌐",
+        color: "#ec4899",
+        subjects: ["WED201c", "JSC301", "SWP391", "WDP301"]
+      },
+      {
+        name: "Phát triển Mobile",
+        description: "Phát triển các ứng dụng chạy trên nền tảng di động iOS và Android.",
+        icon: "📱",
+        color: "#14b8a6",
+        subjects: ["PRM392"]
+      },
+      {
+        name: "Phát triển Game",
+        description: "Quy trình thiết kế, lập trình và xây dựng đồ họa cho trò chơi điện tử.",
+        icon: "🎮",
+        color: "#f43f5e",
+        subjects: ["FER201m", "FER202"]
+      },
+      {
+        name: "Công nghệ phần mềm",
+        description: "Quy trình phát triển phần mềm, thiết kế hệ thống và quản lý dự án công nghệ.",
+        icon: "🏗️",
+        color: "#6366f1",
+        subjects: ["SDP201", "SWE201c", "PRJ301", "PRJ302", "SEP490"]
+      },
+      {
+        name: "Kiểm thử phần mềm",
+        description: "Phương pháp bảo đảm chất lượng phần mềm, viết kịch bản test và tự động hóa kiểm thử.",
+        icon: "🧪",
+        color: "#a855f7",
+        subjects: ["SWT301"]
+      },
+      {
+        name: "Quản lý dự án",
+        description: "Phương pháp luận Agile/Scrum, lập kế hoạch, kiểm soát tiến độ và chi phí dự án.",
+        icon: "📅",
+        color: "#eab308",
+        subjects: ["PMG201c", "PMG202c"]
+      },
+      {
+        name: "Trí tuệ nhân tạo (AI)",
+        description: "Nghiên cứu các thuật toán thông minh, xử lý tri thức và hệ chuyên gia.",
+        icon: "🤖",
+        color: "#3b82f6",
+        subjects: ["AIG201c", "AIG202c", "AIL302m", "AID301c", "AIT301"]
+      },
+      {
+        name: "Khoa học dữ liệu",
+        description: "Khai phá dữ liệu, phân tích thống kê và đưa ra quyết định dựa trên dữ liệu lớn.",
+        icon: "📈",
+        color: "#06b6d4",
+        subjects: ["ADS301m", "DAT301m", "DSS301"]
+      },
+      {
+        name: "Học máy & NLP",
+        description: "Xây dựng các mô hình tự học và xử lý ngôn ngữ tự nhiên từ dữ liệu văn bản.",
+        icon: "🧠",
+        color: "#8b5cf6",
+        subjects: ["NLP301c"]
+      },
+      {
+        name: "Dữ liệu lớn (Big Data)",
+        description: "Lưu trữ, xử lý và truy vấn các tập dữ liệu có quy mô khổng lồ.",
+        icon: "💾",
+        color: "#f97316",
+        subjects: ["BDI301c", "BDI302c"]
+      },
+      {
+        name: "An toàn thông tin",
+        description: "Bảo mật hệ thống, mật mã học, phát hiện xâm nhập và phòng ngừa rủi ro thông tin.",
+        icon: "🛡️",
+        color: "#10b981",
+        subjects: ["CRY303c", "ISC301", "ISC302"]
+      },
+      {
+        name: "Điện toán đám mây",
+        description: "Triển khai hệ thống trên các nền tảng AWS, Azure, Google Cloud.",
+        icon: "☁️",
+        color: "#60a5fa",
+        subjects: ["CCO201"]
+      },
+      {
+        name: "DevOps",
+        description: "Tích hợp liên tục và triển khai tự động (CI/CD), tự động hóa hạ tầng phần mềm.",
+        icon: "♾️",
+        color: "#4b5563",
+        subjects: ["OSP201"]
+      },
+      {
+        name: "Internet of Things (IoT)",
+        description: "Kết nối các thiết bị phần cứng, thu thập dữ liệu cảm biến qua môi trường Internet.",
+        icon: "🔌",
+        color: "#d97706",
+        subjects: ["IOT102"]
+      },
+      {
+        name: "Hệ thống nhúng",
+        description: "Lập trình điều khiển vi mạch, thiết kế phần cứng tích hợp và hệ thống thời gian thực.",
+        icon: "📟",
+        color: "#4f46e5",
+        subjects: ["IFT201c"]
+      },
+      {
+        name: "Business Analysis",
+        description: "Phân tích yêu cầu nghiệp vụ, cầu nối giữa khách hàng và đội ngũ phát triển kỹ thuật.",
+        icon: "💼",
+        color: "#0d9488",
+        subjects: ["ISM201", "ISM302"]
+      },
+      {
+        name: "Hệ thống thông tin",
+        description: "Vận hành và quản lý luồng thông tin tích hợp trong tổ chức doanh nghiệp.",
+        icon: "🗂️",
+        color: "#7c3aed",
+        subjects: ["IAM302"]
+      },
+      {
+        name: "UI/UX",
+        description: "Thiết kế trải nghiệm người dùng và giao diện đồ họa cho ứng dụng di động, website.",
+        icon: "🎨",
+        color: "#db2777",
+        subjects: ["DWB301", "DWP301c"]
+      },
+      {
+        name: "Enterprise Application (SAP/ERP)",
+        description: "Phát triển và cấu hình các hệ thống quản trị nguồn lực doanh nghiệp SAP/ERP.",
+        icon: "🏢",
+        color: "#2563eb",
+        subjects: ["SAP311", "SAP321", "SAP331", "SAP341"]
+      },
+      {
+        name: "Blockchain",
+        description: "Nguyên lý chuỗi khối, hợp đồng thông minh và phát triển ứng dụng phi tập trung.",
+        icon: "⛓️",
+        color: "#f97316",
+        subjects: ["BCJ201c"]
+      },
+      {
+        name: "Robot Process Automation (RPA)",
+        description: "Tự động hóa quy trình nghiệp vụ bằng robot phần mềm.",
+        icon: "🤖",
+        color: "#0891b2",
+        subjects: ["RMC301", "RMC301m"]
+      },
+      {
+        name: "Điện toán thông minh (Intelligent Applications)",
+        description: "Ứng dụng các kỹ thuật điện toán hiện đại và thông minh vào thực tế.",
+        icon: "💡",
+        color: "#a21caf",
+        subjects: ["IAP301", "IAW301"]
+      },
+      {
+        name: "Thực tập & Đồ án",
+        description: "Thực tập thực tế tại doanh nghiệp và thực hiện đồ án tốt nghiệp cuối khóa.",
+        icon: "🎓",
+        color: "#0f766e",
+        subjects: ["EXE201", "OJT202", "ISP490", "SEP490"]
+      }
+    ];
 
-    const prompt = `
-Bạn là một chuyên gia thiết kế chương trình học đại học.
-Dưới đây là danh sách các môn học (mã môn: tên môn) tại một trường đại học Việt Nam:
+    // Create a deep copy of predefined topics with empty subjects arrays
+    const resultTopics = PREDEFINED_TOPICS.map(t => ({
+        name: t.name,
+        description: t.description,
+        icon: t.icon,
+        color: t.color,
+        subjects: []
+    }));
 
-${subjectList}
+    // Classify each input subject
+    for (const sub of subjects) {
+        const subCodeUpper = sub.subject_code.trim().toUpperCase();
 
-Hãy phân loại tất cả các môn học trên vào các nhóm chủ đề lớn (tối đa 8-10 chủ đề).
-Mỗi môn học CHỈ được thuộc đúng 1 chủ đề.
-Đặc biệt lưu ý: Các môn học liên quan đến nhau nhưng có mã khác nhau (có số hoặc không có số) cần được gom chung. Ví dụ: 'CSD', 'CSD211', 'DSA' đều phải thuộc chung chủ đề 'Cấu trúc dữ liệu và thuật toán'. Các môn chỉ có tên mà không có số cũng phải được phân loại theo ngữ nghĩa vào đúng chủ đề.
-Những môn học không rõ ràng hãy gom vào chủ đề "Khác".
-
-Yêu cầu đầu ra là JSON hợp lệ theo schema sau:
-{
-  "topics": [
-    {
-      "name": "Tên chủ đề ngắn gọn bằng tiếng Việt (ví dụ: Lập trình, Toán học, Tiếng Anh)",
-      "description": "Mô tả ngắn 1 dòng về nhóm chủ đề này",
-      "icon": "1 emoji đại diện (ví dụ: 💻 cho Lập trình, 📐 cho Toán)",
-      "color": "Mã màu HEX hợp lệ (ví dụ: #7c3aed)",
-      "subjects": ["SUBJECT_CODE_1", "SUBJECT_CODE_2"]
+        for (let i = 0; i < PREDEFINED_TOPICS.length; i++) {
+            const predefined = PREDEFINED_TOPICS[i];
+            const hasSubject = predefined.subjects.some(
+                s => s.trim().toUpperCase() === subCodeUpper
+            );
+            if (hasSubject) {
+                resultTopics[i].subjects.push(sub.subject_code);
+            }
+        }
     }
-  ]
-}
 
-Chỉ trả về chuỗi JSON thô, không viết thêm lời mở đầu hay kết luận.
-`;
-
-    let responseString = "";
-    if (process.env.GEMINI_API_KEY) {
-        responseString = await callGemini(prompt);
-    } else {
-        responseString = await callOpenAI(prompt);
-    }
-
-    const cleaned = cleanJSONString(responseString);
-    const parsed = JSON.parse(cleaned);
-
-    if (!Array.isArray(parsed.topics)) {
-        throw new Error("AI không trả về định dạng topics hợp lệ.");
-    }
-
-    return parsed.topics;
+    // Filter out any topics that have 0 subjects mapped
+    return resultTopics.filter(t => t.subjects.length > 0);
 }
 
