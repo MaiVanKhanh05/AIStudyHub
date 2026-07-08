@@ -34,7 +34,6 @@ app.use("/api/chat", chatRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/topics", topicRoutes);
 
-
 const PORT = Number(process.env.PORT) || 5000;
 
 const start = async () => {
