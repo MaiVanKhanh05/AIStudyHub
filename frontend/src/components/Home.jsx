@@ -402,12 +402,177 @@ const getDaysInMonth = (month, year) => {
   return new Date(year, month, 0).getDate();
 };
 
+const SEMESTER_MAP = [
+  {
+    id: "sem1",
+    name: "Học kỳ 1",
+    description: "Nhập môn CNTT, cơ sở lập trình, kỹ năng nền tảng ngành.",
+    color: "#3b82f6",
+    subjects: [
+      "ASI101", "CEA201", "CSI104", "CSI105", "CSI106",
+      "MAE101", "PFP191", "PRF192", "SDI101m"
+    ]
+  },
+  {
+    id: "sem2",
+    name: "Học kỳ 2",
+    description: "Lập trình hướng đối tượng, mạng máy tính, hệ điều hành.",
+    color: "#10b981",
+    subjects: [
+      "AIG201c", "AIG202c", "CMC201", "CSD203", "MAD101",
+      "NWC203c", "NWC204", "OSG202", "PRN212", "PRO192"
+    ]
+  },
+  {
+    id: "sem3",
+    name: "Học kỳ 3",
+    description: "Cơ sở dữ liệu, thiết kế web, phát triển phần mềm.",
+    color: "#8b5cf6",
+    subjects: [
+      "CSD201", "DBI202", "ITE303c", "NWC303", "SDP201", "WED201c"
+    ]
+  },
+  {
+    id: "sem4",
+    name: "Học kỳ 4",
+    description: "Cloud, IoT, quản lý dự án, kỹ nghệ phần mềm.",
+    color: "#f59e0b",
+    subjects: [
+      "CCO201", "IOT102", "ITA203c", "OSP201",
+      "PRJ301", "PRJ302", "SWE201c"
+    ]
+  },
+  {
+    id: "sem5",
+    name: "Học kỳ 5",
+    description: "Bảo mật, React, C#, kiểm thử phần mềm, thực tập dự án.",
+    color: "#ec4899",
+    subjects: [
+      "CRY303c", "FER201m", "FER202", "IAM302", "ISM302",
+      "ITE302c", "JSC301", "PRN211", "PRN292c", "SWP391", "SWT301"
+    ]
+  },
+  {
+    id: "sem6",
+    name: "Học kỳ 6",
+    description: "Thực tập doanh nghiệp và xử lý ngôn ngữ tự nhiên.",
+    color: "#06b6d4",
+    subjects: ["NLP301c", "OJT202"]
+  },
+  {
+    id: "sem7",
+    name: "Học kỳ 7",
+    description: "AI nâng cao, Big Data, bảo mật, phân tán, thiết kế hệ thống.",
+    color: "#f43f5e",
+    subjects: [
+      "ADS301m", "AIL302m", "AIT301", "BDI302c", "DAT301m",
+      "IAP301", "IAW301", "ISC301", "ISC302", "ITB301c",
+      "PRM392", "PRN221", "SDN301m", "SWD391", "SWD392", "SYB302c"
+    ]
+  },
+  {
+    id: "sem8",
+    name: "Học kỳ 8",
+    description: "Quản trị CSDL, quản lý dự án, khởi nghiệp, lập trình nâng cao.",
+    color: "#14b8a6",
+    subjects: [
+      "AID301c", "DBM301", "DBW301", "DSS301", "EXE201",
+      "IFT201c", "PMG201c", "PMG202c", "PRN231", "SPM401", "WDP301"
+    ]
+  },
+  {
+    id: "sem9",
+    name: "Học kỳ 9",
+    description: "Thực tập tốt nghiệp và đồ án Capstone Project.",
+    color: "#6366f1",
+    subjects: ["ISP490", "SEP490"]
+  }
+];
+
+const OTHER_SUBJECTS_MAP = [
+  "ADA201", "CSD202", "OSG203", "DIC201", "DWB301", "ENW493c",
+  "IAR401", "ITB302c", "PRN222", "PRN232", "SDN302", "AIE301",
+  "APO201", "BDI301c", "MCP201", "FAP201", "SSA101"
+];
+
 const monthNamesVi = [
   "Tháng 1", "Tháng 2", "Tháng 3", "Tháng 4",
   "Tháng 5", "Tháng 6", "Tháng 7", "Tháng 8",
   "Tháng 9", "Tháng 10", "Tháng 11", "Tháng 12"
 ];
+
 const weekdaysVi = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
+
+export const TOPIC_TRANSLATIONS = {
+  "Lập trình C/C++": {
+    enName: "C/C++ Programming",
+    enDesc: "Algorithmic thinking and basic programming with C/C++."
+  },
+  "Lập trình Java": {
+    enName: "Java/C# Programming",
+    enDesc: "Advanced object-oriented programming and enterprise applications with Java/C#."
+  },
+  "Web Development": {
+    enName: "Web Development",
+    enDesc: "Build modern web applications from user interfaces to server systems."
+  },
+  "Mobile Development": {
+    enName: "Mobile Development",
+    enDesc: "Develop applications running on iOS and Android mobile platforms."
+  },
+  "Cơ sở dữ liệu": {
+    enName: "Database Systems",
+    enDesc: "Design, administer, and query relational and non-relational database systems."
+  },
+  "AI & Machine Learning": {
+    enName: "AI & Machine Learning",
+    enDesc: "Research on intelligent algorithms, knowledge representation, and machine learning."
+  },
+  "Data Science": {
+    enName: "Data Science",
+    enDesc: "Data mining, statistical analysis, and data-driven decision making."
+  },
+  "Mạng máy tính": {
+    enName: "Computer Networking",
+    enDesc: "Communication protocols, network architecture, and connection security."
+  },
+  "An toàn thông tin": {
+    enName: "Information Security",
+    enDesc: "System security, cryptography, intrusion detection, and information risk prevention."
+  },
+  "IoT & Embedded": {
+    enName: "IoT & Embedded Systems",
+    enDesc: "Connect hardware devices, microcontroller programming, and real-time systems."
+  },
+  "DevOps & Cloud": {
+    enName: "DevOps & Cloud Computing",
+    enDesc: "Continuous integration, automated deployment (CI/CD), and cloud infrastructure."
+  },
+  "Thiết kế phần mềm": {
+    enName: "Software Design & Architecture",
+    enDesc: "System architecture, software design principles, and engineering processes."
+  },
+  "Kiểm thử phần mềm": {
+    enName: "Software Testing",
+    enDesc: "Software quality assurance methods, writing test cases, and test automation."
+  },
+  "Dự án & Thực tập": {
+    enName: "Internship & Graduation Project",
+    enDesc: "Practical corporate internship and graduation capstone project."
+  },
+  "Game Development": {
+    enName: "Game Development",
+    enDesc: "Process of design, programming, and graphics creation for video games."
+  },
+  "Blockchain": {
+    enName: "Blockchain",
+    enDesc: "Blockchain principles, smart contracts, and decentralized application development."
+  },
+  "Information Systems": {
+    enName: "Information Systems",
+    enDesc: "Operate and manage integrated information flows in corporate organizations."
+  }
+};;
 
 export default function Home() {
   const navigate = useNavigate();
@@ -501,30 +666,27 @@ export default function Home() {
 
   useEffect(() => {
     if (!isResizing) return;
-
     const handleMouseMove = (e) => {
-      const sidebarElement = document.getElementById("ai-chat-sidebar");
-      if (sidebarElement) {
-        const rect = sidebarElement.getBoundingClientRect();
-        const newWidth = e.clientX - rect.left;
-        if (newWidth >= 180 && newWidth <= 450) {
-          setSidebarWidth(newWidth);
-        }
-      }
+      const newWidth = Math.max(180, Math.min(320, e.clientX));
+      setSidebarWidth(newWidth);
     };
-
     const handleMouseUp = () => {
       setIsResizing(false);
     };
-
-    window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("mouseup", handleMouseUp);
-
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
     return () => {
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mouseup", handleMouseUp);
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
     };
   }, [isResizing]);
+
+  // Rest of state variables ...
+  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [stats, setStats] = useState({ totalDocs: 0, publicDocs: 0, sharedDocs: 0 });
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [showPersonalCalendarPopover, setShowPersonalCalendarPopover] = useState(false);
+  const personalCalendarRef = useRef(null);
 
   // Load authenticated user session
   const userStr = localStorage.getItem("user") || sessionStorage.getItem("user");
@@ -582,7 +744,8 @@ export default function Home() {
   const [currentDate, setCurrentDate] = useState("");
   const [processingDocId, setProcessingDocId] = useState(null);
 
-
+  // Searchable subjects list
+  const [subjectsList, setSubjectsList] = useState([]);
 
   // Community Tab States & Dynamic Data Loader
   const [communitySearch, setCommunitySearch] = useState("");
@@ -599,6 +762,106 @@ export default function Home() {
   const [communityTopicsLoading, setCommunityTopicsLoading] = useState(false);
   const [selectedCommunityTopicId, setSelectedCommunityTopicId] = useState(null);
   const [selectedCommunitySubjectCode, setSelectedCommunitySubjectCode] = useState(null);
+  const [communityClassificationTab, setCommunityClassificationTab] = useState("ALL"); // "ALL" | "SEMESTERS"
+  // Map of subject_code -> { subject_code, subject_name, doc_count } for subjects with public docs
+  const [subjectsDocCounts, setSubjectsDocCounts] = useState([]);
+
+  const getSemestersData = useMemo(() => {
+    // Build a map from all subjects that have public documents
+    // Source: /api/subjects/doc-counts — includes ALL subjects with docs, even those not in any topic
+    const activeSubjectsMap = new Map();
+    subjectsDocCounts.forEach(sub => {
+      activeSubjectsMap.set(sub.subject_code, {
+        subject_code: sub.subject_code,
+        subject_name: sub.subject_name || "",
+        doc_count: Number(sub.doc_count) || 0
+      });
+    });
+
+    const allKnownCodes = new Set();
+    SEMESTER_MAP.forEach(sem => sem.subjects.forEach(c => allKnownCodes.add(c)));
+    OTHER_SUBJECTS_MAP.forEach(c => allKnownCodes.add(c));
+
+    const searchLower = communitySearch.trim().toLowerCase();
+
+    const groupedSemesters = SEMESTER_MAP.map(sem => {
+      const semSubjects = sem.subjects.map(code => {
+        const entry = activeSubjectsMap.get(code);
+        return {
+          subject_code: code,
+          subject_name: entry ? entry.subject_name : "",
+          doc_count: entry ? entry.doc_count : 0
+        };
+      }).filter(sub => {
+        if (!searchLower) return true;
+        const codeMatch = sub.subject_code.toLowerCase().includes(searchLower);
+        const nameMatch = (sub.subject_name || "").toLowerCase().includes(searchLower);
+        return codeMatch || nameMatch;
+      });
+
+      const totalDocs = semSubjects.reduce((acc, curr) => acc + curr.doc_count, 0);
+
+      return {
+        semester_id: sem.id,
+        name: sem.name,
+        description: sem.description,
+        color: sem.color,
+        subjects: semSubjects,
+        totalDocs
+      };
+    });
+
+    // Build "Khác" from:
+    // 1. Explicitly listed OTHER_SUBJECTS_MAP codes
+    // 2. Any subject with doc_count > 0 not in SEMESTER_MAP nor OTHER_SUBJECTS_MAP
+    let otherSubjects = [];
+    const addedOtherCodes = new Set();
+
+    OTHER_SUBJECTS_MAP.forEach(code => {
+      const entry = activeSubjectsMap.get(code);
+      otherSubjects.push({
+        subject_code: code,
+        subject_name: entry ? entry.subject_name : code,
+        doc_count: entry ? entry.doc_count : 0
+      });
+      addedOtherCodes.add(code);
+    });
+
+    // Append any remaining uploaded subjects not covered by SEMESTER_MAP or OTHER_SUBJECTS_MAP
+    activeSubjectsMap.forEach((subData, code) => {
+      if (!allKnownCodes.has(code) && !addedOtherCodes.has(code) && subData.doc_count > 0) {
+        otherSubjects.push(subData);
+      }
+    });
+
+    // Filter other subjects
+    if (searchLower) {
+      otherSubjects = otherSubjects.filter(sub => {
+        const codeMatch = sub.subject_code.toLowerCase().includes(searchLower);
+        const nameMatch = (sub.subject_name || "").toLowerCase().includes(searchLower);
+        return codeMatch || nameMatch;
+      });
+    }
+
+    const otherTotalDocs = otherSubjects.reduce((acc, curr) => acc + curr.doc_count, 0);
+
+    const otherSemester = {
+      semester_id: "other",
+      name: "Khác",
+      description: "Các môn học ngoài chương trình chuẩn hoặc chưa phân loại học kỳ.",
+      color: "#64748b",
+      subjects: otherSubjects,
+      totalDocs: otherTotalDocs
+    };
+
+    // Filter semesters: only show semesters with matching subjects when filtering
+    return [...groupedSemesters, otherSemester].filter(sem => {
+      if (searchLower) {
+        return sem.subjects.length > 0;
+      }
+      return sem.semester_id !== "other" || sem.subjects.some(s => s.doc_count > 0);
+    });
+  }, [subjectsDocCounts, communitySearch]);
 
   const fetchCommunityTopics = async () => {
     setCommunityTopicsLoading(true);
@@ -627,8 +890,18 @@ export default function Home() {
     }
   };
 
+  const fetchSubjectsDocCounts = async () => {
+    try {
+      const res = await axios.get("http://localhost:5000/api/subjects/doc-counts");
+      setSubjectsDocCounts(res.data || []);
+    } catch (err) {
+      console.error("Error loading subjects doc counts:", err);
+    }
+  };
+
   useEffect(() => {
     fetchCommunityTopics();
+    fetchSubjectsDocCounts();
   }, []);
 
   useEffect(() => {
@@ -658,7 +931,7 @@ export default function Home() {
 
   useEffect(() => {
     setCommunityPage(1);
-  }, [rangeStart, rangeEnd]);
+  }, [rangeStart, rangeEnd, communityFilterMode]);
 
   const fetchCommunityDocs = async () => {
     setCommunityLoading(true);
@@ -918,8 +1191,6 @@ export default function Home() {
     return () => { clearTimeout(timeoutId); window.removeEventListener("click", closeMenu); };
   }, [openMenuId]);
 
-  // Searchable subjects list
-  const [subjectsList, setSubjectsList] = useState([]);
   const [subjectSearchInput, setSubjectSearchInput] = useState("");
   const [showSubjectDropdown, setShowSubjectDropdown] = useState(false);
 
@@ -1729,6 +2000,14 @@ export default function Home() {
   };
 
   const handleSaveProfile = async () => {
+    if (editProfileData.phone && editProfileData.phone.trim() !== "") {
+      const phoneRegex = /^0(2|3|5|7|8|9)\d{8}$/;
+      if (!phoneRegex.test(editProfileData.phone.trim())) {
+        toast.error("Số điện thoại không hợp lệ. Vui lòng nhập 10 số và bắt đầu bằng 0 (VD: 03, 05, 02, 07...).");
+        return;
+      }
+    }
+
     setIsSavingProfile(true);
     try {
       const token = localStorage.getItem("token") || sessionStorage.getItem("token");
@@ -3070,7 +3349,7 @@ export default function Home() {
       <div className="absolute bottom-[-15%] left-[20%] w-[45%] h-[45%] rounded-full bg-purple-500/6 dark:bg-purple-950/15 blur-[150px] pointer-events-none z-0" />
 
       {/* Floating Role Filter Sidebar strictly on the right side next to the scrollbar */}
-      {activeTab === "Community" && communityFilterMode === "ALL" && (
+      {activeTab === "Community" && communityFilterMode === "ALL" && selectedCommunitySubjectCode && (
         <div className={`fixed right-0 z-[9999] flex flex-col items-end gap-2.5 bg-transparent select-none transition-all duration-500 ease-in-out ${isScrolledDown ? "top-[110px] translate-y-0" : "top-1/2 -translate-y-1/2"
           }`}>
           <button
@@ -4078,25 +4357,7 @@ export default function Home() {
                     </div>
 
                     {/* Search & Filters */}
-                    <div className="flex flex-col sm:flex-row items-center gap-4">
-                      {personalSelectedFolder && !isSearching && (
-                        <>
-                          <input
-                            type="file"
-                            className="hidden"
-                            ref={quickUploadInputRef}
-                            onChange={handleQuickUpload}
-                            accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar,.jpg,.jpeg,.png,.webp"
-                          />
-                          <button
-                            onClick={() => quickUploadInputRef.current?.click()}
-                            className="flex items-center justify-center gap-2 px-3 py-1.5 bg-purple-600/10 hover:bg-purple-600/20 text-purple-700 dark:text-purple-400 border border-purple-300/30 dark:border-purple-500/20 rounded-lg text-xs font-bold transition-all shadow-sm shrink-0 h-[38px]"
-                          >
-                            <UploadCloud className="w-4 h-4" />
-                            Tải lên nhanh
-                          </button>
-                        </>
-                      )}
+                    <div className="relative z-20 flex flex-col sm:flex-row items-center gap-4">
                       <SearchBar
                         search={searchQuery}
                         setSearch={setSearchQuery}
@@ -4568,6 +4829,11 @@ export default function Home() {
                           doc={{ ...doc, isBookmarked: true }}
                           isPersonal={false}
                           isMyShared={false}
+                          onBookmarkChange={(docId, isBookmarked) => {
+                            if (!isBookmarked) {
+                              setBookmarkedDocs(prev => prev.filter(d => String(d.document_id || d.id) !== String(docId)));
+                            }
+                          }}
                         />
                       ))}
                     </div>
@@ -5117,8 +5383,9 @@ export default function Home() {
                 </div>
               )}
 
-              {/* Search and Date Filter Section */}
-              <div ref={communitySearchSectionRef} className="w-full max-w-2xl mx-auto flex items-center gap-3 mt-2 relative">
+              {/* Search and Date Filter Section - hidden in MY_SHARED mode */}
+              {communityFilterMode !== "MY_SHARED" && (
+              <div ref={communitySearchSectionRef} className="relative z-30 w-full max-w-2xl mx-auto flex items-center gap-3 mt-2">
                 <div className="flex-1">
                   <SearchBar
                     search={communitySearch}
@@ -5129,6 +5396,7 @@ export default function Home() {
                       setCommunityPage(1);
                     }}
                     placeholder={t("community.search_placeholder") || "Tìm kiếm tài liệu cộng đồng, môn học, tác giả..."}
+                    resultCount={communitySearch ? filteredCommunityDocs.length : null}
                     className="w-full"
                   />
                 </div>
@@ -5302,27 +5570,48 @@ export default function Home() {
                   )}
                 </div>
               </div>
+              )}
 
 
-
-              {/* ── View Mode Selector & Back Button ── */}
-              <div className="flex items-center justify-between mb-4 mt-2">
-                <div className="flex items-center gap-1">
-                  {/* Toggle buttons removed as requested by user */}
-                </div>
-
-                {/* Back button when inside a subject */}
-                {selectedCommunitySubjectCode && (
+              {/* ── TAB SWITCHER: Chủ đề | Học kỳ ── (hidden in MY_SHARED mode) */}
+              {communityFilterMode !== "MY_SHARED" && (
+              <div className="flex justify-center mb-0">
+                <div className="inline-flex p-1 bg-white/40 dark:bg-[#0f111a]/45 backdrop-blur-xl border border-slate-200/30 dark:border-white/5 rounded-xl shadow-sm">
                   <button
-                    onClick={() => { setSelectedCommunitySubjectCode(null); setCommunityPage(1); }}
-                    className="flex items-center gap-1 text-[11px] font-bold text-violet-600 bg-violet-50 hover:bg-violet-100 px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer mr-1"
+                    onClick={() => {
+                      setCommunityClassificationTab("ALL");
+                      setSelectedCommunitySubjectCode(null);
+                      setCommunityPage(1);
+                    }}
+                    className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-lg transition-all duration-300 ${
+                      communityClassificationTab === "ALL"
+                        ? "bg-purple-600/10 dark:bg-purple-500/25 text-purple-900 dark:text-purple-200 border border-purple-500/20 shadow-sm"
+                        : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 border border-transparent"
+                    }`}
                   >
-                    <ChevronLeft size={14} /> Quay lại
+                    <Layers className="w-3.5 h-3.5" />
+                    Chủ đề
                   </button>
-                )}
+                  <button
+                    onClick={() => {
+                      setCommunityClassificationTab("SEMESTERS");
+                      setSelectedCommunitySubjectCode(null);
+                      setCommunityPage(1);
+                    }}
+                    className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-lg transition-all duration-300 ${
+                      communityClassificationTab === "SEMESTERS"
+                        ? "bg-purple-600/10 dark:bg-purple-500/25 text-purple-900 dark:text-purple-200 border border-purple-500/20 shadow-sm"
+                        : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 border border-transparent"
+                    }`}
+                  >
+                    <Calendar className="w-3.5 h-3.5" />
+                    Học kỳ
+                  </button>
+                </div>
               </div>
+              )}
 
-              {/* Loading & Grid/Topic Section */}
+              {/* Loading */}
               {communityLoading ? (
                 <div className="flex flex-col justify-center items-center py-20 space-y-4">
                   <div className="w-8 h-8 border-4 border-purple-500/20 border-t-purple-600 rounded-full animate-spin" />
@@ -5331,67 +5620,224 @@ export default function Home() {
                   </span>
                 </div>
               ) : (
-                <div className="w-full flex flex-col space-y-6">
-                  {!communitySearch && !communityTagFilter && !rangeStart && !selectedCommunitySubjectCode ? (
-                    /* TOPICS VIEW */
-                    (() => {
-                      if (communityTopicsLoading) return (
-                        <div className="flex flex-col items-center justify-center py-20 space-y-3">
-                          <div className="w-6 h-6 border-2 border-violet-500/20 border-t-violet-600 rounded-full animate-spin" />
-                          <span className="text-xs font-bold text-slate-400">Đang tải chủ đề...</span>
+                <>
+                  {/* Nếu đang tìm kiếm HOẶC đang chọn môn học cụ thể: Hiện lưới tài liệu */}
+                  {(communitySearch || selectedCommunitySubjectCode || communityFilterMode === "MY_SHARED") ? (
+                    <div className="w-full flex flex-col space-y-2">
+                      {!communitySearch && selectedCommunitySubjectCode && (
+                        <div className="flex flex-col gap-3">
+                          <button
+                            onClick={() => { setSelectedCommunitySubjectCode(null); setCommunityPage(1); }}
+                            className="self-start flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-purple-600 dark:hover:text-purple-400 transition-colors bg-white/40 dark:bg-[#0f111a]/45 backdrop-blur-xl border border-slate-200/30 dark:border-white/5 rounded-xl px-4 py-2 shadow-sm cursor-pointer"
+                          >
+                            <ChevronLeft className="w-3.5 h-3.5" />
+                            {communityClassificationTab === "SEMESTERS" ? "Quay lại học kỳ" : "Quay lại chủ đề"}
+                          </button>
+                          <div className="flex flex-col gap-1 p-4 bg-purple-50/20 dark:bg-purple-950/5 border border-purple-100/30 rounded-2xl">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] font-extrabold text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/40 px-2 py-0.5 rounded border border-purple-500/10">
+                                MÔN HỌC
+                              </span>
+                              <h2 className="text-base font-black text-slate-900 dark:text-white">
+                                {selectedCommunitySubjectCode}
+                              </h2>
+                            </div>
+                            <span className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">
+                              Hiển thị tài liệu được chia sẻ cho môn học này.
+                            </span>
+                          </div>
                         </div>
-                      );
+                      )}
 
-                      if (communityTopics.length === 0) return (
-                        <div className="text-center py-16 bg-white/40 dark:bg-white/5 rounded-2xl border border-dashed border-slate-200 dark:border-white/10">
-                          <Layers size={32} className="mx-auto text-slate-300 mb-3" />
-                          <p className="text-sm font-bold text-slate-500">Chưa có chủ đề nào</p>
-                        </div>
-                      );
-
-                      return (
-                        <div className="space-y-0 bg-white/60 dark:bg-[#0f111a]/60 rounded-2xl border border-slate-200/80 dark:border-white/5 overflow-hidden divide-y divide-slate-100 dark:divide-white/5 shadow-sm">
-                          {communityTopics.map((topic) => {
-                            const topicColor = topic.color || '#8b5cf6';
-                            const totalDocs = (topic.subjects || []).reduce((s, sub) => s + (Number(sub.doc_count) || 0), 0);
-                            return (
-                              <div
-                                key={topic.topic_id}
-                                className="flex items-center gap-5 px-5 py-4 hover:bg-white/80 dark:hover:bg-white/10 transition-colors group"
-                              >
-                                {/* Icon */}
-                                <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 shadow-sm group-hover:scale-105 transition-transform border" style={{ backgroundColor: `${topicColor}15`, borderColor: `${topicColor}30`, color: topicColor }}>
-                                  <Folder size={24} />
+                      {/* Khi đã chọn môn hoặc đang tìm kiếm: hiện lưới tài liệu */}
+                      {filteredCommunityDocs.length > 0 ? (
+                        <>
+                          {pinnedCommunityDocs.length > 0 && (
+                            <div className="space-y-3 bg-purple-50/20 dark:bg-purple-950/5 p-4 rounded-2xl border border-purple-100/30 text-left w-full">
+                              <div className="text-[10px] font-extrabold text-purple-600 dark:text-purple-400 uppercase tracking-widest flex items-center gap-1.5 pl-1">
+                                <span>{language === "vi" ? "📌 Tài liệu ghim đầu trang" : "📌 Pinned Documents"}</span>
+                                <span className="bg-purple-500 text-white text-[9px] px-1.5 py-0.5 rounded-full font-extrabold">{pinnedCommunityDocs.length}</span>
+                              </div>
+                              <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 xl:grid-cols-3 w-full">
+                                {pinnedCommunityDocs.map((doc) => (
+                                  <DocumentCard key={doc.document_id || doc.id} doc={doc} isPinned={doc.isPinned} onTogglePin={() => handleToggleCommunityPin(doc.id)} isPersonal={false} isMyShared={communityFilterMode === "MY_SHARED"} />
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          <div className="space-y-3 text-left w-full">
+                            {pinnedCommunityDocs.length > 0 && regularCommunityDocs.length > 0 && (
+                              <div className="text-[10px] font-extrabold text-slate-455 uppercase tracking-widest pl-1">
+                                {language === "vi" ? "📂 Tài liệu cộng đồng khác" : "📂 Other community documents"}
+                              </div>
+                            )}
+                            {regularCommunityDocs.length > 0 ? (
+                              <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 xl:grid-cols-3 w-full">
+                                {regularCommunityDocs.map((doc) => (
+                                  <DocumentCard key={doc.document_id || doc.id} doc={doc} isPinned={doc.isPinned} onTogglePin={() => handleToggleCommunityPin(doc.id)} isPersonal={false} isMyShared={communityFilterMode === "MY_SHARED"} />
+                                ))}
+                              </div>
+                            ) : (
+                              pinnedCommunityDocs.length > 0 && (
+                                <div className="text-center py-6 text-slate-400 text-xs font-medium bg-white/40 dark:bg-black/10 rounded-2xl border border-slate-100 dark:border-white/5">
+                                  {language === "vi" ? "Không còn tài liệu nào khác trên trang này." : "No other documents on this page."}
                                 </div>
+                              )
+                            )}
+                          </div>
+                          {filteredCommunityDocs.length > 9 && (
+                            <div className="mt-2 flex justify-center">
+                              <Pagination page={communityPage} totalPages={communityTotalPages} setPage={setCommunityPage} />
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <div className="text-center py-20 bg-white/30 dark:bg-[#0f111a]/30 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 p-8 w-full">
+                          <div className="text-5xl mb-4">📂</div>
+                          <p className="text-sm font-bold text-slate-850 dark:text-slate-200 m-0">
+                            {language === "vi" ? "Không tìm thấy tài liệu phù hợp" : "No matching documents found"}
+                          </p>
+                          <p className="text-xs text-slate-455 mt-2 m-0">
+                            {language === "vi" ? "Vui lòng thử tìm kiếm bằng từ khóa khác." : "Try a different search term."}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    /* Nếu KHÔNG chọn môn và KHÔNG tìm kiếm: Hiện danh mục phân loại theo Tab active */
+                    <>
+                      {/* ══════════════════════════════════════════ */}
+                      {/* TAB: CHỦ ĐỀ                              */}
+                      {/* ══════════════════════════════════════════ */}
+                      {communityClassificationTab === "ALL" && (
+                        <div className="w-full flex flex-col space-y-2">
+                          {!rangeStart && (
+                            communityTopicsLoading ? (
+                              <div className="flex flex-col items-center justify-center py-20 space-y-3">
+                                <div className="w-6 h-6 border-2 border-violet-500/20 border-t-violet-600 rounded-full animate-spin" />
+                                <span className="text-xs font-bold text-slate-400">Đang tải chủ đề...</span>
+                              </div>
+                            ) : communityTopics.length === 0 ? (
+                              <div className="text-center py-16 bg-white/40 dark:bg-white/5 rounded-2xl border border-dashed border-slate-200 dark:border-white/10">
+                                <Layers size={32} className="mx-auto text-slate-300 mb-3" />
+                                <p className="text-sm font-bold text-slate-500">Chưa có chủ đề nào</p>
+                              </div>
+                            ) : (
+                              <div className="space-y-0 bg-white/60 dark:bg-[#0f111a]/60 rounded-2xl border border-slate-200/80 dark:border-white/5 overflow-hidden divide-y divide-slate-100 dark:divide-white/5 shadow-sm">
+                                {communityTopics.map((topic) => {
+                                  const topicColor = topic.color || '#8b5cf6';
+                                  const totalDocs = (topic.subjects || []).reduce((s, sub) => s + (Number(sub.doc_count) || 0), 0);
+                                  return (
+                                    <div key={topic.topic_id} className="flex items-center gap-5 px-5 py-4 hover:bg-white/80 dark:hover:bg-white/10 transition-colors group">
+                                      <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 shadow-sm group-hover:scale-105 transition-transform border" style={{ backgroundColor: `${topicColor}15`, borderColor: `${topicColor}30`, color: topicColor }}>
+                                        <Folder size={24} />
+                                      </div>
+                                      <div className="flex-1 min-w-0">
+                                        <p className="font-black text-sm" style={{ color: topicColor }}>
+                                          {language === "en" && TOPIC_TRANSLATIONS[topic.name] ? TOPIC_TRANSLATIONS[topic.name].enName : topic.name}
+                                        </p>
+                                        {topic.description && (
+                                          <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5 truncate">
+                                            {language === "en" && TOPIC_TRANSLATIONS[topic.name] ? TOPIC_TRANSLATIONS[topic.name].enDesc : topic.description}
+                                          </p>
+                                        )}
+                                        <div className="flex flex-wrap gap-1.5 mt-2">
+                                          {(topic.subjects || []).map(s => (
+                                            <button
+                                              key={s.subject_code}
+                                              onClick={() => {
+                                                setSelectedCommunitySubjectCode(s.subject_code);
+                                                setSelectedCommunityTopicId(topic.topic_id);
+                                                setCommunityPage(1);
+                                                if (mainContentRef.current) mainContentRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+                                              }}
+                                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold cursor-pointer hover:opacity-80 hover:shadow-sm active:scale-95 transition-all"
+                                              style={{ backgroundColor: `${topicColor}15`, color: topicColor }}
+                                            >
+                                              <Folder size={10} /> {s.subject_code}
+                                            </button>
+                                          ))}
+                                        </div>
+                                      </div>
+                                      <div className="shrink-0 flex gap-5 text-center">
+                                        <div>
+                                          <p className="text-base font-black" style={{ color: topicColor }}>{(topic.subjects || []).length}</p>
+                                          <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Môn học</p>
+                                        </div>
+                                        <div>
+                                          <p className="text-base font-black" style={{ color: topicColor }}>{totalDocs}</p>
+                                          <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Tài liệu</p>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )
+                          )}
+                        </div>
+                      )}
 
-                                {/* Left: name + description + subject badges */}
-                                <div className="flex-1 min-w-0">
-                                  <p className="font-black text-slate-800 dark:text-slate-100 text-sm transition-colors" style={{ color: topicColor }}>{topic.name}</p>
-                                  {topic.description && <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5 truncate">{topic.description}</p>}
-                                  <div className="flex flex-wrap gap-1.5 mt-2">
-                                    {(topic.subjects || []).map(s => (
+                      {/* ══════════════════════════════════════════ */}
+                      {/* TAB: HỌC KỲ                              */}
+                      {/* ══════════════════════════════════════════ */}
+                      {communityClassificationTab === "SEMESTERS" && (
+                        <div className="flex flex-col gap-2">
+                          {getSemestersData.length === 0 ? (
+                            <div className="text-center py-16 bg-white/40 dark:bg-white/5 rounded-2xl border border-dashed border-slate-200 dark:border-white/10">
+                              <Calendar size={32} className="mx-auto text-slate-300 mb-3" />
+                              <p className="text-sm font-bold text-slate-500">Chưa có học kỳ nào có tài liệu</p>
+                            </div>
+                          ) : (
+                            <div className="flex flex-col gap-1.5">
+                              {getSemestersData.map((sem) => (
+                                <div
+                                  key={sem.semester_id}
+                                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-slate-200/40 dark:border-white/5 bg-white/50 dark:bg-white/[0.03] hover:border-purple-400/30 transition-all duration-200"
+                                >
+                                  {/* Nhãn học kỳ */}
+                                  <div className="flex items-center gap-2 shrink-0 w-[88px]">
+                                    <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: sem.color }} />
+                                    <span className="text-[11px] font-black whitespace-nowrap" style={{ color: sem.color }}>
+                                      {sem.name}
+                                    </span>
+                                  </div>
+
+                                  {/* Đường kẻ dọc */}
+                                  <div className="w-px h-5 bg-slate-200 dark:bg-white/10 shrink-0" />
+
+                                  {/* Chips môn học - hàng ngang */}
+                                  <div className="flex items-center gap-1.5 flex-wrap flex-1">
+                                    {sem.subjects.length > 0 ? sem.subjects.map((sub) => (
                                       <button
-                                        key={s.subject_code}
-                                        onClick={() => { setSelectedCommunityTopicId(topic.topic_id); setSelectedCommunitySubjectCode(s.subject_code); setCommunityPage(1); }}
-                                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold cursor-pointer hover:opacity-80 hover:shadow-sm active:scale-95 transition-all"
-                                        style={{ backgroundColor: `${topicColor}15`, color: topicColor }}
+                                        key={sub.subject_code}
+                                        onClick={() => {
+                                          setSelectedCommunitySubjectCode(sub.subject_code);
+                                          setCommunityPage(1);
+                                        }}
+                                        title={sub.subject_name || sub.subject_code}
+                                        className={`flex items-center gap-1.5 text-[10px] font-black px-2 py-0.5 rounded-md border transition-all duration-150 cursor-pointer shrink-0 ${
+                                          sub.doc_count > 0
+                                            ? "bg-purple-500/10 border-purple-500/20 text-purple-750 dark:text-purple-300 hover:bg-purple-500/20 hover:border-purple-500/40"
+                                            : "bg-slate-100/50 dark:bg-white/[0.02] border-slate-200/50 dark:border-white/5 text-slate-400 dark:text-slate-500 hover:bg-slate-150/50 dark:hover:bg-white/[0.04] hover:text-slate-600 dark:hover:text-slate-350"
+                                        }`}
                                       >
-                                        <Folder size={10} /> {s.subject_code}
+                                        <span>{sub.subject_code}</span>
+                                        {sub.doc_count > 0 && (
+                                          <span className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse shrink-0" />
+                                        )}
                                       </button>
-                                    ))}
+                                    )) : (
+                                      <span className="text-[10px] text-slate-400 italic">Chưa có học phần</span>
+                                    )}
                                   </div>
-                                </div>
 
-                                {/* Right: stats */}
-                                <div className="shrink-0 flex gap-5 text-center">
-                                  <div>
-                                    <p className="text-base font-black" style={{ color: topicColor }}>{(topic.subjects || []).length}</p>
-                                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Môn học</p>
-                                  </div>
-                                  <div>
-                                    <p className="text-base font-black" style={{ color: topicColor }}>{totalDocs}</p>
-                                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Tài liệu</p>
-                                  </div>
+                                  {/* Badge số tài liệu */}
+                                  {sem.totalDocs > 0 && (
+                                    <span className="ml-auto shrink-0 text-[9px] font-bold px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 whitespace-nowrap">
+                                      {sem.totalDocs} tài liệu
+                                    </span>
+                                  )}
                                 </div>
                               </div>
                             );
@@ -5481,7 +5927,7 @@ export default function Home() {
                       </div>
                     )
                   )}
-                </div>
+                </>
               )}
             </div>
           );

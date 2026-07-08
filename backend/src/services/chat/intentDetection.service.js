@@ -22,6 +22,11 @@ export async function detectIntent(context, message) {
         return { intent: "GENERATE_QUIZ", confidence: 0.95 };
     }
 
+    // 1.5. Nhận diện lệnh tóm tắt
+    if (lowerMsg.includes("tóm tắt") || lowerMsg.includes("summarize") || lowerMsg.includes("rút gọn")) {
+        return { intent: "SUMMARIZE_DOCUMENT", confidence: 0.90 };
+    }
+
     // 2. Nhận diện lệnh Tìm kiếm tài liệu
     if (lowerMsg.startsWith("tìm tài liệu") || lowerMsg.startsWith("cho xin tài liệu") || lowerMsg.includes("tài liệu môn") || lowerMsg.startsWith("tìm file") || lowerMsg.startsWith("tìm đề")) {
         return { intent: "SEARCH_DOCUMENT", confidence: 0.90 };

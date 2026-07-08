@@ -314,6 +314,20 @@ export const replaceDocumentTags = async (documentId, tagIds) => {
     }
 };
 
+// Check if a document is already bookmarked by the user
+export const checkIfBookmarked = async (userId, documentId) => {
+    try {
+        const { rows } = await pool.query(
+            "SELECT 1 FROM document_bookmarks WHERE user_id = $1 AND document_id = $2",
+            [userId, documentId]
+        );
+        return rows.length > 0;
+    } catch (error) {
+        console.error("Error checking document bookmark:", error);
+        throw error;
+    }
+};
+
 // Toggle a bookmark for a document
 export const toggleBookmark = async (userId, documentId) => {
     try {

@@ -6,6 +6,8 @@ import SearchResultCard from "../components/SearchResultCard";
 import TagCloudView from "../components/TagCloudView";
 import Pagination from "../components/Pagination";
 import DocumentPreviewModal from "../components/DocumentPreviewModal";
+import { useLanguage } from "../context/LanguageContext";
+import { TOPIC_TRANSLATIONS } from "../components/Home";
 import {
   FolderOpen, ArrowRight, BookOpen, Heart, Folder,
   ChevronLeft, FileText, LayoutGrid, Tag, Clock,
@@ -56,6 +58,7 @@ const VIEW_MODES = [
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function DocumentList() {
+  const { language } = useLanguage();
   // ── Core data ──────────────────────────────────────────────────────────────
   const [documents,      setDocuments]      = useState([]);
   const [bookmarkedDocs, setBookmarkedDocs] = useState([]);
@@ -329,8 +332,14 @@ export default function DocumentList() {
 
               {/* Left: name + description + subject badges */}
               <div className="flex-1 min-w-0">
-                <p className="font-black text-slate-800 dark:text-slate-100 text-sm transition-colors" style={{ color: 'inherit' }}>{topic.name}</p>
-                {topic.description && <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5 truncate">{topic.description}</p>}
+                <p className="font-black text-slate-800 dark:text-slate-100 text-sm transition-colors" style={{ color: 'inherit' }}>
+                  {language === "en" && TOPIC_TRANSLATIONS[topic.name] ? TOPIC_TRANSLATIONS[topic.name].enName : topic.name}
+                </p>
+                {topic.description && (
+                  <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5 truncate">
+                    {language === "en" && TOPIC_TRANSLATIONS[topic.name] ? TOPIC_TRANSLATIONS[topic.name].enDesc : topic.description}
+                  </p>
+                )}
                 <div className="flex flex-wrap gap-1.5 mt-2">
                   {(topic.subjects || []).slice(0, 8).map(s => (
                     <span
@@ -448,6 +457,11 @@ const renderFolderGrid = () => (
               isPersonal={false}
               isMyShared={currentUser && doc.user_id === currentUser.user_id}
               onUnshare={fetchDocuments}
+              onBookmarkChange={(docId, isBookmarked) => {
+                if (!isBookmarked) {
+                  setBookmarkedDocs(prev => prev.filter(d => String(d.document_id || d.id) !== String(docId)));
+                }
+              }}
             />
           ))}
           {docsToShow.length === 0 && (
@@ -483,6 +497,11 @@ const renderFolderGrid = () => (
                   isPersonal={false}
                   isMyShared={currentUser && doc.user_id === currentUser.user_id}
                   onUnshare={fetchDocuments}
+                  onBookmarkChange={(docId, isBookmarked) => {
+                    if (!isBookmarked) {
+                      setBookmarkedDocs(prev => prev.filter(d => String(d.document_id || d.id) !== String(docId)));
+                    }
+                  }}
                 />
               ))}
             </div>
@@ -502,6 +521,11 @@ const renderFolderGrid = () => (
             isPersonal={false}
             isMyShared={currentUser && doc.user_id === currentUser.user_id}
             onUnshare={fetchDocuments}
+            onBookmarkChange={(docId, isBookmarked) => {
+              if (!isBookmarked) {
+                setBookmarkedDocs(prev => prev.filter(d => String(d.document_id || d.id) !== String(docId)));
+              }
+            }}
           />
         ))}
       </div>
@@ -532,7 +556,7 @@ const renderFolderGrid = () => (
         </div>
 
         {/* ── Search Bar ────────────────────────────────────────────────── */}
-        <div className="mb-6">
+        <div className="mb-6 relative z-20">
           <SearchBar
             search={search}
             setSearch={setSearch}

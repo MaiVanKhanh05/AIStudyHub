@@ -201,6 +201,13 @@ export const editDocument = async (id, userId, { title, subject, tags, descripti
     }
 };
 
+export const checkIfBookmarked = async (userId, documentId) => {
+    if (!userId || !documentId) {
+        throw new Error("Missing required parameters: userId or documentId");
+    }
+    return await documentRepository.checkIfBookmarked(userId, documentId);
+};
+
 export const toggleBookmark = async (userId, documentId) => {
     try {
         return await documentRepository.toggleBookmark(userId, documentId);

@@ -1,5 +1,16 @@
 import * as subjectRepository from "../repositories/subject.repository.js";
 
+// GET /api/subjects/doc-counts - Get all subjects that have public documents (public, no auth)
+export const getSubjectsWithDocCounts = async (req, res) => {
+    try {
+        const subjects = await subjectRepository.getSubjectsWithDocCounts();
+        return res.json(subjects);
+    } catch (error) {
+        console.error("Error in getSubjectsWithDocCounts controller:", error);
+        return res.status(500).json({ error: "Failed to load subject doc counts" });
+    }
+};
+
 // GET /api/subjects - Get all subjects or search by query
 export const getSubjects = async (req, res) => {
     try {

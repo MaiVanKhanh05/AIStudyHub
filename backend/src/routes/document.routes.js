@@ -25,7 +25,7 @@ router.get("/tag-cloud", documentController.getTagCloud);
 router.post("/upload", authenticateToken, documentController.createNewDoc);
 
 // POST /api/documents/:id/bookmark
-router.post("/:id/bookmark", authenticateToken, requireDocumentAccess, documentController.toggleBookmark);
+router.post("/:id/bookmark", authenticateToken, documentController.toggleBookmark);
 
 // PUT /api/documents/:id/edit
 router.put("/:id/edit", authenticateToken, requireEditorAccess, documentController.editDoc);
