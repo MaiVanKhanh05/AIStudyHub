@@ -68,7 +68,7 @@ Bạn phải tuân thủ nghiêm ngặt các quy tắc sau:
         prompt += `- NẾU [NGỮ CẢNH CHÍNH] chứa đủ thông tin để trả lời, BẠN ƯU TIÊN dùng thông tin đó.\n`;
         prompt += `- NẾU [NGỮ CẢNH CHÍNH] KHÔNG CÓ thông tin, BẠN ĐƯỢC PHÉP dùng kiến thức chung (General Knowledge) để trả lời, nhưng phải báo cho người dùng biết điều này.\n`;
     }
-    prompt += `- NẾU ý định là TÌM TÀI LIỆU, CHỈ trả lời đúng một câu duy nhất: "Dưới đây là các tài liệu liên quan mà tôi tìm thấy:". TUYỆT ĐỐI KHÔNG tự liệt kê danh sách tài liệu. Hệ thống sẽ tự động hiển thị thẻ tài liệu bằng giao diện trực quan bên dưới câu trả lời của bạn.\n\n`;
+
 
     prompt += `[CÂU HỎI CỦA NGƯỜI DÙNG]
 ${message}

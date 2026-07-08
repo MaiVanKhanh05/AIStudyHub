@@ -424,13 +424,15 @@ export async function chatQuery(req, res) {
         targetCardCount
       );
 
-      const eventString = JSON.stringify({
-        event: "flashcard_created",
-        setId: flashcardResult.setId
+      // Fetch flashcards from database to display in chat
+      const flashcardsRes = await pool.query(`SELECT front, back FROM flashcards WHERE set_id = $1`, [flashcardResult.setId]);
+      let mdText = `✅ **Đã tạo thành công bộ Flashcard: ${flashcardResult.title}** gồm ${flashcardResult.count} thẻ.\n*(Tính năng giao diện Flashcard đang được hoàn thiện, dưới đây là bộ thẻ của bạn)*\n\n`;
+      flashcardsRes.rows.forEach((card, i) => {
+        mdText += `**Thẻ ${i + 1}:**\n- **Mặt trước (Câu hỏi/Thuật ngữ):** ${card.front}\n- **Mặt sau (Đáp án/Giải nghĩa):** ${card.back}\n\n`;
       });
 
       return res.json({
-        response: eventString,
+        response: mdText,
         messageType: "flashcard_set",
         data: {
           setId: flashcardResult.setId,
@@ -488,13 +490,20 @@ export async function chatQuery(req, res) {
 
       // Return event string as the main response text so it is stored in chat logs,
       // along with helper metadata for immediate rendering
-      const eventString = JSON.stringify({
-        event: "quiz_created",
-        quizId: quizResult.quizId
+      // Fetch quiz questions from database to display in chat
+      const questionsRes = await pool.query(`SELECT question_text, options, correct_answer, explanation FROM quiz_questions WHERE quiz_id = $1`, [quizResult.quizId]);
+      let mdText = `✅ **Đã tạo thành công bài Quiz: ${quizResult.title}** gồm ${quizResult.count} câu hỏi.\n*(Tính năng giao diện Quiz đang được hoàn thiện, dưới đây là bài tập của bạn)*\n\n`;
+      questionsRes.rows.forEach((q, i) => {
+        mdText += `**Câu ${i + 1}:** ${q.question_text}\n`;
+        const opts = typeof q.options === 'string' ? JSON.parse(q.options) : q.options;
+        opts.forEach(opt => {
+          mdText += `- ${opt}\n`;
+        });
+        mdText += `\n**Đáp án đúng:** ${q.correct_answer}\n**Giải thích:** ${q.explanation}\n\n---\n\n`;
       });
 
       return res.json({
-        response: eventString,
+        response: mdText,
         messageType: "quiz_card",
         data: quizResult
       });

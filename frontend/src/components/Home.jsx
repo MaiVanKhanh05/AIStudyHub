@@ -1958,6 +1958,14 @@ export default function Home() {
   };
 
   const handleSaveProfile = async () => {
+    if (editProfileData.phone && editProfileData.phone.trim() !== "") {
+      const phoneRegex = /^0(2|3|5|7|8|9)\d{8}$/;
+      if (!phoneRegex.test(editProfileData.phone.trim())) {
+        toast.error("Số điện thoại không hợp lệ. Vui lòng nhập 10 số và bắt đầu bằng 0 (VD: 03, 05, 02, 07...).");
+        return;
+      }
+    }
+
     setIsSavingProfile(true);
     try {
       const token = localStorage.getItem("token") || sessionStorage.getItem("token");
