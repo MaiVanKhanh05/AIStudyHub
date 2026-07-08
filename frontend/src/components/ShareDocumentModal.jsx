@@ -3,8 +3,10 @@ import { createPortal } from "react-dom";
 import { X, Search, Globe, Lock, Shield, Trash2, Loader2, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import axios from "axios";
+import { useLanguage } from "../context/LanguageContext";
 
 export default function ShareDocumentModal({ documentId, onClose }) {
+  const { t, language } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [visibility, setVisibility] = useState("RESTRICTED");
@@ -40,7 +42,7 @@ export default function ShareDocumentModal({ documentId, onClose }) {
       setPermissions(res.data.permissions || []);
     } catch (err) {
       console.error(err);
-      toast.error("Không thể tải cài đặt chia sẻ.");
+      toast.error(language === "vi" ? "Không thể tải cài đặt chia sẻ." : "Failed to load sharing settings.");
     } finally {
       setLoading(false);
     }
@@ -88,7 +90,7 @@ export default function ShareDocumentModal({ documentId, onClose }) {
   // Add permission handler
   const handleAddPermission = async () => {
     if (!selectedUser) {
-      toast.warning("Vui lòng chọn người dùng để mời!");
+      toast.warning(language === "vi" ? "Vui lòng chọn người dùng để mời!" : "Please select a user to invite!");
       return;
     }
     
@@ -101,13 +103,13 @@ export default function ShareDocumentModal({ documentId, onClose }) {
         { headers: { Authorization: `Bearer ${token}` } }
       );
       
-      toast.success(`Đã thêm quyền truy cập cho ${selectedUser.first_name}`);
+      toast.success(language === "vi" ? `Đã thêm quyền truy cập cho ${selectedUser.first_name}` : `Access granted to ${selectedUser.first_name}`);
       setSelectedUser(null);
       setSearchQuery("");
       fetchShareSettings();
     } catch (err) {
       console.error(err);
-      toast.error(err.response?.data?.error || "Không thể thêm quyền chia sẻ.");
+      toast.error(err.response?.data?.error || (language === "vi" ? "Không thể thêm quyền chia sẻ." : "Failed to add sharing permission."));
     } finally {
       setSubmitting(false);
     }
@@ -122,11 +124,11 @@ export default function ShareDocumentModal({ documentId, onClose }) {
         { role: newRole },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      toast.success("Đã cập nhật vai trò!");
+      toast.success(language === "vi" ? "Đã cập nhật vai trò!" : "Role updated!");
       fetchShareSettings();
     } catch (err) {
       console.error(err);
-      toast.error(err.response?.data?.error || "Không thể cập nhật vai trò.");
+      toast.error(err.response?.data?.error || (language === "vi" ? "Không thể cập nhật vai trò." : "Failed to update role."));
     }
   };
 
@@ -138,11 +140,11 @@ export default function ShareDocumentModal({ documentId, onClose }) {
         `http://localhost:5000/api/documents/${documentId}/share/${targetUserId}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      toast.success("Đã xóa quyền truy cập!");
+      toast.success(language === "vi" ? "Đã xóa quyền truy cập!" : "Access removed!");
       fetchShareSettings();
     } catch (err) {
       console.error(err);
-      toast.error(err.response?.data?.error || "Không thể xóa quyền.");
+      toast.error(err.response?.data?.error || (language === "vi" ? "Không thể xóa quyền." : "Failed to remove access."));
     }
   };
 
@@ -156,10 +158,10 @@ export default function ShareDocumentModal({ documentId, onClose }) {
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setVisibility(newVisibility);
-      toast.success(`Đã đổi quyền truy cập thành ${newVisibility === "PUBLIC" ? "Công khai" : "Hạn chế"}`);
+      toast.success(language === "vi" ? `Đã đổi quyền truy cập thành ${newVisibility === "PUBLIC" ? "Công khai" : "Hạn chế"}` : `Access changed to ${newVisibility === "PUBLIC" ? "Public" : "Restricted"}`);
     } catch (err) {
       console.error(err);
-      toast.error(err.response?.data?.error || "Không thể cập nhật quyền truy cập chung.");
+      toast.error(err.response?.data?.error || (language === "vi" ? "Không thể cập nhật quyền truy cập chung." : "Failed to update general access."));
     }
   };
 
@@ -179,8 +181,8 @@ export default function ShareDocumentModal({ documentId, onClose }) {
               <Shield className="w-5 h-5 text-purple-600 dark:text-purple-400" />
             </div>
             <div>
-              <h2 className="text-lg font-black text-slate-900 dark:text-white leading-tight">Cài đặt chia sẻ</h2>
-              <p className="text-xs text-slate-500 font-medium">Quản lý quyền cộng tác trên tài liệu</p>
+              <h2 className="text-lg font-black text-slate-900 dark:text-white leading-tight">{t("shareModal.title")}</h2>
+              <p className="text-xs text-slate-500 font-medium">{language === "vi" ? "Quản lý quyền cộng tác trên tài liệu" : "Manage document collaboration permissions"}</p>
             </div>
           </div>
           <button
@@ -194,21 +196,21 @@ export default function ShareDocumentModal({ documentId, onClose }) {
         {loading ? (
           <div className="flex flex-col items-center justify-center py-16 gap-3">
             <Loader2 className="w-8 h-8 text-purple-600 dark:text-purple-400 animate-spin" />
-            <span className="text-sm font-semibold text-slate-500 animate-pulse">Đang tải cài đặt chia sẻ...</span>
+            <span className="text-sm font-semibold text-slate-500 animate-pulse">{language === "vi" ? "Đang tải cài đặt chia sẻ..." : "Loading sharing settings..."}</span>
           </div>
         ) : (
           <>
             {/* Section 1: Invite User */}
             <div className="flex flex-col gap-2">
               <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
-                Chia sẻ với người khác
+                {t("shareModal.invite_label")}
               </span>
               <div className="flex gap-2 relative">
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
                   <input
                     type="text"
-                    placeholder="Tìm theo Tên, MSSV, hoặc Email..."
+                    placeholder={t("shareModal.invite_placeholder")}
                     value={selectedUser ? `${selectedUser.last_name} ${selectedUser.first_name} (${selectedUser.user_id})` : searchQuery}
                     onChange={(e) => {
                       setSearchQuery(e.target.value);
@@ -262,7 +264,7 @@ export default function ShareDocumentModal({ documentId, onClose }) {
                   disabled={submitting || !selectedUser}
                   className="h-9 px-4 text-xs font-bold text-white bg-purple-600 hover:bg-purple-700 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shrink-0"
                 >
-                  Chia sẻ
+                  {language === "vi" ? "Mời" : "Invite"}
                 </button>
               </div>
             </div>
@@ -270,7 +272,7 @@ export default function ShareDocumentModal({ documentId, onClose }) {
             {/* Section 2: General Access */}
             <div className="flex flex-col gap-2 bg-slate-50/50 dark:bg-slate-950/20 p-3.5 border border-slate-100 dark:border-slate-850 rounded-2xl">
               <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
-                Quyền truy cập chung
+                {t("shareModal.visibility_label")}
               </span>
               <div className="flex items-center justify-between gap-4">
                 <div className="flex items-center gap-2.5">
@@ -283,12 +285,12 @@ export default function ShareDocumentModal({ documentId, onClose }) {
                   </div>
                   <div>
                     <div className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                      {visibility === "PUBLIC" ? "Công khai" : "Hạn chế"}
+                      {visibility === "PUBLIC" ? (language === "vi" ? "Công khai" : "Public") : (language === "vi" ? "Hạn chế" : "Restricted")}
                     </div>
                     <div className="text-[10px] text-slate-450 dark:text-slate-500 leading-normal mt-0.5">
                       {visibility === "PUBLIC"
-                        ? "Bất kỳ người dùng nào đã đăng nhập đều có thể xem"
-                        : "Chỉ những người dùng được mời mới có thể truy cập"}
+                        ? (language === "vi" ? "Bất kỳ người dùng nào đã đăng nhập đều có thể xem" : "Any logged-in user can view")
+                        : (language === "vi" ? "Chỉ những người dùng được mời mới có thể truy cập" : "Only invited users can access")}
                     </div>
                   </div>
                 </div>
@@ -301,7 +303,7 @@ export default function ShareDocumentModal({ documentId, onClose }) {
                     }}
                     className="h-8.5 px-3 flex items-center justify-between gap-2 text-xs font-bold bg-white dark:bg-slate-950 border border-slate-200/80 dark:border-slate-800 rounded-xl outline-none hover:border-purple-300 dark:hover:border-purple-500/50 transition-colors cursor-pointer select-none min-w-[110px]"
                   >
-                    <span className="text-slate-700 dark:text-slate-200">{visibility === "PUBLIC" ? "Công khai" : "Hạn chế"}</span>
+                    <span className="text-slate-700 dark:text-slate-200">{visibility === "PUBLIC" ? (language === "vi" ? "Công khai" : "Public") : (language === "vi" ? "Hạn chế" : "Restricted")}</span>
                     <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${showVisibilityDropdown ? "rotate-180" : ""}`} />
                   </div>
 
@@ -315,7 +317,7 @@ export default function ShareDocumentModal({ documentId, onClose }) {
                         }}
                         className={`text-left px-2.5 py-2 text-xs font-bold rounded-lg transition-colors flex items-center justify-between ${visibility === "RESTRICTED" ? "bg-purple-600/10 text-purple-600 dark:text-purple-400" : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"}`}
                       >
-                        <span>Hạn chế</span>
+                        <span>{language === "vi" ? "Hạn chế" : "Restricted"}</span>
                         {visibility === "RESTRICTED" && <div className="w-1.5 h-1.5 rounded-full bg-purple-600 dark:bg-purple-400" />}
                       </button>
                       <button
@@ -326,7 +328,7 @@ export default function ShareDocumentModal({ documentId, onClose }) {
                         }}
                         className={`text-left px-2.5 py-2 text-xs font-bold rounded-lg transition-colors flex items-center justify-between ${visibility === "PUBLIC" ? "bg-purple-600/10 text-purple-600 dark:text-purple-400" : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"}`}
                       >
-                        <span>Công khai</span>
+                        <span>{language === "vi" ? "Công khai" : "Public"}</span>
                         {visibility === "PUBLIC" && <div className="w-1.5 h-1.5 rounded-full bg-purple-600 dark:bg-purple-400" />}
                       </button>
                     </div>
@@ -338,7 +340,7 @@ export default function ShareDocumentModal({ documentId, onClose }) {
             {/* Section 3: People With Access List */}
             <div className="flex flex-col gap-2.5 max-h-56 overflow-y-auto pr-1">
               <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
-                Danh sách thành viên truy cập
+                {language === "vi" ? "Danh sách thành viên truy cập" : "Members with access"}
               </span>
               <div className="flex flex-col gap-2">
                 {/* Owner Row */}
@@ -362,7 +364,7 @@ export default function ShareDocumentModal({ documentId, onClose }) {
                       </div>
                     </div>
                     <span className="text-[10px] font-extrabold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/30 px-2 py-0.5 rounded uppercase tracking-wider">
-                      Chủ sở hữu
+                      {t("shareModal.role_owner")}
                     </span>
                   </div>
                 )}
@@ -390,13 +392,13 @@ export default function ShareDocumentModal({ documentId, onClose }) {
 
                     <div className="flex items-center gap-2">
                       <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded">
-                        Người xem
+                        {t("shareModal.role_viewer")}
                       </span>
 
                       <button
                         onClick={() => handleRemovePermission(p.user_id)}
                         className="p-1.5 hover:bg-red-550/10 hover:text-red-500 rounded-lg text-slate-400 dark:text-slate-500 transition-colors cursor-pointer"
-                        title="Xóa quyền truy cập"
+                        title={t("shareModal.remove_access")}
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -406,7 +408,7 @@ export default function ShareDocumentModal({ documentId, onClose }) {
 
                 {permissions.length === 0 && (
                   <span className="text-xs italic text-slate-455 text-center py-2">
-                    Chưa có người dùng nào khác được cấp quyền truy cập.
+                    {language === "vi" ? "Chưa có người dùng nào khác được cấp quyền truy cập." : "No other users have been granted access yet."}
                   </span>
                 )}
               </div>
@@ -418,17 +420,17 @@ export default function ShareDocumentModal({ documentId, onClose }) {
                 onClick={() => {
                   const link = `${window.location.origin}/preview/${documentId}`;
                   navigator.clipboard.writeText(link);
-                  toast.success("Đã sao chép liên kết vào bộ nhớ tạm!");
+                  toast.success(t("shareModal.link_copied"));
                 }}
                 className="flex items-center gap-2 px-4 py-2 text-xs font-bold text-purple-700 bg-purple-50 hover:bg-purple-100 dark:text-purple-300 dark:bg-purple-950/40 dark:hover:bg-purple-950/60 rounded-xl transition-colors cursor-pointer animate-in fade-in"
               >
-                Sao chép liên kết
+                {t("shareModal.copy_link")}
               </button>
               <button
                 onClick={onClose}
                 className="px-4 py-2 text-xs font-bold text-slate-700 dark:text-slate-350 hover:bg-slate-100 dark:hover:bg-slate-850 rounded-xl transition-colors cursor-pointer"
               >
-                Xong
+                {language === "vi" ? "Xong" : "Done"}
               </button>
             </div>
           </>

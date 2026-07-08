@@ -1,203 +1,349 @@
-import { useState, useEffect } from "react";
-import { HardDrive, Folder, File, Trash2, AlertTriangle } from "lucide-react";
+import { useState, useEffect, useMemo, useRef } from "react";
+import { Cpu, Activity, AlertTriangle, ChevronDown, HardDrive } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area } from "recharts";
 
-// Storage management page — BR-AM-08 shows storage info
+function CustomDropdown({ value, options, onChange }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const wrapperRef = useRef(null);
 
-const MOCK_FILES = [
-  { id: "f1", name: "giao_trinh_toan.pdf",   size: 2.4,  owner: "user101", type: "pdf",  uploadedAt: "01/05/2026" },
-  { id: "f2", name: "bai_giang_vatly.pptx",  size: 5.1,  owner: "user102", type: "pptx", uploadedAt: "03/05/2026" },
-  { id: "f3", name: "hoa_hoc_dai_cuong.pdf", size: 1.8,  owner: "user103", type: "pdf",  uploadedAt: "05/05/2026" },
-  { id: "f4", name: "lap_trinh_python.zip",  size: 12.3, owner: "user104", type: "zip",  uploadedAt: "08/05/2026" },
-  { id: "f5", name: "de_cuong_ai.docx",      size: 0.9,  owner: "user105", type: "docx", uploadedAt: "10/05/2026" },
-  { id: "f6", name: "slide_oop_2026.pptx",   size: 8.7,  owner: "user106", type: "pptx", uploadedAt: "12/05/2026" },
-  { id: "f7", name: "bai_tap_sql.pdf",       size: 3.2,  owner: "user107", type: "pdf",  uploadedAt: "15/05/2026" },
-  { id: "f8", name: "project_final.zip",     size: 45.6, owner: "user108", type: "zip",  uploadedAt: "20/05/2026" },
-];
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
-const FILE_ICON_COLOR = { pdf: "#ef4444", pptx: "#f97316", docx: "#3b82f6", zip: "#8b5cf6" };
+  const selectedOption = options.find(o => o.value == value) || options[0];
+
+  return (
+    <div ref={wrapperRef} style={{ position: "relative", minWidth: 140 }}>
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          width: "100%", background: "#fff", color: "#334155", fontSize: 13, padding: "8px 12px",
+          borderRadius: 6, fontWeight: 600, border: "1px solid #cbd5e1", outline: "none", cursor: "pointer",
+          boxShadow: "0 1px 2px rgba(0,0,0,0.05)"
+        }}
+      >
+        {selectedOption.label}
+        <ChevronDown size={14} style={{ color: "#64748b", transition: "transform 0.2s", transform: isOpen ? "rotate(180deg)" : "rotate(0)" }} />
+      </button>
+
+      {isOpen && (
+        <div style={{
+          position: "absolute", top: "100%", left: 0, right: 0, marginTop: 4,
+          background: "#fff", borderRadius: 6, border: "1px solid #e2e8f0",
+          boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06)", zIndex: 10,
+          overflow: "hidden"
+        }}>
+          {options.map(opt => (
+            <div
+              key={opt.value}
+              onClick={() => { onChange(opt.value); setIsOpen(false); }}
+              onMouseEnter={(e) => e.target.style.background = "#f1f5f9"}
+              onMouseLeave={(e) => e.target.style.background = "transparent"}
+              style={{
+                padding: "8px 12px", fontSize: 13, color: opt.value == value ? "#0f172a" : "#475569",
+                fontWeight: opt.value == value ? 600 : 500, cursor: "pointer",
+                background: opt.value == value ? "#f8fafc" : "transparent"
+              }}
+            >
+              {opt.label}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function AdminStorageManagement() {
-  const [files, setFiles]     = useState([]);
+  const [apiData, setApiData] = useState([]);
+  const [overview, setOverview] = useState(null);
+  const [errorMsg, setErrorMsg] = useState(null);
+  const [days, setDays] = useState(14);
   const [loading, setLoading] = useState(true);
-  const [confirm, setConfirm] = useState(null);
-  const [toast, setToast]     = useState(null);
+  const [stats, setStats] = useState(null);
 
   const token = localStorage.getItem("token") || sessionStorage.getItem("token");
 
-  const usedGB   = 7.8;
-  const limitGB  = 10;
-  const pct      = Math.round((usedGB / limitGB) * 100);
+  const totalSpend = overview ? overview.totalSpend : apiData.reduce((s, a) => s + a.spend, 0).toFixed(2);
+  const totalTokens = overview ? overview.totalTokens : apiData.reduce((s, a) => s + a.tokens, 0);
+  const totalRequests = overview ? overview.totalRequests : apiData.reduce((s, a) => s + a.requests, 0);
+  const budgetUsedPct = overview ? overview.budgetUsedPct : 0;
 
   useEffect(() => {
     setLoading(true);
-    fetch("http://localhost:5000/api/admin/storage/files", {
+    setErrorMsg(null);
+    fetch(`http://localhost:5000/api/admin/api-usage?days=${days}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(async r => {
+        const data = await r.json();
+        if (!r.ok) {
+          setErrorMsg(data.message || "An error occurred fetching API usage.");
+          setLoading(false);
+          return;
+        }
+        if (data.dailyData) {
+          setApiData(data.dailyData);
+          setOverview(data.overview);
+        } else if (Array.isArray(data)) {
+          setApiData(data); // fallback
+        }
+        setLoading(false);
+      })
+      .catch(e => {
+        setErrorMsg("Failed to connect to backend server.");
+        console.error(e);
+        setLoading(false);
+      });
+
+    // Fetch storage stats
+    fetch("http://localhost:5000/api/admin/stats", {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then(r => r.json())
-      .then(data => { setFiles(Array.isArray(data) ? data : MOCK_FILES); setLoading(false); })
-      .catch(() => { setFiles(MOCK_FILES); setLoading(false); });
-  }, []);
+      .then(data => setStats(data))
+      .catch(console.error);
 
-  const showToast = (type, msg) => {
-    setToast({ type, message: msg });
-    setTimeout(() => setToast(null), 3500);
-  };
-
-  const handleDelete = async (file) => {
-    try {
-      await fetch(`http://localhost:5000/api/admin/storage/files/${file.id}`, {
-        method: "DELETE", headers: { Authorization: `Bearer ${token}` },
-      });
-    } catch (_) {}
-    setFiles(prev => prev.filter(f => f.id !== file.id));
-    showToast("error", `Đã xóa file: ${file.name}`);
-    setConfirm(null);
-  };
-
-  const totalUsed = files.reduce((s, f) => s + (f.size || 0), 0).toFixed(1);
+  }, [days, token]);
 
   return (
-    <div>
-      <div className="adm-page-header">
-        <h1 className="adm-page-title">Storage Management</h1>
-        <p className="adm-page-subtitle">Manage system files and storage usage</p>
-      </div>
-
-      {/* Storage overview cards */}
-      <div className="adm-stats-grid" style={{ gridTemplateColumns: "repeat(3, 1fr)", marginBottom: 28 }}>
-        <div className="adm-stat-card storage">
-          <div className="adm-stat-info">
-            <div className="adm-stat-label">Total Used</div>
-            <div className="adm-stat-value">{usedGB} GB</div>
-            <div className="adm-storage-bar-wrap" style={{ marginTop: 10, width: 100 }}>
-              <div className="adm-storage-bar-fill" style={{ width: `${pct}%`, background: pct > 80 ? "linear-gradient(90deg,#ef4444,#dc2626)" : "linear-gradient(90deg,#7c3aed,#a855f7)" }} />
-            </div>
-          </div>
-          <div className="adm-stat-icon"><HardDrive size={22} /></div>
+    <div style={{ paddingBottom: 40 }}>
+      <style>{`
+        @keyframes pulse-shimmer {
+          0% { background-position: -400px 0; }
+          100% { background-position: 400px 0; }
+        }
+        .skeleton-pulse {
+          background: #2A2B32;
+          background-image: linear-gradient(90deg, #2A2B32 0px, #343541 40px, #2A2B32 80px);
+          background-size: 600px;
+          animation: pulse-shimmer 2s infinite linear forwards;
+          border-radius: 4px;
+        }
+      `}</style>
+      {/* Page header */}
+      <div className="flex items-end justify-between mb-6 pb-4 border-b border-gray-200">
+        <div>
+          <h1 className="text-xl font-extrabold !text-slate-800 tracking-tight">Quản lý Lưu trữ & API</h1>
+          <p className="text-[13px] text-slate-400 mt-0.5 font-medium">Giám sát dung lượng hệ thống và tài nguyên AI</p>
         </div>
-
-        <div className="adm-stat-card light">
-          <div className="adm-stat-info">
-            <div className="adm-stat-label">Total Limit</div>
-            <div className="adm-stat-value">{limitGB} GB</div>
-          </div>
-          <div className="adm-stat-icon"><Folder size={22} /></div>
-        </div>
-
-        <div className="adm-stat-card ai">
-          <div className="adm-stat-info">
-            <div className="adm-stat-label">Available</div>
-            <div className="adm-stat-value">{(limitGB - usedGB).toFixed(1)} GB</div>
-          </div>
-          <div className="adm-stat-icon">
-            {pct > 80 ? <AlertTriangle size={22} style={{ color: "#ef4444" }} /> : <File size={22} />}
-          </div>
-        </div>
-      </div>
-
-      {/* Usage bar */}
-      <div className="adm-table-card" style={{ padding: "20px 24px", marginBottom: 20 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-          <span style={{ fontSize: 14, fontWeight: 700, color: "#1a0d2e" }}>Storage Usage</span>
-          <span style={{ fontSize: 13, fontWeight: 600, color: pct > 80 ? "#dc2626" : "#7c3aed" }}>
-            {pct}% used ({usedGB} GB / {limitGB} GB)
-          </span>
-        </div>
-        <div className="adm-storage-bar-wrap" style={{ height: 14 }}>
-          <div
-            className="adm-storage-bar-fill"
-            style={{ width: `${pct}%`, background: pct > 80 ? "linear-gradient(90deg,#ef4444,#dc2626)" : undefined }}
+        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+          <span style={{ fontSize: 13, color: "#64748b", fontWeight: 500 }}>Thời gian:</span>
+          <CustomDropdown
+            value={days}
+            onChange={setDays}
+            options={[
+              { value: 7, label: "Last 7 days" },
+              { value: 14, label: "Last 14 days" },
+              { value: 30, label: "Last 30 days" }
+            ]}
           />
         </div>
-        {pct > 80 && (
-          <div style={{ marginTop: 10, fontSize: 12, color: "#dc2626", fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
-            <AlertTriangle size={13} /> Storage usage is above 80%. Consider cleaning up large files.
-          </div>
-        )}
       </div>
 
-      {/* Files table */}
-      <div className="adm-table-card">
-        <div className="adm-table-header">
-          <span className="adm-table-title">System Files</span>
-          <span style={{ fontSize: 13, color: "#9ca3af", fontWeight: 500 }}>{files.length} files</span>
+      {errorMsg && (
+        <div style={{
+          background: "#fef2f2", color: "#991b1b", padding: "16px 20px", borderRadius: "8px",
+          border: "1px solid #f87171", marginBottom: "24px", display: "flex", alignItems: "center", gap: "12px",
+          boxShadow: "0 1px 2px rgba(0,0,0,0.05)"
+        }}>
+          <AlertTriangle size={20} color="#ef4444" />
+          <div>
+            <div style={{ fontWeight: 700, fontSize: "14px", marginBottom: "4px" }}>OpenAI API Error</div>
+            <div style={{ fontSize: "13px", color: "#b91c1c" }}>{errorMsg}</div>
+          </div>
+        </div>
+      )}
+
+      {/* --- API USAGE DASHBOARD (Dark Theme - OpenAI Style) --- */}
+      <div
+        style={{
+          background: "#202123",
+          borderRadius: "8px",
+          overflow: "hidden",
+          display: "flex",
+          flexDirection: "row",
+          flexWrap: "wrap",
+          border: "1px solid #343541",
+          marginBottom: 40
+        }}
+      >
+        {/* Left Side: Main Chart */}
+        <div style={{ flex: "1 1 65%", padding: "24px", borderRight: "1px solid #343541", minWidth: 300 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 30 }}>
+            <div>
+              <div style={{ fontSize: 13, color: "#c5c5d2", fontWeight: 500, marginBottom: 4 }}>Total Spend ({days} days)</div>
+              {loading ? (
+                <div className="skeleton-pulse" style={{ width: 120, height: 28, marginTop: 4 }}></div>
+              ) : (
+                <div style={{ fontSize: 24, fontWeight: 700, color: "#ececf1", lineHeight: 1.2 }}>${totalSpend}</div>
+              )}
+            </div>
+            <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
+              {/* Budget Indicator */}
+              {loading ? (
+                <div style={{ textAlign: "right" }}>
+                  <div className="skeleton-pulse" style={{ width: 70, height: 12, marginBottom: 4, marginLeft: "auto" }}></div>
+                  <div className="skeleton-pulse" style={{ width: 100, height: 6, borderRadius: 4 }}></div>
+                  <div className="skeleton-pulse" style={{ width: 60, height: 12, marginTop: 4, marginLeft: "auto" }}></div>
+                </div>
+              ) : overview && (
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontSize: 11, color: "#8e8ea0", fontWeight: 600, textTransform: "uppercase", marginBottom: 4 }}>Budget Used</div>
+                  <div style={{ width: 100, height: 6, background: "#343541", borderRadius: 4, overflow: "hidden" }}>
+                    <div style={{ width: `${budgetUsedPct}%`, height: "100%", background: budgetUsedPct > 80 ? "#ef4444" : "#10b981", borderRadius: 4 }} />
+                  </div>
+                  <div style={{ fontSize: 11, color: "#c5c5d2", marginTop: 4, fontWeight: 500 }}>{budgetUsedPct}% of $50</div>
+                </div>
+              )}
+            </div>
+          </div>
+          <div style={{ height: 260, width: "100%" }}>
+            {loading ? (
+              <div className="skeleton-pulse" style={{ width: "100%", height: "100%", borderRadius: 8 }}></div>
+            ) : (
+              <ResponsiveContainer>
+                <BarChart data={apiData} margin={{ top: 0, right: 0, left: -25, bottom: 0 }} barSize={32}>
+                  <XAxis dataKey="date" axisLine={{ stroke: "#444654" }} tickLine={false} tick={{ fontSize: 11, fill: "#8e8ea0" }} dy={10} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "#8e8ea0" }} tickFormatter={(val) => `$${val}`} />
+                  <Tooltip
+                    cursor={{ fill: "#2A2B32" }}
+                    contentStyle={{ background: "#000", border: "1px solid #343541", borderRadius: "8px", color: "#ececf1", fontSize: 12 }}
+                    itemStyle={{ color: "#8b5cf6" }}
+                    formatter={(value) => [`$${value}`, "Spend"]}
+                  />
+                  <Bar dataKey="spend" fill="#8b5cf6" radius={[2, 2, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </div>
         </div>
 
-        {loading ? (
-          <div className="adm-empty"><div className="adm-empty-text" style={{ color: "#a78bfa" }}>Loading files...</div></div>
-        ) : files.length === 0 ? (
-          <div className="adm-empty">
-            <HardDrive className="adm-empty-icon" />
-            <div className="adm-empty-text">No files found</div>
-          </div>
-        ) : (
-          <table className="adm-table">
-            <thead>
-              <tr>
-                <th>File Name</th>
-                <th>Type</th>
-                <th>Size</th>
-                <th>Owner</th>
-                <th>Uploaded</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {files.map(file => (
-                <tr key={file.id}>
-                  <td>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <span style={{
-                        width: 28, height: 28, borderRadius: 6,
-                        background: `${FILE_ICON_COLOR[file.type] || "#6b7280"}22`,
-                        color: FILE_ICON_COLOR[file.type] || "#6b7280",
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        fontSize: 10, fontWeight: 800, textTransform: "uppercase", flexShrink: 0,
-                      }}>
-                        {file.type}
-                      </span>
-                      <span style={{ fontWeight: 600, fontSize: 13.5 }}>{file.name}</span>
-                    </div>
-                  </td>
-                  <td><span style={{ color: FILE_ICON_COLOR[file.type] || "#6b7280", fontWeight: 700, fontSize: 12, textTransform: "uppercase" }}>{file.type}</span></td>
-                  <td style={{ color: file.size > 20 ? "#dc2626" : "#374151", fontWeight: file.size > 20 ? 700 : 500 }}>{file.size} MB</td>
-                  <td style={{ color: "#6b7280" }}>{file.owner}</td>
-                  <td style={{ color: "#9ca3af", fontSize: 12 }}>{file.uploadedAt}</td>
-                  <td>
-                    <button
-                      id={`adm-del-file-${file.id}`}
-                      className="adm-action-btn delete"
-                      onClick={() => setConfirm({ file })}
-                    >
-                      <Trash2 size={11} /> Xóa
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+        {/* Right Side: Stats sidebar */}
+        <div style={{ flex: "1 1 30%", display: "flex", flexDirection: "column", minWidth: 250 }}>
 
-      {confirm && (
-        <div className="adm-overlay" onClick={() => setConfirm(null)}>
-          <div className="adm-modal" onClick={e => e.stopPropagation()}>
-            <div className="adm-modal-title">Xóa file</div>
-            <div className="adm-modal-body">Xóa vĩnh viễn file <strong>{confirm.file.name}</strong>? Hành động này không thể hoàn tác.</div>
-            <div className="adm-modal-actions">
-              <button className="adm-btn-cancel" onClick={() => setConfirm(null)}>Hủy</button>
-              <button id="adm-storage-delete-confirm" className="adm-btn-confirm danger" onClick={() => handleDelete(confirm.file)}>Xóa</button>
+          {/* Tokens Area Chart */}
+          <div style={{ padding: "24px", borderBottom: "1px solid #343541", flex: 1, display: "flex", flexDirection: "column" }}>
+            <div style={{ fontSize: 13, color: "#c5c5d2", fontWeight: 500, marginBottom: 4 }}>Total tokens</div>
+            {loading ? (
+              <div className="skeleton-pulse" style={{ width: 100, height: 24, marginBottom: 16 }}></div>
+            ) : (
+              <div style={{ fontSize: 20, fontWeight: 700, color: "#ececf1", marginBottom: 16 }}>{Number(totalTokens).toLocaleString()}</div>
+            )}
+            <div style={{ height: 60, width: "100%", marginTop: "auto" }}>
+              {loading ? (
+                <div className="skeleton-pulse" style={{ width: "100%", height: "100%", borderRadius: 4 }}></div>
+              ) : (
+                <ResponsiveContainer>
+                  <AreaChart data={apiData}>
+                    <Tooltip contentStyle={{ background: "#000", border: "1px solid #343541", color: "#fff", fontSize: 12 }} formatter={(val) => [val, "Tokens"]} labelStyle={{ display: "none" }} />
+                    <Area type="monotone" dataKey="tokens" stroke="#ef4444" fill="transparent" strokeWidth={2} isAnimationActive={false} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+          </div>
+
+          {/* Requests Bar Chart */}
+          <div style={{ padding: "24px", flex: 1, display: "flex", flexDirection: "column" }}>
+            <div style={{ fontSize: 13, color: "#c5c5d2", fontWeight: 500, marginBottom: 4 }}>Total requests</div>
+            {loading ? (
+              <div className="skeleton-pulse" style={{ width: 80, height: 24, marginBottom: 16 }}></div>
+            ) : (
+              <div style={{ fontSize: 20, fontWeight: 700, color: "#ececf1", marginBottom: 16 }}>{Number(totalRequests).toLocaleString()}</div>
+            )}
+            <div style={{ height: 60, width: "100%", marginTop: "auto" }}>
+              {loading ? (
+                <div className="skeleton-pulse" style={{ width: "100%", height: "100%", borderRadius: 4 }}></div>
+              ) : (
+                <ResponsiveContainer>
+                  <BarChart data={apiData} barSize={16}>
+                    <Tooltip contentStyle={{ background: "#000", border: "1px solid #343541", color: "#fff", fontSize: 12 }} formatter={(val) => [val, "Requests"]} labelStyle={{ display: "none" }} />
+                    <Bar dataKey="requests" fill="#3b82f6" radius={[2, 2, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
             </div>
           </div>
         </div>
-      )}
+      </div>
 
-      {toast && (
-        <div className={`adm-toast ${toast.type}`}>
-          <span>{toast.type === "success" ? "✓" : "✕"}</span>
-          {toast.message}
+      {/* --- STORAGE CAPACITY DASHBOARD --- */}
+      <div
+        style={{
+          background: "#fff",
+          borderRadius: "8px",
+          overflow: "hidden",
+          border: "1px solid #e2e8f0",
+          boxShadow: "0 1px 3px rgba(0,0,0,0.05)"
+        }}
+      >
+        <div style={{ padding: "20px 24px", borderBottom: "1px solid #f1f5f9", background: "#f8fafc" }}>
+          <h2 style={{ fontSize: 16, fontWeight: 700, color: "#1e293b", margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
+            <HardDrive size={18} color="#6366f1" /> Dung lượng hệ thống
+          </h2>
+          <p style={{ fontSize: 13, color: "#64748b", margin: "4px 0 0 0" }}>Quản lý không gian lưu trữ tệp tin và cơ sở dữ liệu hệ thống</p>
         </div>
-      )}
+
+        <div style={{ padding: "24px", display: "flex", flexWrap: "wrap", gap: "32px" }}>
+          {/* File Storage */}
+          <div style={{ flex: "1 1 300px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+              <span style={{ fontSize: 13, fontWeight: 600, color: "#475569" }}>Lưu trữ Tệp tin (PDF, Docx...)</span>
+              <span style={{ fontSize: 15, fontWeight: 800, color: "#4f46e5", background: "#e0e7ff", padding: "2px 10px", borderRadius: "20px" }}>
+                {stats ? `${stats.totalStorageUsed} GB` : "0 GB"}
+              </span>
+            </div>
+            <div style={{ width: "100%", height: 10, background: "#f1f5f9", borderRadius: 5, overflow: "hidden" }}>
+              <div
+                style={{
+                  height: "100%",
+                  width: stats ? `${Math.min((stats.totalStorageUsed / stats.totalStorageLimit) * 100, 100)}%` : "0%",
+                  background: stats && (stats.totalStorageUsed / stats.totalStorageLimit) > 0.8 ? "#ef4444" : "#6366f1",
+                  transition: "width 1s ease-in-out"
+                }}
+              />
+            </div>
+            {stats && stats.fileTypeBreakdown && stats.fileTypeBreakdown.length > 0 && (
+              <div style={{ display: "flex", gap: "12px", marginTop: "12px", flexWrap: "wrap" }}>
+                {stats.fileTypeBreakdown.map((item, idx) => (
+                  <div key={idx} style={{ display: "flex", alignItems: "center", gap: "6px", background: "#f8fafc", padding: "4px 8px", borderRadius: "6px", border: "1px solid #e2e8f0" }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: "#6366f1", textTransform: "uppercase" }}>{item.type}</span>
+                    <span style={{ fontSize: 11, color: "#64748b" }}>{item.count} files ({item.sizeGB} GB)</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* DB Storage */}
+          <div style={{ flex: "1 1 300px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+              <span style={{ fontSize: 13, fontWeight: 600, color: "#475569" }}>Cơ sở dữ liệu (Database)</span>
+              <span style={{ fontSize: 15, fontWeight: 800, color: "#059669", background: "#d1fae5", padding: "2px 10px", borderRadius: "20px" }}>
+                {stats ? `${stats.dbStorageUsed} GB` : "0 GB"}
+              </span>
+            </div>
+            <div style={{ width: "100%", height: 10, background: "#f1f5f9", borderRadius: 5, overflow: "hidden" }}>
+              <div
+                style={{
+                  height: "100%",
+                  width: stats ? `${Math.min((stats.dbStorageUsed / 5) * 100, 100)}%` : "0%",
+                  background: "#10b981",
+                  transition: "width 1s ease-in-out"
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

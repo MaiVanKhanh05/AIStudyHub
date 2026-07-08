@@ -31,6 +31,30 @@ export const searchSubjects = async (searchTerm = "") => {
     }
 };
 
+// Get all subjects that have at least one public document, with their doc counts
+export const getSubjectsWithDocCounts = async () => {
+    try {
+        const { rows } = await pool.query(`
+            SELECT
+                s.subject_code,
+                s.subject_name,
+                COALESCE(dc.doc_count, 0)::int AS doc_count
+            FROM subject s
+            INNER JOIN (
+                SELECT subject_code, COUNT(*) AS doc_count
+                FROM document
+                WHERE visibility = 'PUBLIC'
+                GROUP BY subject_code
+            ) dc ON dc.subject_code = s.subject_code
+            ORDER BY s.subject_code ASC
+        `);
+        return rows;
+    } catch (error) {
+        console.error("Error in getSubjectsWithDocCounts:", error);
+        throw error;
+    }
+};
+
 // Get or create subject by code
 export const getOrCreateSubject = async (subjectCode, subjectName = "") => {
     try {

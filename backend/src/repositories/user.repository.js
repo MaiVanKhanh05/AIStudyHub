@@ -72,3 +72,32 @@ export const searchUsers = async (query) => {
         throw error;
     }
 };
+
+export const updateUserStorage = async (userId, sizeDifference) => {
+    try {
+        const { rows } = await pool.query(
+            `UPDATE users 
+             SET used_storage = GREATEST(COALESCE(used_storage, 0) + $1, 0) 
+             WHERE user_id = $2 
+             RETURNING used_storage`,
+            [sizeDifference, userId]
+        );
+        return rows[0] ? rows[0].used_storage : null;
+    } catch (error) {
+        console.error("Error updating user storage:", error);
+        throw error;
+    }
+};
+
+export const getUserStorageInfo = async (userId) => {
+    try {
+        const { rows } = await pool.query(
+            "SELECT COALESCE(used_storage, 0) as used_storage, COALESCE(max_storage_bytes, 2147483648) as max_storage FROM users WHERE user_id = $1",
+            [userId]
+        );
+        return rows[0] ? { used: Number(rows[0].used_storage), max: Number(rows[0].max_storage) } : null;
+    } catch (error) {
+        console.error("Error fetching user storage info:", error);
+        throw error;
+    }
+};

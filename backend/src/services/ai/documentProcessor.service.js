@@ -1,5 +1,7 @@
 import * as documentRepository from "../../repositories/document.repository.js";
 import { parsePDF, parseWord, parseExcel, parsePPTX, parseZip, parseImageViaLLM, cleanText } from "./documentParser.service.js";
+import { chunkText, generateEmbeddings } from "./embedding.service.js";
+import { insertChunks } from "../../repositories/chunk.repository.js";
 import fs from "fs";
 import path from "path";
 
@@ -85,6 +87,25 @@ export const processDocumentInBackground = async (doc) => {
 
             await documentRepository.updateExtractedContent(doc.document_id, truncated);
             console.log(`[DocumentProcessor] Done: doc ${doc.document_id} — ${truncated.length} chars extracted`);
+
+            // --- ADD CHUNKING AND EMBEDDING ---
+            console.log(`[DocumentProcessor] Start chunking doc: ${doc.document_id}`);
+            const textChunks = chunkText(truncated, 1000, 200);
+            console.log(`[DocumentProcessor] Generated ${textChunks.length} chunks. Generating embeddings...`);
+            
+            const embeddings = await generateEmbeddings(textChunks);
+            
+            if (textChunks.length === embeddings.length) {
+                const chunksToInsert = textChunks.map((text, index) => ({
+                    chunk_index: index,
+                    chunk_text: text,
+                    embedding: embeddings[index]
+                }));
+                await insertChunks(doc.document_id, chunksToInsert);
+                console.log(`[DocumentProcessor] Successfully inserted ${chunksToInsert.length} chunks to DB.`);
+            } else {
+                console.warn(`[DocumentProcessor] Mismatch: ${textChunks.length} chunks but ${embeddings.length} embeddings.`);
+            }
         } else {
             console.warn(`[DocumentProcessor] No text extracted from doc: ${doc.document_id}`);
         }

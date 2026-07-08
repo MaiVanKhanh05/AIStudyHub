@@ -3,7 +3,7 @@ import pool from "../../../DB/db.js";
 
 
 let openai = null;
-const initOpenAI = () => {
+export const initOpenAI = () => {
     if (!openai && process.env.OPENAI_API_KEY) {
         openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     }
@@ -16,19 +16,25 @@ const initOpenAI = () => {
  * @param {number} topK 
  * @returns {Array<Object>} List of relevant chunks
  */
-const searchVectorDB = async (queryEmbedding, topK = 5) => {
+export const searchVectorDB = async (queryEmbedding, topK = 5, documentId = null) => {
     try {
         const embeddingString = `[${queryEmbedding.join(',')}]`;
         
-        // Use pgvector's <=> operator for Cosine Distance
-        // The smaller the distance, the more similar the vectors are.
-        const query = `
+        let query = `
             SELECT document_id, chunk_text, 1 - (embedding <=> $1::vector) AS similarity
             FROM document_chunks
-            ORDER BY embedding <=> $1::vector
-            LIMIT $2;
+            WHERE 1 - (embedding <=> $1::vector) > 0.35
         `;
-        const { rows } = await pool.query(query, [embeddingString, topK]);
+        const queryParams = [embeddingString, topK];
+
+        if (documentId !== null && documentId !== undefined) {
+            query += ` AND document_id = $3`;
+            queryParams.push(documentId);
+        }
+
+        query += ` ORDER BY embedding <=> $1::vector LIMIT $2;`;
+
+        const { rows } = await pool.query(query, queryParams);
         return rows;
     } catch (error) {
         console.error("[Chat Service] Error querying vector database:", error);

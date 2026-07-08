@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { Search, Lock, Unlock, Users } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Search, Lock, Unlock, Users, ChevronDown } from "lucide-react";
 import Pagination from "../../components/Pagination";
 
 // BR-AM-03 / 04 / 05 / 06
@@ -23,29 +23,72 @@ const ROLE_BADGE = {
 const ROLE_LABEL = { STUDENT: "Sinh viên", LECTURER: "Giảng viên", ADMIN: "Admin" };
 
 export default function AdminUserManagement({ roleFilter = "all" }) {
+  const [localRoleFilter, setLocalRoleFilter] = useState(roleFilter);
   const [users, setUsers] = useState([]);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
   const [confirm, setConfirm] = useState(null);
   const [toast, setToast]     = useState(null);
+
+  const [isRoleDropdownOpen, setIsRoleDropdownOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setIsRoleDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const roleOptions = [
+    { value: "all", label: "Tất cả vai trò" },
+    { value: "STUDENT", label: "Sinh viên" },
+    { value: "LECTURER", label: "Giảng viên" },
+    { value: "ADMIN", label: "Admin" },
+  ];
+  const selectedRole = roleOptions.find(r => r.value === localRoleFilter) || roleOptions[0];
 
   const token = localStorage.getItem("token") || sessionStorage.getItem("token");
   const meStr = localStorage.getItem("user") || sessionStorage.getItem("user");
   const me = meStr ? JSON.parse(meStr) : null;
 
   useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [search]);
+
+  useEffect(() => {
     setLoading(true);
-    fetch("http://localhost:5000/api/admin/users", {
+    fetch(`http://localhost:5000/api/admin/users?page=${page}&limit=${PAGE_SIZE}&role=${localRoleFilter}&search=${encodeURIComponent(debouncedSearch)}`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then(r => r.json())
-      .then(data => { setUsers(Array.isArray(data) ? data : []); setLoading(false); })
+      .then(data => { 
+        if (data && data.users) {
+          setUsers(data.users); 
+          setTotalPages(data.totalPages || 1);
+          setTotalCount(data.totalCount || 0);
+        } else {
+          setUsers(Array.isArray(data) ? data : []); 
+          setTotalPages(1);
+          setTotalCount(Array.isArray(data) ? data.length : 0);
+        }
+        setLoading(false); 
+      })
       .catch(() => { setUsers([]); setLoading(false); });
-  }, []);
+  }, [page, localRoleFilter, debouncedSearch, token]);
 
   // Reset page khi đổi filter/search
-  useEffect(() => { setPage(1); }, [search, roleFilter]);
+  useEffect(() => { setPage(1); }, [debouncedSearch, localRoleFilter]);
 
   const showToast = (type, message) => {
     setToast({ type, message });
@@ -90,27 +133,12 @@ export default function AdminUserManagement({ roleFilter = "all" }) {
     setConfirm(null);
   };
 
-  // Filter
-  const filtered = users.filter(u => {
-    const matchRole = roleFilter === "all" || u.role === roleFilter;
-    const q = search.toLowerCase();
-    const matchSearch = !q ||
-      u.full_name?.toLowerCase().includes(q) ||
-      u.email?.toLowerCase().includes(q) ||
-      String(u.id).includes(q);
-    return matchRole && matchSearch;
-  });
+  const pageTitle = "Quản lý Người dùng";
 
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
-  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-
-  const pageTitle = roleFilter === "STUDENT" ? "Quản lý Sinh viên"
-    : roleFilter === "LECTURER" ? "Quản lý Giảng viên"
-      : "Quản lý Người dùng";
-
-  const tableSubtitle = roleFilter === "STUDENT" ? "Sinh viên"
-    : roleFilter === "LECTURER" ? "Giảng viên"
-      : "Tất cả người dùng";
+  const tableSubtitle = localRoleFilter === "STUDENT" ? "Sinh viên"
+    : localRoleFilter === "LECTURER" ? "Giảng viên"
+    : localRoleFilter === "ADMIN" ? "Admin"
+    : "Tất cả người dùng";
 
   return (
     <div>
@@ -118,7 +146,7 @@ export default function AdminUserManagement({ roleFilter = "all" }) {
       <div className="flex items-end justify-between mb-6 pb-4 border-b border-gray-200">
         <div>
           <h1 className="text-xl font-extrabold !text-slate-800 tracking-tight">{pageTitle}</h1>
-          <p className="text-[13px] text-slate-400 mt-0.5 font-medium">{filtered.length} kết quả</p>
+          <p className="text-[13px] text-slate-400 mt-0.5 font-medium">{totalCount} kết quả</p>
         </div>
         <span className="inline-flex items-center px-3 py-1 rounded-full bg-purple-50 text-purple-700 text-[11px] font-bold tracking-widest uppercase border border-purple-200">
           {tableSubtitle}
@@ -128,44 +156,83 @@ export default function AdminUserManagement({ roleFilter = "all" }) {
       {/* Table card */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3.5 bg-slate-50 border-b border-gray-200">
+        <div className="flex flex-col sm:flex-row gap-3 sm:items-center justify-between px-5 py-3.5 bg-slate-50 border-b border-gray-200">
           <span className="text-[13.5px] font-bold text-slate-700">{tableSubtitle}</span>
-          <div className="relative">
-            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              id="adm-user-search"
-              type="text"
-              className="pl-8 pr-3 py-1.5 text-[12.5px] border border-gray-200 rounded-lg bg-white outline-none focus:border-purple-400 focus:ring-2 focus:ring-purple-100 w-52 font-medium"
-              placeholder="Tìm theo tên, email..."
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-            />
+          <div className="flex items-center gap-3">
+            <div className="relative" ref={dropdownRef}>
+              <button
+                type="button"
+                onClick={() => setIsRoleDropdownOpen(!isRoleDropdownOpen)}
+                className="flex items-center justify-between gap-3 px-3.5 py-1.5 text-[12.5px] border border-gray-200 hover:border-purple-300 hover:bg-purple-50/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-purple-100 min-w-[150px] font-medium text-slate-700 transition-all shadow-sm cursor-pointer"
+              >
+                <span className="truncate">{selectedRole.label}</span>
+                <ChevronDown size={13} className={`text-slate-400 transition-transform duration-200 ${isRoleDropdownOpen ? "rotate-180" : ""}`} />
+              </button>
+              {isRoleDropdownOpen && (
+                <div className="absolute z-10 top-full mt-1.5 w-full bg-white border border-gray-100 rounded-lg shadow-xl py-1 animate-in fade-in zoom-in-95 duration-100 origin-top overflow-hidden">
+                  {roleOptions.map((opt) => (
+                    <button
+                      key={opt.value}
+                      onClick={() => {
+                        setLocalRoleFilter(opt.value);
+                        setIsRoleDropdownOpen(false);
+                      }}
+                      className={`w-full text-left px-3.5 py-2 text-[12.5px] font-medium transition-colors cursor-pointer
+                        ${localRoleFilter === opt.value ? "bg-purple-50 text-purple-700 font-bold" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"}`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="relative">
+              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                id="adm-user-search"
+                type="text"
+                className="pl-8 pr-3 py-1.5 text-[12.5px] border border-gray-200 rounded-lg bg-white outline-none focus:border-purple-400 focus:ring-2 focus:ring-purple-100 w-52 font-medium"
+                placeholder="Tìm theo tên, email..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+              />
+            </div>
           </div>
         </div>
 
         {/* Table */}
-        {loading ? (
-          <div className="py-16 text-center text-[13px] text-purple-400 font-semibold animate-pulse">
-            Đang tải dữ liệu...
-          </div>
-        ) : paginated.length === 0 ? (
-          <div className="py-16 text-center">
-            <Users size={40} className="mx-auto mb-3 text-slate-300" />
-            <p className="text-[13px] text-slate-400 font-semibold">Không tìm thấy người dùng</p>
-          </div>
-        ) : (
-          <table className="w-full border-collapse">
-            <thead>
+        <table className="w-full border-collapse">
+          <thead>
+            <tr>
+              {["ID", "Họ tên", "Email", "Vai trò", "Đã sử dụng", "Trạng thái", "Thao tác"].map(h => (
+                <th key={h} className="px-5 py-2.5 text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50 border-b border-gray-200">
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              [...Array(5)].map((_, i) => (
+                <tr key={i} className="animate-pulse border-b border-gray-100 last:border-0">
+                  <td className="px-5 py-4"><div className="h-4 bg-slate-100 rounded w-8"></div></td>
+                  <td className="px-5 py-4"><div className="h-4 bg-slate-100 rounded w-32"></div></td>
+                  <td className="px-5 py-4"><div className="h-4 bg-slate-100 rounded w-40"></div></td>
+                  <td className="px-5 py-4"><div className="h-5 bg-slate-100 rounded-full w-20"></div></td>
+                  <td className="px-5 py-4"><div className="h-5 bg-slate-100 rounded w-28"></div></td>
+                  <td className="px-5 py-4"><div className="h-5 bg-slate-100 rounded-full w-20"></div></td>
+                  <td className="px-5 py-4"><div className="flex gap-2"><div className="h-6 bg-slate-100 rounded w-16"></div></div></td>
+                </tr>
+              ))
+            ) : users.length === 0 ? (
               <tr>
-                {["ID", "Họ tên", "Email", "Vai trò", "Đã sử dụng", "Trạng thái", "Thao tác"].map(h => (
-                  <th key={h} className="px-5 py-2.5 text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50 border-b border-gray-200">
-                    {h}
-                  </th>
-                ))}
+                <td colSpan="7" className="py-16 text-center">
+                  <Users size={40} className="mx-auto mb-3 text-slate-300" />
+                  <p className="text-[13px] text-slate-400 font-semibold">Không tìm thấy người dùng</p>
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {paginated.map(user => {
+            ) : (
+              users.map(user => {
                 const isMe = me && (String(user.id) === String(me.user_id) || user.email === me.email);
                 const isLocked = user.status === "LOCKED";
                 return (
@@ -244,10 +311,10 @@ export default function AdminUserManagement({ roleFilter = "all" }) {
                     </td>
                   </tr>
                 );
-              })}
-            </tbody>
-          </table>
-        )}
+              })
+            )}
+          </tbody>
+        </table>
 
         {/* Pagination */}
         {totalPages > 1 && (

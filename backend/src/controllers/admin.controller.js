@@ -1,10 +1,10 @@
-
 import pool from "../../DB/db.js";
+
 
 // GET /api/admin/stats — tổng hợp số liệu dashboard
 export const getAdminStats = async (req, res) => {
     try {
-        const [studentsResult, lecturersResult, documentsResult, storageResult] = await Promise.all([
+        const [studentsResult, lecturersResult, documentsResult, storageResult, dbSizeResult] = await Promise.all([
             // Tổng sinh viên
             pool.query(
                 "SELECT COUNT(*) AS count FROM users WHERE role = 'STUDENT' AND status = 'ACTIVE'"
@@ -21,6 +21,10 @@ export const getAdminStats = async (req, res) => {
             pool.query(
                 "SELECT COALESCE(SUM(file_size), 0) AS total FROM document"
             ),
+            // Kích thước database
+            pool.query(
+                "SELECT pg_database_size(current_database()) AS db_size"
+            ),
         ]);
 
         const totalStudents = parseInt(studentsResult.rows[0].count, 10);
@@ -28,6 +32,9 @@ export const getAdminStats = async (req, res) => {
         const totalDocuments = parseInt(documentsResult.rows[0].count, 10);
         const totalStorageBytes = parseInt(storageResult.rows[0].total, 10);
         const totalStorageGB = (totalStorageBytes / (1024 ** 3)).toFixed(2);
+        
+        const dbSizeBytes = parseInt(dbSizeResult.rows[0].db_size, 10);
+        const dbStorageGB = (dbSizeBytes / (1024 ** 3)).toFixed(4); // Lấy 4 chữ số thập phân cho DB size vì text/db thường khá nhỏ
 
         res.json({
             totalStudents,
@@ -35,6 +42,7 @@ export const getAdminStats = async (req, res) => {
             totalDocuments,
             totalStorageUsed: parseFloat(totalStorageGB),
             totalStorageLimit: 10,
+            dbStorageUsed: parseFloat(dbStorageGB)
         });
     } catch (error) {
         console.error("Error fetching admin stats:", error);
@@ -45,8 +53,43 @@ export const getAdminStats = async (req, res) => {
 // GET /api/admin/users — danh sách tất cả người dùng
 export const getAllUsers = async (req, res) => {
     try {
-        const { rows } = await pool.query(
-            `SELECT 
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const role = req.query.role || "all";
+        const search = req.query.search || "";
+        const offset = (page - 1) * limit;
+
+        let whereClauses = [];
+        let queryParams = [];
+        let paramIndex = 1;
+
+        if (role !== "all") {
+            whereClauses.push(`u.role = $${paramIndex}`);
+            queryParams.push(role);
+            paramIndex++;
+        }
+
+        if (search) {
+            whereClauses.push(`(u.email ILIKE $${paramIndex} OR (u.last_name || ' ' || u.first_name) ILIKE $${paramIndex})`);
+            queryParams.push(`%${search}%`);
+            paramIndex++;
+        }
+
+        const whereString = whereClauses.length > 0 ? `WHERE ${whereClauses.join(" AND ")}` : "";
+
+        // Get total count
+        const countQuery = `
+            SELECT COUNT(*) AS total
+            FROM users u
+            ${whereString}
+        `;
+        const countResult = await pool.query(countQuery, queryParams);
+        const totalCount = parseInt(countResult.rows[0].total, 10);
+        const totalPages = Math.ceil(totalCount / limit) || 1;
+
+        // Get paginated users
+        const dataQuery = `
+            SELECT 
                 u.user_id AS id, 
                 (u.last_name || ' ' || u.first_name) AS full_name, 
                 u.email, 
@@ -57,10 +100,21 @@ export const getAllUsers = async (req, res) => {
                 COALESCE(SUM(d.file_size), 0) AS used_storage
              FROM users u
              LEFT JOIN document d ON u.user_id = d.user_id
+             ${whereString}
              GROUP BY u.user_id, u.last_name, u.first_name, u.email, u.role, u.status, u.created_at, u.max_storage_bytes
-             ORDER BY u.created_at DESC`
-        );
-        res.json(rows);
+             ORDER BY u.created_at DESC
+             LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+        `;
+        
+        const dataParams = [...queryParams, limit, offset];
+        const { rows } = await pool.query(dataQuery, dataParams);
+
+        res.json({
+            users: rows,
+            totalCount,
+            totalPages,
+            currentPage: page
+        });
     } catch (error) {
         console.error("Error fetching all users:", error);
         res.status(500).json({ error: "Internal Server Error" });
@@ -163,7 +217,17 @@ export const getAllDocuments = async (req, res) => {
 export const deleteDocument = async (req, res) => {
     try {
         const { id } = req.params;
+        const { rows } = await pool.query("SELECT user_id, file_size FROM document WHERE document_id = $1", [id]);
+        const doc = rows[0];
+
         await pool.query("DELETE FROM document WHERE document_id = $1", [id]);
+
+        if (doc) {
+            await pool.query(
+                "UPDATE users SET used_storage = GREATEST(COALESCE(used_storage, 0) - $1, 0) WHERE user_id = $2",
+                [doc.file_size, doc.user_id]
+            );
+        }
         res.json({ message: "Tài liệu đã bị xóa" });
     } catch (error) {
         console.error("Error deleting document:", error);
@@ -184,6 +248,251 @@ export const getPopularDocuments = async (req, res) => {
         res.json(rows);
     } catch (error) {
         console.error("Error fetching popular documents:", error);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+};
+
+// GET /api/admin/analytics — Xu hướng đăng ký user & upload tài liệu theo chuỗi thời gian
+export const getAnalyticsData = async (req, res) => {
+    try {
+        const days = parseInt(req.query.days, 10) || 30;
+
+        // Xu hướng đăng ký user theo ngày
+        const userTrendsResult = await pool.query(
+            `SELECT 
+                d.date::date AS date,
+                COALESCE(COUNT(u.user_id), 0) AS new_users,
+                COALESCE(SUM(CASE WHEN u.role = 'STUDENT' THEN 1 ELSE 0 END), 0) AS new_students,
+                COALESCE(SUM(CASE WHEN u.role = 'LECTURER' THEN 1 ELSE 0 END), 0) AS new_lecturers
+             FROM generate_series(CURRENT_DATE - ($1 || ' days')::interval, CURRENT_DATE, '1 day') AS d(date)
+             LEFT JOIN users u ON DATE(u.created_at) = d.date
+             GROUP BY d.date
+             ORDER BY d.date ASC`,
+            [days]
+        );
+
+        // Xu hướng tài liệu (upload, views, downloads) theo ngày
+        const docTrendsResult = await pool.query(
+            `SELECT 
+                d.date::date AS date,
+                COALESCE(COUNT(doc.document_id), 0) AS uploads,
+                COALESCE(SUM(doc.views), 0) AS views,
+                COALESCE(SUM(doc.downloads), 0) AS downloads
+             FROM generate_series(CURRENT_DATE - ($1 || ' days')::interval, CURRENT_DATE, '1 day') AS d(date)
+             LEFT JOIN document doc ON DATE(doc.upload_date) = d.date
+             GROUP BY d.date
+             ORDER BY d.date ASC`,
+            [days]
+        );
+
+        res.json({
+            userTrends: userTrendsResult.rows,
+            documentTrends: docTrendsResult.rows,
+        });
+    } catch (error) {
+        console.error("Error fetching analytics data:", error);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+};
+
+// GET /api/admin/hot-docs
+export const getHotDocs = async (req, res) => {
+    try {
+        const docs = await hotDocRepository.getHotDocuments(20);
+        res.json(docs);
+    } catch (error) {
+        console.error("Error fetching hot docs:", error);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+};
+
+// GET /api/admin/lecturers
+export const getLecturers = async (req, res) => {
+    try {
+        const lecturers = await hotDocRepository.getAllLecturers();
+        res.json(lecturers);
+    } catch (error) {
+        console.error("Error fetching lecturers:", error);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+};
+
+// GET /api/admin/storage-distribution — Phân bổ tài liệu theo loại file & môn học
+export const getStorageDistribution = async (req, res) => {
+    try {
+        const fileTypeResult = await pool.query(
+            `SELECT 
+                UPPER(COALESCE(NULLIF(file_type, ''), 'OTHER')) AS type,
+                COUNT(*) AS count,
+                COALESCE(SUM(file_size), 0) AS size_bytes
+             FROM document
+             GROUP BY UPPER(COALESCE(NULLIF(file_type, ''), 'OTHER'))
+             ORDER BY count DESC`
+        );
+
+        const subjectResult = await pool.query(
+            `SELECT 
+                COALESCE(s.subject_name, 'Khác') AS subject_name,
+                COALESCE(d.subject_code, 'OTHER') AS subject_code,
+                COUNT(*) AS count,
+                COALESCE(SUM(d.file_size), 0) AS size_bytes
+             FROM document d
+             LEFT JOIN subject s ON d.subject_code = s.subject_code
+             GROUP BY d.subject_code, s.subject_name
+             ORDER BY count DESC
+             LIMIT 8`
+        );
+
+        res.json({
+            fileTypes: fileTypeResult.rows,
+            subjects: subjectResult.rows,
+        });
+    } catch (error) {
+        console.error("Error fetching storage distribution:", error);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+};
+
+// POST /api/admin/hot-docs/:id/send-review
+export const sendHotDocReview = async (req, res) => {
+    try {
+        const adminId = req.userId;
+        const documentId = req.params.id;
+        const { reviewerId } = req.body;
+
+        if (!reviewerId) {
+            return res.status(400).json({ error: "Vui lòng chọn giảng viên để gửi duyệt." });
+        }
+
+        const review = await hotDocRepository.createHotDocReview(documentId, adminId, reviewerId);
+
+        // Notify lecturer
+        const { createNotification } = await import("../repositories/notification.repository.js");
+        const { getDocumentById } = await import("../repositories/document.repository.js");
+        const doc = await getDocumentById(documentId);
+        const docTitle = doc ? doc.title : "Tài liệu";
+
+        await createNotification({
+            userId: reviewerId,
+            senderId: adminId,
+            type: "SYSTEM_ALERT",
+            documentId,
+            message: `Admin đã yêu cầu bạn duyệt tài liệu hot: "${docTitle}". Hãy kiểm tra danh sách chờ duyệt.`
+        });
+
+        res.json({ message: "Đã gửi yêu cầu duyệt thành công.", review });
+    } catch (error) {
+        console.error("Error sending hot doc review:", error);
+        if (error.message.includes("đã có yêu cầu duyệt")) {
+            return res.status(400).json({ error: error.message });
+        }
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+};
+
+
+export const getApiUsage = async (req, res) => {
+    try {
+        const days = Math.min(parseInt(req.query.days, 10) || 14, 30);
+        const apiKey = process.env.OPENAI_ADMIN_KEY;
+
+        if (!apiKey) {
+            return res.status(403).json({ 
+                error: "NO_API_KEY", 
+                message: "Không tìm thấy API Key (Admin) trong cấu hình hệ thống."
+            });
+        }
+
+        const endTime = Math.floor(Date.now() / 1000);
+        const startTime = endTime - (days * 86400);
+
+        const headers = { "Authorization": `Bearer ${apiKey}` };
+
+        const [costRes, usageRes] = await Promise.all([
+            fetch(`https://api.openai.com/v1/organization/costs?start_time=${startTime}&end_time=${endTime}&limit=31`, { headers }),
+            fetch(`https://api.openai.com/v1/organization/usage/completions?start_time=${startTime}&end_time=${endTime}&limit=31`, { headers })
+        ]);
+
+        if (!costRes.ok || !usageRes.ok) {
+            const errBody = await costRes.json().catch(() => ({}));
+            const errMsg = (errBody.error?.message || '').toLowerCase();
+            console.error("OpenAI Admin API Error:", errBody);
+            if (costRes.status === 403 || costRes.status === 401 || errMsg.includes("permission") || errMsg.includes("scope") || errMsg.includes("session")) {
+                return res.status(403).json({ 
+                    error: "PERMISSION_DENIED", 
+                    message: "API Key thiếu quyền truy cập Organization/Admin APIs."
+                });
+            }
+            throw new Error(`OpenAI API Error: Costs=${costRes.status}, Usage=${usageRes.status}`);
+        }
+
+        const costData = await costRes.json();
+        const usageData = await usageRes.json();
+
+        const dailyCostsMap = new Map();
+        if (costData.data) {
+            costData.data.forEach(bucket => {
+                const dateStr = bucket.start_time_iso.split('T')[0];
+                let cost = 0;
+                bucket.results.forEach(res => {
+                    cost += parseFloat(res.amount.value || 0);
+                });
+                dailyCostsMap.set(dateStr, cost);
+            });
+        }
+
+        const usageMap = new Map();
+        if (usageData.data) {
+            usageData.data.forEach(bucket => {
+                const dateStr = bucket.start_time_iso.split('T')[0];
+                let requests = 0;
+                let tokens = 0;
+                bucket.results.forEach(res => {
+                    requests += res.num_model_requests || 0;
+                    tokens += (res.input_tokens || 0) + (res.output_tokens || 0);
+                });
+                usageMap.set(dateStr, { requests, tokens });
+            });
+        }
+
+        let totalSpend = 0;
+        let totalRequests = 0;
+        let totalTokens = 0;
+        const dailyData = [];
+        for (let i = days - 1; i >= 0; i--) {
+            const date = new Date();
+            date.setDate(date.getDate() - i);
+            const dateStr = date.toISOString().split('T')[0];
+            const cost = dailyCostsMap.get(dateStr) || 0;
+            const usage = usageMap.get(dateStr) || { requests: 0, tokens: 0 };
+            
+            totalSpend += cost;
+            totalRequests += usage.requests;
+            totalTokens += usage.tokens;
+
+            dailyData.push({
+                date: dateStr,
+                spend: parseFloat(cost.toFixed(4)),
+                requests: usage.requests,
+                tokens: usage.tokens
+            });
+        }
+
+        const budgetLimit = 50; // Giả sử ngân sách 50$
+        const budgetUsedPct = Math.min(Math.round((totalSpend / budgetLimit) * 100), 100);
+
+        res.json({
+            dailyData,
+            overview: {
+                totalSpend: parseFloat(totalSpend.toFixed(4)),
+                totalRequests,
+                totalTokens,
+                budgetUsedPct
+            }
+        });
+
+    } catch (error) {
+        console.error("Error fetching API usage:", error);
         res.status(500).json({ error: "Internal Server Error" });
     }
 };

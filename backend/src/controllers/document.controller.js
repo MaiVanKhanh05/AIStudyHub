@@ -1,5 +1,7 @@
 import * as documentService from "../services/document.service.js";
 import * as documentPermissionRepository from "../repositories/documentPermission.repository.js";
+import * as userRepository from "../repositories/user.repository.js";
+import pool from "../../DB/db.js";
 
 // GET /api/documents/dashboard
 export const getDashboard = async (req, res) => {
@@ -41,6 +43,16 @@ export const createNewDoc = async (req, res) => {
 
         if (!title || !file_url) {
             return res.status(400).json({ error: "Title and file_url are required" });
+        }
+
+        const size = file_size || 0;
+
+        // Check storage limits
+        const storageInfo = await userRepository.getUserStorageInfo(userId);
+        if (storageInfo) {
+            if (storageInfo.used + size > storageInfo.max) {
+                return res.status(400).json({ error: "Dung lượng lưu trữ của bạn đã đầy. Không thể tải lên tài liệu mới." });
+            }
         }
 
         const docData = {
@@ -238,6 +250,38 @@ export const toggleBookmark = async (req, res) => {
         if (!id || !userId) {
             return res.status(400).json({ error: "Missing document or user information" });
         }
+
+        // Before toggling, check if the document is ALREADY bookmarked.
+        const isBookmarked = await documentService.checkIfBookmarked(userId, id);
+        
+        // If it is NOT bookmarked, they are trying to BOOKMARK it -> require access!
+        if (!isBookmarked) {
+            const document = await documentService.getDocumentById(id);
+            if (!document) {
+                return res.status(404).json({ error: "Document not found" });
+            }
+            
+            // Replicate requireDocumentAccess logic:
+            // 1. User is owner
+            const isOwner = document.user_id === userId;
+            // 2. Document is PUBLIC
+            const isPublic = document.visibility === "PUBLIC";
+            
+            let hasPermission = false;
+            if (!isOwner && !isPublic) {
+                 const perm = await documentPermissionRepository.getPermission(id, userId);
+                 if (perm && ["EDITOR", "VIEWER"].includes(perm.role)) {
+                     hasPermission = true;
+                 }
+            }
+            
+            if (!isOwner && !isPublic && !hasPermission) {
+                return res.status(403).json({ error: "Access denied. You do not have permission to view this document." });
+            }
+        }
+
+        // If we reach here, either they are unbookmarking (always allowed) 
+        // OR they are bookmarking and passed the access check.
         const result = await documentService.toggleBookmark(userId, id);
         return res.json({ success: true, bookmarked: result.bookmarked });
     } catch (error) {
@@ -287,3 +331,89 @@ export const getDocumentById = async (req, res) => {
     }
 };
 
+// GET /api/documents/search?q=...&tags=...&fileTypes=...&dateFrom=...&dateTo=...&author=...
+export const searchDocuments = async (req, res) => {
+    try {
+        const { q, tags, fileTypes, dateFrom, dateTo, author } = req.query;
+        const userId = req.userId || null;
+
+        // Parse comma-separated lists
+        const tagList    = tags      ? tags.split(",").map(t => t.trim()).filter(Boolean) : [];
+        const typeList   = fileTypes ? fileTypes.split(",").map(t => t.trim()).filter(Boolean) : [];
+
+        const results = await documentService.fullTextSearch({ q, tags: tagList, fileTypes: typeList, dateFrom, dateTo, author, userId });
+        return res.json(results);
+    } catch (error) {
+        console.error("Error in searchDocuments controller:", error);
+        return res.status(500).json({ error: "Search failed" });
+    }
+};
+
+// GET /api/documents/tag-cloud — public tag cloud for community docs
+export const getTagCloud = async (req, res) => {
+    try {
+        const cloud = await documentService.getCommunityTagCloud();
+        return res.json(cloud);
+    } catch (error) {
+        console.error("Error in getTagCloud controller:", error);
+        return res.status(500).json({ error: "Failed to get tag cloud" });
+    }
+};
+export const recordDocumentView = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const userId = req.userId;
+
+        await pool.query(
+            `INSERT INTO document_views (user_id, document_id, viewed_at)
+             VALUES ($1, $2, CURRENT_TIMESTAMP)
+             ON CONFLICT (user_id, document_id) 
+             DO UPDATE SET viewed_at = CURRENT_TIMESTAMP`,
+            [userId, id]
+        );
+        return res.status(200).json({ message: "View recorded" });
+    } catch (error) {
+        console.error("Error recording document view:", error);
+        return res.status(500).json({ error: "Failed to record view" });
+    }
+};
+
+export const getViewHistory = async (req, res) => {
+    try {
+        const userId = req.userId;
+        const result = await pool.query(
+            `SELECT d.*, dv.viewed_at, (u.first_name || ' ' || u.last_name) as uploader_name 
+             FROM document_views dv
+             JOIN document d ON dv.document_id = d.document_id
+             LEFT JOIN users u ON d.user_id = u.user_id
+             WHERE dv.user_id = $1
+             ORDER BY dv.viewed_at DESC
+             LIMIT 50`,
+            [userId]
+        );
+        return res.status(200).json(result.rows);
+    } catch (error) {
+        console.error("Error fetching view history:", error);
+        return res.status(500).json({ error: "Failed to fetch view history" });
+    }
+};
+
+export const clearViewHistory = async (req, res) => {
+    try {
+        const userId = req.userId;
+        const { documentIds } = req.body || {};
+        
+        if (documentIds && Array.isArray(documentIds) && documentIds.length > 0) {
+            // Delete specific items
+            await pool.query("DELETE FROM document_views WHERE user_id = $1 AND document_id = ANY($2::int[])", [userId, documentIds]);
+            return res.status(200).json({ message: "Selected history items cleared" });
+        } else {
+            // Delete all
+            await pool.query("DELETE FROM document_views WHERE user_id = $1", [userId]);
+            return res.status(200).json({ message: "History cleared" });
+        }
+    } catch (error) {
+        console.error("Error clearing view history:", error);
+        return res.status(500).json({ error: "Failed to clear history" });
+    }
+};

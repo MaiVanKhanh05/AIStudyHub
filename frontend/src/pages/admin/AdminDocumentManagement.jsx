@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Search, CheckCircle, Trash2, FileText, RefreshCw } from "lucide-react";
+import { Search, CheckCircle, Trash2, FileText, RefreshCw, Flame, Send } from "lucide-react";
 import Pagination from "../../components/Pagination";
 
 // BR-AM-07: Admin can approve documents, delete violating documents, update document status
