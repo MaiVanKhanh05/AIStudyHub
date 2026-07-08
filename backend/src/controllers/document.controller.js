@@ -1,6 +1,7 @@
 import * as documentService from "../services/document.service.js";
 import * as documentPermissionRepository from "../repositories/documentPermission.repository.js";
 import * as userRepository from "../repositories/user.repository.js";
+import pool from "../../DB/db.js";
 
 // GET /api/documents/dashboard
 export const getDashboard = async (req, res) => {
@@ -324,5 +325,63 @@ export const getTagCloud = async (req, res) => {
     } catch (error) {
         console.error("Error in getTagCloud controller:", error);
         return res.status(500).json({ error: "Failed to get tag cloud" });
+    }
+};
+export const recordDocumentView = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const userId = req.userId;
+
+        await pool.query(
+            `INSERT INTO document_views (user_id, document_id, viewed_at)
+             VALUES ($1, $2, CURRENT_TIMESTAMP)
+             ON CONFLICT (user_id, document_id) 
+             DO UPDATE SET viewed_at = CURRENT_TIMESTAMP`,
+            [userId, id]
+        );
+        return res.status(200).json({ message: "View recorded" });
+    } catch (error) {
+        console.error("Error recording document view:", error);
+        return res.status(500).json({ error: "Failed to record view" });
+    }
+};
+
+export const getViewHistory = async (req, res) => {
+    try {
+        const userId = req.userId;
+        const result = await pool.query(
+            `SELECT d.*, dv.viewed_at, (u.first_name || ' ' || u.last_name) as uploader_name 
+             FROM document_views dv
+             JOIN document d ON dv.document_id = d.document_id
+             LEFT JOIN users u ON d.user_id = u.user_id
+             WHERE dv.user_id = $1
+             ORDER BY dv.viewed_at DESC
+             LIMIT 50`,
+            [userId]
+        );
+        return res.status(200).json(result.rows);
+    } catch (error) {
+        console.error("Error fetching view history:", error);
+        return res.status(500).json({ error: "Failed to fetch view history" });
+    }
+};
+
+export const clearViewHistory = async (req, res) => {
+    try {
+        const userId = req.userId;
+        const { documentIds } = req.body || {};
+        
+        if (documentIds && Array.isArray(documentIds) && documentIds.length > 0) {
+            // Delete specific items
+            await pool.query("DELETE FROM document_views WHERE user_id = $1 AND document_id = ANY($2::int[])", [userId, documentIds]);
+            return res.status(200).json({ message: "Selected history items cleared" });
+        } else {
+            // Delete all
+            await pool.query("DELETE FROM document_views WHERE user_id = $1", [userId]);
+            return res.status(200).json({ message: "History cleared" });
+        }
+    } catch (error) {
+        console.error("Error clearing view history:", error);
+        return res.status(500).json({ error: "Failed to clear history" });
     }
 };

@@ -129,6 +129,16 @@ export const connectDB = async () => {
 
         console.log("Database schema columns and tables verified.");
 
+        // Create document_views table for tracking history
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS document_views (
+                user_id VARCHAR(50) REFERENCES users(user_id) ON DELETE CASCADE,
+                document_id INT REFERENCES document(document_id) ON DELETE CASCADE,
+                viewed_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (user_id, document_id)
+            )
+        `);
+
         // Ensure is_community column exists in document table
         await pool.query(
             "ALTER TABLE document ADD COLUMN IF NOT EXISTS is_community BOOLEAN DEFAULT FALSE"

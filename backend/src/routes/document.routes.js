@@ -49,6 +49,11 @@ router.put("/:id/download", documentController.increaseDownload);
 // DELETE /api/documents/:id
 router.delete("/:id", authenticateToken, requireOwnerAccess, documentController.deleteDoc);
 
+// History Routes
+router.get("/history/me", authenticateToken, documentController.getViewHistory);
+router.delete("/history/me", authenticateToken, documentController.clearViewHistory);
+router.post("/:id/history", authenticateToken, documentController.recordDocumentView);
+
 // Sharing & Permissions Routes (Only owner for write operations)
 router.get("/:id/share", authenticateToken, requireDocumentAccess, documentPermissionController.getShareSettings);
 router.post("/:id/share", authenticateToken, requireOwnerAccess, documentPermissionController.addSharePermission);

@@ -67,8 +67,10 @@ import {
   Layers,
   Folder,
   RefreshCw,
-  ArrowRight
+  ArrowRight,
+  History
 } from "lucide-react";
+import { Sparkle } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -81,7 +83,8 @@ import { getSimulatedContent } from "../utils/documentUtils";
 import SearchBar from "./SearchBar";
 import Pagination from "./Pagination";
 import ShareDocumentModal from "./ShareDocumentModal";
-
+import HomeDashboard from "./HomeDashboard";
+import HistoryPage from "./HistoryPage";
 function getFileIcon(fileType = "", className = "w-5 h-5") {
   const type = fileType.toLowerCase();
   if (type === "pdf") return <FileText className={`${className} text-red-500 dark:text-red-400`} />;
@@ -416,6 +419,7 @@ export default function Home() {
   const mainContentRef = useRef(null);
   const seenNotificationsRef = useRef(new Set());
   const communitySearchSectionRef = useRef(null);
+  const quickUploadInputRef = useRef(null);
 
   const [currentCalDate, setCurrentCalDate] = useState(new Date());
   const [sidebarWidth, setSidebarWidth] = useState(230);
@@ -543,6 +547,24 @@ export default function Home() {
   }, [activeTab]);
 
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
+  const [showSettingsDropdown, setShowSettingsDropdown] = useState(false);
+
+  const profileDropdownRef = useRef(null);
+  const settingsDropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (profileDropdownRef.current && !profileDropdownRef.current.contains(event.target)) {
+        setShowProfileDropdown(false);
+      }
+      if (settingsDropdownRef.current && !settingsDropdownRef.current.contains(event.target)) {
+        setShowSettingsDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   const [notifFilter, setNotifFilter] = useState("ALL");
   const [notificationsList, setNotificationsList] = useState([]);
   const [notificationsLoading, setNotificationsLoading] = useState(false);
@@ -559,6 +581,8 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [currentDate, setCurrentDate] = useState("");
   const [processingDocId, setProcessingDocId] = useState(null);
+
+
 
   // Community Tab States & Dynamic Data Loader
   const [communitySearch, setCommunitySearch] = useState("");
@@ -811,6 +835,26 @@ export default function Home() {
   const [previewDoc, setPreviewDoc] = useState(null);
   const [openMenuId, setOpenMenuId] = useState(null);
   const [shareModalDoc, setShareModalDoc] = useState(null);
+
+  // Track document view history using backend API
+  useEffect(() => {
+    if (previewDoc && previewDoc.document_id && user?.user_id) {
+      const recordHistory = async () => {
+        try {
+          const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+          await fetch(`http://localhost:5000/api/documents/${previewDoc.document_id}/history`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
+        } catch (err) {
+          console.error("Failed to save view history", err);
+        }
+      };
+      recordHistory();
+    }
+  }, [previewDoc, user]);
   const [shareDescription, setShareDescription] = useState("");
   const [isSharing, setIsSharing] = useState(false);
   const [docManageMode, setDocManageMode] = useState("UPLOADED"); // "UPLOADED" | "BOOKMARKED"
@@ -1139,7 +1183,7 @@ export default function Home() {
       await axios.delete(`http://localhost:5000/api/chat/history/${chatId}`, {
         headers: { "Authorization": `Bearer ${token}` }
       });
-      
+
       // Reload from server to confirm sync
       const res = await axios.get("http://localhost:5000/api/chat/history", {
         headers: { "Authorization": `Bearer ${token}` }
@@ -1527,7 +1571,7 @@ export default function Home() {
                 }`}
               title="Gửi câu hỏi"
             >
-              <Send className="w-3.5 h-3.5 stroke-[2.5]" />
+              <Sparkle weight="fill" className="w-3.5 h-3.5" />
             </button>
           </div>
 
@@ -1703,7 +1747,7 @@ export default function Home() {
         if (localStorage.getItem("user")) {
           localStorage.setItem("user", JSON.stringify(updatedUser));
         } else if (sessionStorage.getItem("user")) {
-          sessionStorage.setItem("user", JSON.stringify(updatedUser));
+          sessionStorage.getItem("user", JSON.stringify(updatedUser));
         }
 
         setIsEditingProfile(false);
@@ -2056,7 +2100,7 @@ export default function Home() {
 
     const timeoutId = setTimeout(() => {
       const titleLower = uploadTitle.toLowerCase();
-      
+
       // 1. Check for exact code match (e.g. SWP391, SWP 391, SWP-391)
       // Capture letters and numbers separately, allowing optional space, underscore, or dash in between
       const codeMatch = uploadTitle.match(/(?:^|[^A-Za-z0-9])([A-Za-z]{2,4})[\s_\-]?(\d{2,4})(?:[^A-Za-z0-9]|$)/);
@@ -2071,10 +2115,10 @@ export default function Home() {
 
       // 2. Check if title contains subject name
       const foundByName = subjectsList.find(s => {
-        if (!s.subject_name || s.subject_name.length < 4) return false; 
+        if (!s.subject_name || s.subject_name.length < 4) return false;
         return titleLower.includes(s.subject_name.toLowerCase());
       });
-      
+
       if (foundByName && uploadSubject !== foundByName.subject_code) {
         setUploadSubject(foundByName.subject_code);
       }
@@ -2139,23 +2183,25 @@ export default function Home() {
     if (e) e.preventDefault();
     if (isUploadingRef.current) return;
 
-    if (!uploadTitle.trim()) {
+    let fileToUpload = uploadParams?.fileToUpload || selectedFile;
+    let finalTitle = uploadParams?.finalTitle || uploadTitle.trim();
+    let finalSubject = uploadParams?.subject !== undefined ? uploadParams.subject : uploadSubject;
+    let finalTags = uploadParams?.tags !== undefined ? uploadParams.tags : documentTags;
+
+    if (!finalTitle) {
       toast.warning("Vui lòng điền tiêu đề tài liệu!");
       return;
     }
-    if (!selectedFile) {
+    if (!fileToUpload) {
       toast.warning("Vui lòng chọn một tệp để tải lên!");
       return;
     }
-
-    let fileToUpload = uploadParams?.fileToUpload || selectedFile;
-    let finalTitle = uploadParams?.finalTitle || uploadTitle.trim();
 
     if (!forceProceed) {
       const isDuplicateFile = documents.some(doc => {
         if (!doc.file_url) return false;
         const decodedUrl = decodeURIComponent(doc.file_url);
-        return decodedUrl.endsWith(`/${selectedFile.name}`);
+        return decodedUrl.endsWith(`/${fileToUpload.name}`);
       });
 
       const isDuplicateTitle = documents.some(doc => doc.title.toLowerCase() === finalTitle.toLowerCase());
@@ -2164,8 +2210,10 @@ export default function Home() {
         setDuplicateConfirmData({
           isFileDuplicate: isDuplicateFile,
           isTitleDuplicate: isDuplicateTitle,
-          file: selectedFile,
-          title: finalTitle
+          file: fileToUpload,
+          title: finalTitle,
+          quickUploadSubject: uploadParams?.subject,
+          quickUploadTags: uploadParams?.tags
         });
         return;
       }
@@ -2196,16 +2244,16 @@ export default function Home() {
       const token = localStorage.getItem("token") || sessionStorage.getItem("token");
       const response = await axios.post("http://localhost:5000/api/documents/upload", {
         user_id: user.user_id,
-        subject: uploadSubject || null,
+        subject: finalSubject || null,
         title: finalTitle,
-        description: uploadSubject
-          ? `Tài liệu môn ${uploadSubject} tự tải lên lưu trữ trên hệ thống`
+        description: finalSubject
+          ? `Tài liệu môn ${finalSubject} tự tải lên lưu trữ trên hệ thống`
           : "Tài liệu tự do tự tải lên lưu trữ trên hệ thống",
         file_url: uploadResult.fileUrl,
         file_size: fileToUpload.size,
         file_type: fileToUpload.name.split(".").pop().toUpperCase(),
         visibility: user.role === "LECTURER" ? uploadVisibility : "PRIVATE",
-        tags: documentTags // Pass selected tags array!
+        tags: finalTags // Pass selected tags array!
       }, {
         headers: {
           "Content-Type": "application/json",
@@ -2249,7 +2297,27 @@ export default function Home() {
     }
   };
 
+  const handleQuickUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (isUploadingRef.current) {
+      toast.warning("Đang có tiến trình tải lên khác, vui lòng chờ!");
+      return;
+    }
+    const finalTitle = file.name.replace(/\.[^/.]+$/, "");
 
+    setSelectedFile(file);
+    setUploadTitle(finalTitle);
+    setUploadSubject(personalSelectedFolder);
+    setDocumentTags([]);
+
+    // Cuộn lên đầu trang để người dùng thấy form Upload
+    window.scrollTo({ top: 0, behavior: "smooth" });
+
+    if (quickUploadInputRef.current) {
+      quickUploadInputRef.current.value = "";
+    }
+  };
 
   // Send AI Chat Message action
   const handleSendChatMessage = async (textToSend, filesOverride) => {
@@ -2908,9 +2976,7 @@ export default function Home() {
     { name: "Document Management", icon: FolderOpen, label: t("dashboard.tabs.my_documents") || "Kho học liệu cá nhân" },
     { name: "Bookmarks", icon: Heart, label: t("dashboard.tabs.bookmarks") || "Tài liệu Yêu thích" },
     { name: "AI Assistant", icon: Bot, label: t("dashboard.ai_assistant") || "Trợ lý Nghiên cứu AI" },
-    { name: "Community", icon: Users, label: t("dashboard.tabs.community") || "Cộng đồng" },
-    { name: "Notifications", icon: Bell, label: t("dashboard.tabs.notifications") || "Thông báo học thuật" },
-    { name: "Personal Profile", icon: UserIcon, label: t("dashboard.tabs.settings") || "Hồ sơ & Bảo mật" }
+    { name: "Community", icon: Users, label: t("dashboard.tabs.community") || "Cộng đồng" }
   ];
 
   // Mock Shared Documents Grid Data
@@ -3023,8 +3089,8 @@ export default function Home() {
               }, 100);
             }}
             className={`px-3 py-3 rounded-l-[16px] text-xs font-black tracking-widest uppercase transition-all duration-300 cursor-pointer flex items-center justify-center text-center h-[48px] border border-r-0 shadow-[0_4px_12px_rgba(0,0,0,0.1)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.4)] whitespace-nowrap ${communityRoleFilter === "STUDENT"
-                ? "bg-gradient-to-br from-purple-600 to-indigo-600 border-purple-500 text-white scale-105 w-[160px]"
-                : "bg-white/95 dark:bg-[#090b16]/95 border-slate-200/50 dark:border-white/10 text-slate-650 dark:text-slate-355 hover:text-purple-600 dark:hover:text-purple-400 hover:bg-white/60 dark:hover:bg-[#090b16]/60 w-[130px]"
+              ? "bg-gradient-to-br from-purple-600 to-indigo-600 border-purple-500 text-white scale-105 w-[160px]"
+              : "bg-white/95 dark:bg-[#090b16]/95 border-slate-200/50 dark:border-white/10 text-slate-650 dark:text-slate-355 hover:text-purple-600 dark:hover:text-purple-400 hover:bg-white/60 dark:hover:bg-[#090b16]/60 w-[130px]"
               }`}
           >
             {language === "vi" ? "Sinh viên" : "Student"}
@@ -3045,8 +3111,8 @@ export default function Home() {
               }, 100);
             }}
             className={`px-3 py-3 rounded-l-[16px] text-xs font-black tracking-widest uppercase transition-all duration-300 cursor-pointer flex items-center justify-center text-center h-[48px] border border-r-0 shadow-[0_4px_12px_rgba(0,0,0,0.1)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.4)] whitespace-nowrap ${communityRoleFilter === "LECTURER"
-                ? "bg-gradient-to-br from-purple-600 to-indigo-600 border-purple-500 text-white scale-105 w-[160px]"
-                : "bg-white/95 dark:bg-[#090b16]/95 border-slate-200/50 dark:border-white/10 text-slate-655 dark:text-slate-355 hover:text-purple-600 dark:hover:text-purple-400 hover:bg-white/60 dark:hover:bg-[#090b16]/60 w-[130px]"
+              ? "bg-gradient-to-br from-purple-600 to-indigo-600 border-purple-500 text-white scale-105 w-[160px]"
+              : "bg-white/95 dark:bg-[#090b16]/95 border-slate-200/50 dark:border-white/10 text-slate-655 dark:text-slate-355 hover:text-purple-600 dark:hover:text-purple-400 hover:bg-white/60 dark:hover:bg-[#090b16]/60 w-[130px]"
               }`}
           >
             {language === "vi" ? "Giảng viên" : "Lecturer"}
@@ -3069,9 +3135,7 @@ export default function Home() {
                   <Menu className="w-4.5 h-4.5" />
                 </button>
               ) : (
-                <div className="w-7.5 h-7.5 rounded-xl bg-purple-600 dark:bg-purple-500 flex items-center justify-center font-bold text-white shadow-sm shrink-0">
-                  <BookOpen className="w-4 h-4" />
-                </div>
+                <img src="/logo.png" alt="AIStudyHub Logo" className="w-8 h-8 object-contain shrink-0" />
               )}
               <div className={`flex flex-col transition-all duration-300 ease-in-out origin-left truncate ${isSidebarCollapsed ? "opacity-0 max-w-0 scale-90 pointer-events-none overflow-hidden" : "opacity-100 max-w-[180px] scale-100"
                 }`}>
@@ -3091,12 +3155,12 @@ export default function Home() {
           </div>
 
           {/* User mini profile card */}
-          <div className="relative flex justify-center w-full">
+          <div className="relative flex justify-center w-full" ref={profileDropdownRef}>
             <button
               onClick={() => setShowProfileDropdown(!showProfileDropdown)}
               className={`flex items-center rounded-xl border transition-all duration-300 ease-in-out focus:outline-none cursor-pointer w-full h-12 ${isSidebarCollapsed
-                  ? "px-[7px] py-[7px] bg-transparent border-transparent shadow-none hover:bg-slate-100 dark:hover:bg-slate-800/40"
-                  : "border-slate-200/40 dark:border-white/5 bg-white/40 dark:bg-[#0f111a]/45 backdrop-blur-md hover:bg-white/65 dark:hover:bg-[#0f111a]/60 shadow-[inset_0_1px_1px_rgba(255,255,255,0.2)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] p-2.5 justify-between text-left"
+                ? "px-[7px] py-[7px] bg-transparent border-transparent shadow-none hover:bg-slate-100 dark:hover:bg-slate-800/40"
+                : "border-slate-200/40 dark:border-white/5 bg-white/40 dark:bg-[#0f111a]/45 backdrop-blur-md hover:bg-white/65 dark:hover:bg-[#0f111a]/60 shadow-[inset_0_1px_1px_rgba(255,255,255,0.2)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] p-2.5 justify-between text-left"
                 }`}
             >
               <div className="flex items-center min-w-0">
@@ -3112,8 +3176,8 @@ export default function Home() {
                   <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 border border-white dark:border-[#151722] z-10" />
                 </div>
                 <div className={`flex flex-col transition-all duration-300 ease-in-out origin-left ${isSidebarCollapsed
-                    ? "opacity-0 max-w-0 scale-90 pointer-events-none overflow-hidden ml-0"
-                    : "opacity-100 max-w-[150px] scale-100 ml-2.5"
+                  ? "opacity-0 max-w-0 scale-90 pointer-events-none overflow-hidden ml-0"
+                  : "opacity-100 max-w-[150px] scale-100 ml-2.5"
                   }`}>
                   <span className="text-xs font-bold text-slate-900 dark:text-slate-100 leading-tight truncate whitespace-nowrap">{fullName}</span>
                   <span className="text-[9px] text-slate-400 dark:text-slate-500 font-bold leading-none mt-1 whitespace-nowrap">
@@ -3122,8 +3186,8 @@ export default function Home() {
                 </div>
               </div>
               <ChevronDown className={`text-slate-400 transition-all duration-300 shrink-0 ${isSidebarCollapsed
-                  ? "opacity-0 w-0 h-0 scale-90 pointer-events-none overflow-hidden"
-                  : "opacity-100 w-3.5 h-3.5 scale-100 ml-auto"
+                ? "opacity-0 w-0 h-0 scale-90 pointer-events-none overflow-hidden"
+                : "opacity-100 w-3.5 h-3.5 scale-100 ml-auto"
                 }`} />
             </button>
 
@@ -3139,19 +3203,8 @@ export default function Home() {
                   </div>
                 )}
                 <button
-                  onClick={() => {
-                    setActiveTab("Personal Profile");
-                    setShowProfileDropdown(false);
-                  }}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-slate-655 dark:text-slate-355 hover:text-[#10B981] hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-lg transition-colors cursor-pointer mt-0.5"
-                >
-                  <UserIcon className="w-4 h-4 text-slate-400" />
-                  {t("dashboard.tabs.profile") || "Hồ sơ cá nhân"}
-                </button>
-                <div className="h-px bg-slate-100 dark:bg-slate-800 my-1" />
-                <button
                   onClick={handleLogout}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-red-650 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-lg cursor-pointer transition-colors"
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-red-650 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-lg cursor-pointer transition-colors mt-0.5"
                 >
                   <LogOut className="w-4 h-4" />
                   {t("nav.logout") || "Đăng xuất"}
@@ -3199,7 +3252,7 @@ export default function Home() {
             isSidebarCollapsed ? (
               <div
                 className="relative group flex items-center justify-center w-11 h-11 rounded-xl text-slate-550 hover:text-[#10B981] dark:text-slate-450 dark:hover:text-purple-400 transition-all duration-305 ease-in-out cursor-pointer mx-auto"
-                title={`${language === "vi" ? "Không gian học thuật" : "Academic Storage"}: ${percentage.toFixed(0)}% (${usageInGB} GB / ${limitInGB} GB)`}
+                title={`${language === "vi" ? "Dung lượng" : "Storage"}: ${percentage.toFixed(0)}% (${usageInGB} GB / ${limitInGB} GB)`}
               >
                 <Cloud className="w-5 h-5 shrink-0" />
                 <span className="absolute -bottom-1 -right-1 text-[8px] font-black bg-white dark:bg-slate-800 text-[#10B981] px-1 rounded-md border border-slate-200/40 dark:border-white/5 shadow-sm">
@@ -3210,7 +3263,7 @@ export default function Home() {
               <div className="p-3.5 bg-white/30 dark:bg-[#0f111a]/35 border border-slate-200/40 dark:border-white/5 rounded-xl shadow-[inset_0_1px_1px_rgba(255,255,255,0.2)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition-all duration-300 ease-in-out overflow-hidden">
                 <div className="flex flex-col gap-2.5">
                   <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400">
-                    <span className="font-bold flex items-center gap-1.5"><Cloud className="w-3.5 h-3.5" /> {language === "vi" ? "Không gian học thuật" : "Academic Storage"}</span>
+                    <span className="font-bold flex items-center gap-1.5"><Cloud className="w-3.5 h-3.5" /> {language === "vi" ? "Dung lượng" : "Storage"}</span>
                     <span className="text-[10px] font-bold">{percentage.toFixed(0)}%</span>
                   </div>
 
@@ -3229,46 +3282,90 @@ export default function Home() {
             )
           )}
 
-          {/* Segment Language Selector */}
-          {!isSidebarCollapsed && (
-            <div className="flex items-center justify-between px-3.5 mb-1.5 animate-in fade-in duration-300">
-              <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
-                <Globe size={11} className="text-slate-400" /> {language === "vi" ? "Ngôn ngữ" : "Language"}
-              </span>
-              <div className="flex p-0.5 bg-purple-500/5 dark:bg-white/5 border border-purple-500/10 dark:border-white/10 rounded-xl select-none">
-                <button
-                  type="button"
-                  onClick={() => setLanguage("vi")}
-                  className={`h-7 px-3 text-[10px] font-black rounded-lg transition-all duration-300 cursor-pointer ${language === "vi"
-                      ? "bg-purple-600 dark:bg-purple-500 text-white shadow-sm"
-                      : "text-purple-900/50 hover:text-purple-900 dark:text-purple-100/50 dark:hover:text-white bg-transparent"
-                    }`}
-                >
-                  VI
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setLanguage("en")}
-                  className={`h-7 px-3 text-[10px] font-black rounded-lg transition-all duration-300 cursor-pointer ${language === "en"
-                      ? "bg-purple-600 dark:bg-purple-500 text-white shadow-sm"
-                      : "text-purple-900/50 hover:text-purple-900 dark:text-purple-100/50 dark:hover:text-white bg-transparent"
-                    }`}
-                >
-                  EN
-                </button>
-              </div>
-            </div>
-          )}
 
-          <button
-            onClick={() => setActiveTab("Personal Profile")}
-            title={isSidebarCollapsed ? (t("dashboard.tabs.settings") || "Cài đặt & Bảo mật") : undefined}
-            className={`flex items-center rounded-xl text-xs font-bold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-white/40 dark:hover:bg-[#0f111a]/30 border border-transparent hover:border-slate-200/20 dark:hover:border-white/5 transition-all duration-300 ease-in-out focus:outline-none w-full h-11 px-3.5 justify-start`}
-          >
-            <Settings className="w-4.5 h-4.5 text-slate-400 shrink-0" />
-            <span className={`inline-block transition-all duration-300 ease-in-out origin-left truncate ${isSidebarCollapsed ? "opacity-0 max-w-0 ml-0 scale-90 pointer-events-none overflow-hidden" : "opacity-100 max-w-[180px] ml-3 scale-100"
-              }`}>{t("dashboard.tabs.settings") || "Cài đặt & Bảo mật"}</span>
-          </button>
+
+                  <div className="relative flex justify-center w-full" ref={settingsDropdownRef}>
+            <button
+              onClick={() => setShowSettingsDropdown(!showSettingsDropdown)}
+              title={isSidebarCollapsed ? (t("dashboard.tabs.settings") || "Cài đặt & Bảo mật") : undefined}
+              className={`flex items-center justify-between rounded-xl text-xs font-bold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-white/40 dark:hover:bg-[#0f111a]/30 border border-transparent hover:border-slate-200/20 dark:hover:border-white/5 transition-all duration-300 ease-in-out focus:outline-none w-full h-11 px-3.5`}
+            >
+              <div className="flex items-center min-w-0">
+                <Settings className="w-4.5 h-4.5 text-slate-400 shrink-0" />
+                <span className={`inline-block transition-all duration-300 ease-in-out origin-left truncate ${isSidebarCollapsed ? "opacity-0 max-w-0 ml-0 scale-90 pointer-events-none overflow-hidden" : "opacity-100 max-w-[180px] ml-3 scale-100"
+                  }`}>{t("dashboard.tabs.settings") || "Cài đặt & Bảo mật"}</span>
+              </div>
+              <ChevronDown className={`text-slate-400 transition-all duration-300 shrink-0 ${isSidebarCollapsed
+                ? "opacity-0 w-0 h-0 scale-90 pointer-events-none overflow-hidden"
+                : "opacity-100 w-3.5 h-3.5 scale-100 ml-auto"
+                } ${showSettingsDropdown ? "rotate-180" : ""}`} />
+            </button>
+            
+            {showSettingsDropdown && (
+              <div className={`absolute p-1 bg-white/85 dark:bg-[#0f111a]/90 backdrop-blur-lg border border-slate-200/40 dark:border-white/10 rounded-xl shadow-lg z-50 animate-in fade-in-50 slide-in-from-bottom-2 duration-150 ${isSidebarCollapsed ? "bottom-12 left-12 w-48" : "bottom-full left-0 right-0 mb-1.5"
+                }`}>
+                <button
+                  onClick={() => {
+                    setActiveTab("History");
+                    setShowSettingsDropdown(false);
+                  }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-slate-655 dark:text-slate-355 hover:text-[#10B981] hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-lg transition-colors cursor-pointer"
+                >
+                  <History className="w-4 h-4 text-slate-400" />
+                  {t("dashboard.tabs.history") || "Lịch sử xem"}
+                </button>
+                <button
+                  onClick={() => {
+                    setActiveTab("Notifications");
+                    setShowSettingsDropdown(false);
+                  }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-slate-655 dark:text-slate-355 hover:text-[#10B981] hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-lg transition-colors cursor-pointer mt-0.5"
+                >
+                  <Bell className="w-4 h-4 text-slate-400" />
+                  {t("dashboard.tabs.notifications") || "Thông báo học thuật"}
+                </button>
+                <div className="h-px bg-slate-100 dark:bg-slate-800 my-1" />
+                <button
+                  onClick={() => {
+                    setActiveTab("Personal Profile");
+                    setShowSettingsDropdown(false);
+                  }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-slate-655 dark:text-slate-355 hover:text-[#10B981] hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-lg transition-colors cursor-pointer"
+                >
+                  <UserIcon className="w-4 h-4 text-slate-400" />
+                  {t("dashboard.tabs.profile") || "Hồ sơ & Bảo mật"}
+                </button>
+                <div className="h-px bg-slate-100 dark:bg-slate-800 my-1" />
+                <div className="flex items-center justify-between px-3 py-1.5">
+                  <span className="flex items-center gap-2.5 text-xs font-bold text-slate-655 dark:text-slate-355">
+                    <Globe size={16} className="text-slate-400" /> {language === "vi" ? "Ngôn ngữ" : "Language"}
+                  </span>
+                  <div className="flex p-0.5 bg-slate-100 dark:bg-slate-800 rounded-lg select-none">
+                    <button
+                      type="button"
+                      onClick={() => setLanguage("vi")}
+                      className={`h-6 px-2 text-[10px] font-black rounded-md transition-all duration-300 cursor-pointer ${language === "vi"
+                        ? "bg-purple-600 dark:bg-purple-500 text-white shadow-sm"
+                        : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 bg-transparent"
+                        }`}
+                    >
+                      VI
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setLanguage("en")}
+                      className={`h-6 px-2 text-[10px] font-black rounded-md transition-all duration-300 cursor-pointer ${language === "en"
+                        ? "bg-purple-600 dark:bg-purple-500 text-white shadow-sm"
+                        : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 bg-transparent"
+                        }`}
+                    >
+                      EN
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </aside>
 
@@ -3277,182 +3374,30 @@ export default function Home() {
 
         {/* ── SCREEN 1: HOME (DASHBOARD) ── */}
         {activeTab === "Home" && (
-          <div className="flex flex-col gap-6 max-w-5xl w-full mx-auto animate-spring-up">
+          <HomeDashboard
+            user={user}
+            fullName={fullName}
+            documents={documents}
+            bookmarkedDocs={bookmarkedDocs}
+            notificationsList={notificationsList}
+            setActiveTab={setActiveTab}
+            language={language}
+            t={t}
+            handleSendChatMessage={handleSendChatMessage}
+            fileInputRef={fileInputRef}
+            handleApproveAccess={handleApproveAccess}
+            handleDenyAccess={handleDenyAccess}
+            handleMarkAsRead={handleMarkAsRead}
+            handlePreviewClick={handlePreviewClick}
+          />
+        )}
 
-            {/* Top Minimal Greeting Header */}
-            <header className="flex flex-col gap-1.5 border-b border-slate-100 dark:border-slate-800/60 pb-5 select-none">
-              <div className="flex items-center gap-2 text-[10px] font-bold text-purple-600 dark:text-purple-400 uppercase tracking-widest">
-                <Calendar className="w-3.5 h-3.5" />
-                <span>{currentDate}</span>
-              </div>
-              <div className="flex flex-wrap items-center justify-between gap-4 mt-1">
-                <div>
-                  <h1 className="text-2xl md:text-3xl font-black text-black dark:text-white tracking-tight leading-none">
-                    {t("dashboard.welcome") || "Chào"} {displayGreetingName}
-                  </h1>
-                  <p className="text-xs text-slate-500 mt-1 font-medium">{t("dashboard.welcome_sub") || "Chào mừng bạn quay lại AIStudyHub. Hệ thống lưu trữ học tập đã sẵn sàng."}</p>
-                </div>
-                <Button
-                  onClick={() => {
-                    setActiveTab("AI Assistant");
-                    setCurrentChatId(null);
-                    setAiMessages([]);
-                    setChatInput("");
-                    setAttachedFiles([]);
-                    setShowChatSidebar(false);
-                    setSidebarWidth(230);
-                    setChatSearchQuery("");
-                  }}
-                  className="bg-purple-600 dark:bg-purple-500 hover:bg-purple-700 dark:hover:bg-purple-600 text-white font-extrabold text-xs px-4 py-2.5 rounded-lg cursor-pointer shadow-sm transition-all flex items-center gap-1.5"
-                >
-                  <Sparkles className="w-3.5 h-3.5" />
-                  {t("dashboard.ai_assistant") || "Trợ lý học tập AI"}
-                </Button>
-              </div>
-            </header>
-
-            {/* Academic Search Interface (Perplexity style) */}
-            <div className="w-full max-w-2xl mx-auto relative select-none mt-2">
-              <div className="relative p-1 rounded-xl bg-white/40 dark:bg-[#0f111a]/45 backdrop-blur-xl border border-slate-200/30 dark:border-white/5 shadow-[inset_0_1px_1px_rgba(255,255,255,0.25)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] shadow-sm">
-                <Input
-                  type="text"
-                  placeholder="Tra cứu tài liệu, khái niệm học thuật, giải thích thuật toán..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full rounded-lg bg-white/80 dark:bg-[#0c0d13]/80 border-none pl-5 pr-12 py-5.5 text-xs placeholder:text-slate-400 text-slate-800 dark:text-slate-100 focus-visible:ring-1 focus-visible:ring-purple-500/50"
-                />
-                <button
-                  onClick={() => setActiveTab("Document Management")}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
-                >
-                  <Search className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-
-            {/* Section: Recent Academic Materials */}
-            <section className="flex flex-col gap-4 mt-2">
-              <div className="flex items-center justify-between">
-                <h2 className="text-sm font-black text-purple-900 dark:text-purple-300 uppercase tracking-wider flex items-center gap-2">
-                  <span className="w-1 h-3.5 bg-purple-800 dark:bg-purple-400 rounded" />
-                  Học liệu đã lưu trữ gần đây
-                </h2>
-                <button
-                  onClick={() => setActiveTab("Document Management")}
-                  className="text-xs font-bold text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300 flex items-center gap-0.5 hover:underline"
-                >
-                  Xem kho tài liệu
-                  <ChevronRight className="w-3.5 h-3.5" />
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                {loading ? (
-                  Array(3).fill(0).map((_, idx) => (
-                    <Card key={idx} className="bg-slate-50 dark:bg-[#151722] border border-slate-200/50 dark:border-slate-800 rounded-xl p-4 flex flex-col gap-3 animate-pulse shadow-none">
-                      <div className="w-full h-24 rounded-lg bg-slate-200 dark:bg-slate-800" />
-                      <div className="h-4 bg-slate-200 dark:bg-slate-800 rounded w-3/4" />
-                    </Card>
-                  ))
-                ) : recentDocs.length === 0 ? (
-                  <div className="col-span-full py-10 bg-slate-50/50 dark:bg-slate-900/10 border border-dashed border-slate-200 dark:border-slate-800 rounded-xl text-center text-xs font-bold text-slate-400">
-                    Chưa tải học liệu nào lên. Vào phần "Kho học liệu cá nhân" để lưu trữ tệp của bạn.
-                  </div>
-                ) : (
-                  recentDocs.map((doc) => (
-                    <Card
-                      key={doc.document_id}
-                      onClick={() => setActiveTab("Document Management")}
-                      className="liquid-glass liquid-glass-hover rounded-xl p-4 flex flex-col gap-3 cursor-pointer group shadow-sm"
-                    >
-                      <div className="w-full h-24 rounded-lg bg-slate-50 dark:bg-[#0c0d13] p-3 flex flex-col justify-between border border-slate-100 dark:border-slate-800/40">
-                        <span className="text-[9px] font-extrabold text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/40 px-2 py-0.5 rounded border border-purple-500/10 self-start">
-                          {doc.subject_code}
-                        </span>
-
-                        <div className="flex items-center gap-2 opacity-80">
-                          {getFileIcon(doc.file_type || getFileType(doc.file_url), "w-5 h-5")}
-                          <span className="text-[9px] font-extrabold text-slate-400 dark:text-slate-500 tracking-widest uppercase">{doc.file_type || getFileType(doc.file_url) || "PDF"}</span>
-                        </div>
-                      </div>
-
-                      <div className="flex flex-col gap-1.5">
-                        <span className="text-xs font-bold text-slate-850 dark:text-slate-100 group-hover:text-purple-600 transition-colors truncate">
-                          {doc.title}
-                        </span>
-                        <div className="flex items-center justify-between text-[10px] text-slate-400 dark:text-slate-500 font-bold mt-1">
-                          <span>{formatFileSize(doc.file_size)}</span>
-                          <span>{new Date(doc.upload_date).toLocaleDateString("vi-VN")}</span>
-                        </div>
-                      </div>
-                    </Card>
-                  ))
-                )}
-              </div>
-            </section>
-
-            {/* Asymmetric Bento Academic Widgets */}
-            <section className="grid grid-cols-1 md:grid-cols-2 gap-5 mt-2">
-
-
-              {/* Box 2: System notifications */}
-              <Card className="liquid-glass rounded-xl p-5 flex flex-col gap-3.5 shadow-sm text-left">
-                <div className="flex items-center justify-between text-xs text-slate-400 dark:text-slate-500 uppercase tracking-widest font-bold select-none">
-                  <span className="flex items-center gap-2"><Bell className="w-4 h-4 text-purple-500" /> Thông báo học thuật</span>
-                  <button onClick={() => setActiveTab("Notifications")} className="text-[10px] text-purple-600 dark:text-purple-400 font-bold hover:underline cursor-pointer">Lịch sử hoạt động</button>
-                </div>
-                <div className="flex flex-col gap-3">
-                  {notificationsLoading && notificationsList.length === 0 ? (
-                    <div className="text-[11px] text-slate-450 dark:text-slate-550 font-bold py-2">
-                      Đang tải thông báo...
-                    </div>
-                  ) : notificationsList.length === 0 ? (
-                    <div className="text-[11px] text-slate-450 dark:text-slate-550 font-bold py-2">
-                      Không có thông báo học tập nào.
-                    </div>
-                  ) : (
-                    notificationsList.slice(0, 3).map((notif) => {
-                      let dotColor = "bg-purple-500";
-                      if (notif.type === "ACCESS_APPROVED" || notif.type === "SHARE_INVITE") {
-                        dotColor = "bg-emerald-500";
-                      } else if (notif.type === "ACCESS_REQUEST") {
-                        dotColor = "bg-amber-500 animate-pulse";
-                      } else if (notif.type === "ACCESS_DENIED") {
-                        dotColor = "bg-red-500";
-                      }
-
-                      return (
-                        <div
-                          key={notif.notification_id}
-                          onClick={async () => {
-                            // Mark as read if unread
-                            if (!notif.is_read) {
-                              try {
-                                const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-                                await axios.put(`http://localhost:5000/api/notifications/${notif.notification_id}/read`, {}, {
-                                  headers: { Authorization: `Bearer ${token}` }
-                                });
-                              } catch (e) {
-                                console.error(e);
-                              }
-                            }
-                            setActiveTab("Notifications");
-                          }}
-                          className="flex items-start gap-2.5 text-xs text-slate-650 hover:text-purple-650 dark:text-slate-350 dark:hover:text-purple-400 font-bold cursor-pointer transition-all duration-200 select-none group"
-                        >
-                          <span className={`w-1.5 h-1.5 rounded-full mt-2 shrink-0 ${dotColor}`} />
-                          <span className="truncate flex-1 group-hover:underline">{notif.message}</span>
-                          {!notif.is_read && (
-                            <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0 self-center" title="Chưa đọc" />
-                          )}
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-              </Card>
-            </section>
-          </div>
+        {/* 🔹 SCREEN: HISTORY 🔹 */}
+        {activeTab === "History" && (
+          <HistoryPage
+            user={user}
+            onPreview={handlePreviewClick}
+          />
         )}
 
         {/* ── SCREEN 2: DOCUMENT MANAGEMENT (Real On-Storage Upload) ── */}
@@ -3460,7 +3405,7 @@ export default function Home() {
           <div className="flex flex-col gap-6 max-w-5xl w-full mx-auto animate-spring-up">
             <header className="flex flex-col gap-1 border-b border-slate-100 dark:border-slate-800/60 pb-5 select-none text-left">
               <span className="text-xs font-bold text-purple-600 dark:text-purple-400 uppercase tracking-widest">{t("myDocs.section_label") || "Bộ lưu trữ của bạn"}</span>
-              <h1 className="text-2xl md:text-3xl font-black text-black dark:text-white tracking-tight mt-1">
+              <h1 className="text-2xl md:text-3xl font-black tracking-tight mt-1" style={{ color: "#000" }}>
                 {t("myDocs.title") || "Kho học liệu cá nhân (On-Storage)"}
               </h1>
               <span className="text-xs text-slate-500 font-medium mt-1">
@@ -3655,8 +3600,8 @@ export default function Home() {
                           <div
                             onClick={() => setUploadVisibility("PRIVATE")}
                             className={`flex items-center p-2.5 border rounded-xl cursor-pointer transition-all ${uploadVisibility === "PRIVATE"
-                                ? "border-purple-500 bg-purple-50 dark:bg-purple-900/30"
-                                : "border-slate-200 dark:border-slate-700 hover:border-purple-300"
+                              ? "border-purple-500 bg-purple-50 dark:bg-purple-900/30"
+                              : "border-slate-200 dark:border-slate-700 hover:border-purple-300"
                               }`}
                           >
                             <div className={`p-1.5 rounded-lg mr-2.5 ${uploadVisibility === "PRIVATE" ? "bg-purple-200 text-purple-700" : "bg-slate-100 text-slate-500"}`}>
@@ -3671,8 +3616,8 @@ export default function Home() {
                           <div
                             onClick={() => setUploadVisibility("PUBLIC")}
                             className={`flex items-center p-2.5 border rounded-xl cursor-pointer transition-all ${uploadVisibility === "PUBLIC"
-                                ? "border-blue-500 bg-blue-50 dark:bg-blue-900/30"
-                                : "border-slate-200 dark:border-slate-700 hover:border-blue-300"
+                              ? "border-blue-500 bg-blue-50 dark:bg-blue-900/30"
+                              : "border-slate-200 dark:border-slate-700 hover:border-blue-300"
                               }`}
                           >
                             <div className={`p-1.5 rounded-lg mr-2.5 ${uploadVisibility === "PUBLIC" ? "bg-blue-200 text-blue-700" : "bg-slate-100 text-slate-500"}`}>
@@ -3942,7 +3887,7 @@ export default function Home() {
                   return (
                     <Card className="liquid-glass rounded-xl p-5 shadow-sm space-y-4 select-none h-full flex flex-col justify-between">
                       <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-                        <h3 className="text-xs font-black text-slate-855 dark:text-slate-200 uppercase tracking-wider flex items-center gap-2">
+                        <h3 className="text-xs font-black uppercase tracking-wider flex items-center gap-2" style={{ color: "#000" }}>
                           <Calendar className="w-4 h-4 text-purple-500" />
                           {t("myDocs.calendar_title") || "Lịch sử tải lên cá nhân"}
                         </h3>
@@ -4092,9 +4037,13 @@ export default function Home() {
 
               const isSearching = searchQuery.trim().length > 0 || selectedSubjectFilter !== "All" || personalRangeStart;
 
-              const docsToShow = (personalSelectedFolder && !isSearching)
-                ? (groupedPersonalDocs[personalSelectedFolder] || [])
-                : filteredDocuments;
+              let docsToShow = filteredDocuments;
+              let currentFolderName = null;
+
+              if (personalSelectedFolder && !isSearching) {
+                currentFolderName = `Môn: ${personalSelectedFolder}`;
+                docsToShow = groupedPersonalDocs[personalSelectedFolder] || [];
+              }
 
               return (
                 <section ref={documentsSectionRef} className="flex flex-col gap-4 mt-2">
@@ -4102,30 +4051,52 @@ export default function Home() {
 
                     <div className="flex items-center gap-3">
                       {personalSelectedFolder && !isSearching && (
-                        <button
-                          onClick={() => {
-                            if (window.history.state && window.history.state.view === 'folder') {
-                              window.history.back();
-                            } else {
-                              setPersonalSelectedFolder(null);
-                            }
-                          }}
-                          className="p-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-lg text-slate-500 transition-colors"
-                          title="Quay lại danh mục"
-                        >
-                          <ChevronLeft className="w-5 h-5" />
-                        </button>
+                        <>
+                          <button
+                            onClick={() => {
+                              if (window.history.state && window.history.state.view === 'folder') {
+                                window.history.back();
+                              } else {
+                                setPersonalSelectedFolder(null);
+                              }
+                            }}
+                            className="p-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-lg text-slate-500 transition-colors"
+                            title="Quay lại danh mục"
+                          >
+                            <ChevronLeft className="w-5 h-5" />
+                          </button>
+
+
+                        </>
                       )}
-                      <h2 className="text-sm font-black text-black dark:text-white uppercase tracking-wider flex items-center gap-2">
+                      <h2 className="text-sm font-black uppercase tracking-wider flex items-center gap-2" style={{ color: "#000" }}>
                         <span className="w-1 h-3.5 bg-purple-600 dark:bg-purple-500 rounded" />
-                        {personalSelectedFolder && !isSearching
-                          ? `${t("myDocs.docs_title") || "Tài liệu đã tải lên"} - Môn: ${personalSelectedFolder}`
+                        {personalSelectedFolder && !isSearching && currentFolderName
+                          ? `${t("myDocs.docs_title") || "Tài liệu đã tải lên"} - ${currentFolderName}`
                           : `${t("myDocs.docs_title") || "Tài liệu đã tải lên"} (${isSearching ? `${filteredDocuments.length}/${documents.length}` : documents.length})`}
                       </h2>
                     </div>
 
                     {/* Search & Filters */}
                     <div className="flex flex-col sm:flex-row items-center gap-4">
+                      {personalSelectedFolder && !isSearching && (
+                        <>
+                          <input
+                            type="file"
+                            className="hidden"
+                            ref={quickUploadInputRef}
+                            onChange={handleQuickUpload}
+                            accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar,.jpg,.jpeg,.png,.webp"
+                          />
+                          <button
+                            onClick={() => quickUploadInputRef.current?.click()}
+                            className="flex items-center justify-center gap-2 px-3 py-1.5 bg-purple-600/10 hover:bg-purple-600/20 text-purple-700 dark:text-purple-400 border border-purple-300/30 dark:border-purple-500/20 rounded-lg text-xs font-bold transition-all shadow-sm shrink-0 h-[38px]"
+                          >
+                            <UploadCloud className="w-4 h-4" />
+                            Tải lên nhanh
+                          </button>
+                        </>
+                      )}
                       <SearchBar
                         search={searchQuery}
                         setSearch={setSearchQuery}
@@ -4425,6 +4396,7 @@ export default function Home() {
                                         <Share2 className="w-4 h-4 text-slate-400" />
                                         {t("myDocs.share") || "Chia sẻ"}
                                       </button>
+
                                       <button
                                         onClick={(e) => {
                                           e.stopPropagation();
@@ -4557,7 +4529,7 @@ export default function Home() {
           <div className="flex flex-col gap-6 max-w-5xl w-full mx-auto animate-spring-up">
             <header className="flex flex-col gap-1 border-b border-slate-100 dark:border-slate-800/60 pb-5 select-none text-left">
               <span className="text-xs font-bold text-red-500 uppercase tracking-widest">{t("bookmarks.section_label") || "Bộ sưu tập của bạn"}</span>
-              <h1 className="text-2xl md:text-3xl font-black text-black dark:text-white tracking-tight mt-1 flex items-center gap-2">
+              <h1 className="text-2xl md:text-3xl font-black tracking-tight mt-1 flex items-center gap-2" style={{ color: "#000" }}>
                 {t("bookmarks.title") || "Tài liệu Yêu thích"}
                 <Heart className="w-6 h-6 fill-red-500 text-red-500" />
               </h1>
@@ -4568,7 +4540,7 @@ export default function Home() {
 
             <section className="flex flex-col gap-4 mt-2">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <h2 className="text-sm font-black text-black dark:text-white uppercase tracking-wider flex items-center gap-2">
+                <h2 className="text-sm font-black uppercase tracking-wider flex items-center gap-2" style={{ color: "#000" }}>
                   <span className="w-1 h-3.5 bg-red-500 rounded" />
                   {t("bookmarks.found") || "Danh mục yêu thích"} ({bookmarkedDocs.length})
                 </h2>
@@ -4788,7 +4760,7 @@ export default function Home() {
                     </svg>
                   </div>
 
-                  <h1 className="text-3xl md:text-[38px] font-extrabold bg-gradient-to-r from-[#6366f1] via-[#a855f7] to-[#ec4899] bg-clip-text text-transparent tracking-tight mt-8 mb-8 text-center leading-[1.15] select-none">
+                  <h1 className="text-3xl md:text-[38px] font-extrabold tracking-tight mt-8 mb-8 text-center leading-[1.15] select-none" style={{ color: "#000" }}>
                     {t("aiChat.placeholder") || "Hôm nay bạn muốn nghiên cứu gì?"}
                   </h1>
 
@@ -5033,7 +5005,7 @@ export default function Home() {
 
                     {isAiTyping && (
                       <div className="flex items-center gap-2.5 self-start w-full animate-pulse">
-                        <Bot className="w-4 h-4 text-purple-600 animate-spin shrink-0" />
+                        <img src="/logo.png" alt="AI" className="w-5 h-5 object-contain shrink-0 animate-bounce" />
                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">...</span>
                       </div>
                     )}
@@ -5087,7 +5059,7 @@ export default function Home() {
             <div className="flex flex-col gap-6 max-w-5xl w-full mx-auto animate-spring-up text-left">
               <header className="flex flex-col gap-1 border-b border-slate-100 dark:border-slate-800/60 pb-5 select-none text-left">
                 <span className="text-xs font-bold text-purple-600 dark:text-purple-400 uppercase tracking-widest">{language === "vi" ? "Cộng đồng học tập" : "Learning Community"}</span>
-                <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight mt-1">
+                <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight mt-1" style={{ color: "#000" }}>
                   {t("community.title") || "Tài liệu chia sẻ cộng đồng"}
                 </h1>
                 <span className="text-xs text-slate-500 font-medium mt-1">
@@ -5104,7 +5076,7 @@ export default function Home() {
                         <FolderOpen size={20} />
                       </div>
                       <div>
-                        <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">{t("community.my_contributions") || "Tài liệu bạn đã chia sẻ"}</h2>
+                        <h2 className="text-xl font-bold" style={{ color: "#000" }}>{t("community.my_contributions") || "Tài liệu bạn đã chia sẻ"}</h2>
                         <p className="text-sm text-slate-500 dark:text-slate-400">{(t("community.contrib_desc") || "Bạn đã đóng góp {count} tài liệu cho cộng đồng").replace("{count}", mySharedCommunityDocs.length)}</p>
                       </div>
                     </div>
@@ -5377,9 +5349,9 @@ export default function Home() {
                         </div>
                       );
 
-                                            return (
+                      return (
                         <div className="space-y-0 bg-white/60 dark:bg-[#0f111a]/60 rounded-2xl border border-slate-200/80 dark:border-white/5 overflow-hidden divide-y divide-slate-100 dark:divide-white/5 shadow-sm">
-                                                    {communityTopics.map((topic) => {
+                          {communityTopics.map((topic) => {
                             const topicColor = topic.color || '#8b5cf6';
                             const totalDocs = (topic.subjects || []).reduce((s, sub) => s + (Number(sub.doc_count) || 0), 0);
                             return (
@@ -5424,90 +5396,90 @@ export default function Home() {
                               </div>
                             );
                           })}
-                          
-                          
+
+
                         </div>
                       );
                     })()
                   ) : (
                     /* DOCS GRID (or inside subject) */
                     filteredCommunityDocs.length > 0 ? (
-                    <>
-                      {/* Pinned Documents */}
-                      {pinnedCommunityDocs.length > 0 && (
-                        <div className="space-y-3 bg-purple-50/20 dark:bg-purple-950/5 p-4 rounded-2xl border border-purple-100/30 text-left w-full">
-                          <div className="text-[10px] font-extrabold text-purple-600 dark:text-purple-400 uppercase tracking-widest flex items-center gap-1.5 pl-1">
-                            <span>{language === "vi" ? "📌 Tài liệu ghim đầu trang" : "📌 Pinned Documents"}</span>
-                            <span className="bg-purple-500 text-white text-[9px] px-1.5 py-0.5 rounded-full font-extrabold">
-                              {pinnedCommunityDocs.length}
-                            </span>
-                          </div>
-                          <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 xl:grid-cols-3 w-full">
-                            {pinnedCommunityDocs.map((doc) => (
-                              <DocumentCard
-                                key={doc.document_id || doc.id}
-                                doc={doc}
-                                isPinned={doc.isPinned}
-                                onTogglePin={() => handleToggleCommunityPin(doc.id)}
-                                isPersonal={false}
-                                isMyShared={communityFilterMode === "MY_SHARED"}
-                              />
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Regular Documents */}
-                      <div className="space-y-3 text-left w-full">
+                      <>
+                        {/* Pinned Documents */}
                         {pinnedCommunityDocs.length > 0 && (
-                          <div className="text-[10px] font-extrabold text-slate-455 uppercase tracking-widest pl-1">
-                            {language === "vi" ? "📂 Tài liệu cộng đồng khác" : "📂 Other community documents"}
-                          </div>
-                        )}
-
-                        {regularCommunityDocs.length > 0 ? (
-                          <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 xl:grid-cols-3 w-full">
-                            {regularCommunityDocs.map((doc) => (
-                              <DocumentCard
-                                key={doc.document_id || doc.id}
-                                doc={doc}
-                                isPinned={doc.isPinned}
-                                onTogglePin={() => handleToggleCommunityPin(doc.id)}
-                                isPersonal={false}
-                                isMyShared={communityFilterMode === "MY_SHARED"}
-                              />
-                            ))}
-                          </div>
-                        ) : (
-                          pinnedCommunityDocs.length > 0 && (
-                            <div className="text-center py-6 text-slate-400 text-xs font-medium bg-white/40 dark:bg-black/10 rounded-2xl border border-slate-100 dark:border-white/5">
-                              {language === "vi" ? "Không còn tài liệu nào khác trên trang này." : "No other documents on this page."}
+                          <div className="space-y-3 bg-purple-50/20 dark:bg-purple-950/5 p-4 rounded-2xl border border-purple-100/30 text-left w-full">
+                            <div className="text-[10px] font-extrabold text-purple-600 dark:text-purple-400 uppercase tracking-widest flex items-center gap-1.5 pl-1">
+                              <span>{language === "vi" ? "📌 Tài liệu ghim đầu trang" : "📌 Pinned Documents"}</span>
+                              <span className="bg-purple-500 text-white text-[9px] px-1.5 py-0.5 rounded-full font-extrabold">
+                                {pinnedCommunityDocs.length}
+                              </span>
                             </div>
-                          )
+                            <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 xl:grid-cols-3 w-full">
+                              {pinnedCommunityDocs.map((doc) => (
+                                <DocumentCard
+                                  key={doc.document_id || doc.id}
+                                  doc={doc}
+                                  isPinned={doc.isPinned}
+                                  onTogglePin={() => handleToggleCommunityPin(doc.id)}
+                                  isPersonal={false}
+                                  isMyShared={communityFilterMode === "MY_SHARED"}
+                                />
+                              ))}
+                            </div>
+                          </div>
                         )}
-                      </div>
 
-                      {/* Pagination */}
-                      <div className="mt-6 flex justify-center">
-                        <Pagination
-                          page={communityPage}
-                          totalPages={communityTotalPages}
-                          setPage={setCommunityPage}
-                        />
+                        {/* Regular Documents */}
+                        <div className="space-y-3 text-left w-full">
+                          {pinnedCommunityDocs.length > 0 && (
+                            <div className="text-[10px] font-extrabold text-slate-455 uppercase tracking-widest pl-1">
+                              {language === "vi" ? "📂 Tài liệu cộng đồng khác" : "📂 Other community documents"}
+                            </div>
+                          )}
+
+                          {regularCommunityDocs.length > 0 ? (
+                            <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 xl:grid-cols-3 w-full">
+                              {regularCommunityDocs.map((doc) => (
+                                <DocumentCard
+                                  key={doc.document_id || doc.id}
+                                  doc={doc}
+                                  isPinned={doc.isPinned}
+                                  onTogglePin={() => handleToggleCommunityPin(doc.id)}
+                                  isPersonal={false}
+                                  isMyShared={communityFilterMode === "MY_SHARED"}
+                                />
+                              ))}
+                            </div>
+                          ) : (
+                            pinnedCommunityDocs.length > 0 && (
+                              <div className="text-center py-6 text-slate-400 text-xs font-medium bg-white/40 dark:bg-black/10 rounded-2xl border border-slate-100 dark:border-white/5">
+                                {language === "vi" ? "Không còn tài liệu nào khác trên trang này." : "No other documents on this page."}
+                              </div>
+                            )
+                          )}
+                        </div>
+
+                        {/* Pagination */}
+                        <div className="mt-6 flex justify-center">
+                          <Pagination
+                            page={communityPage}
+                            totalPages={communityTotalPages}
+                            setPage={setCommunityPage}
+                          />
+                        </div>
+                      </>
+                    ) : (
+                      /* Empty State */
+                      <div className="text-center py-20 bg-white/30 dark:bg-[#0f111a]/30 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 p-8 w-full">
+                        <div className="text-5xl mb-4">📂</div>
+                        <p className="text-sm font-bold text-slate-850 dark:text-slate-200 m-0">
+                          {t("community.no_docs") || "Không tìm thấy tài liệu phù hợp"}
+                        </p>
+                        <p className="text-xs text-slate-450 mt-2 m-0">
+                          {language === "vi" ? "Vui lòng thử tìm kiếm bằng một từ khóa khác hoặc xóa bộ lọc ngày." : "Please try searching with another keyword or clear the date filter."}
+                        </p>
                       </div>
-                    </>
-                  ) : (
-                    /* Empty State */
-                    <div className="text-center py-20 bg-white/30 dark:bg-[#0f111a]/30 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 p-8 w-full">
-                      <div className="text-5xl mb-4">📂</div>
-                      <p className="text-sm font-bold text-slate-850 dark:text-slate-200 m-0">
-                        {t("community.no_docs") || "Không tìm thấy tài liệu phù hợp"}
-                      </p>
-                      <p className="text-xs text-slate-450 mt-2 m-0">
-                        {language === "vi" ? "Vui lòng thử tìm kiếm bằng một từ khóa khác hoặc xóa bộ lọc ngày." : "Please try searching with another keyword or clear the date filter."}
-                      </p>
-                    </div>
-                  )
+                    )
                   )}
                 </div>
               )}
@@ -5539,7 +5511,7 @@ export default function Home() {
               <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-slate-100 dark:border-slate-800/60 pb-5 select-none text-left">
                 <div>
                   <span className="text-xs font-bold text-purple-600 dark:text-purple-400 uppercase tracking-widest">{t("notifications.section_label") || "Trung tâm thông báo"}</span>
-                  <h1 className="text-2xl md:text-3xl font-black text-black dark:text-white tracking-tight mt-1">
+                  <h1 className="text-2xl md:text-3xl font-black tracking-tight mt-1" style={{ color: "#000" }}>
                     {t("notifications.title") || "Thông báo học thuật & Yêu cầu quyền"}
                   </h1>
                   <span className="text-xs text-slate-500 font-medium mt-1 block">
@@ -5743,7 +5715,7 @@ export default function Home() {
           <div className="flex flex-col gap-6 max-w-5xl w-full mx-auto animate-spring-up text-left">
             <header className="flex flex-col gap-1 border-b border-slate-100 dark:border-slate-800/60 pb-5 select-none text-left">
               <span className="text-xs font-bold text-purple-600 dark:text-purple-400 uppercase tracking-widest">{t("profile.section_label") || "Định danh tài khoản"}</span>
-              <h1 className="text-2xl md:text-3xl font-black text-black dark:text-white tracking-tight mt-1">
+              <h1 className="text-2xl md:text-3xl font-black tracking-tight mt-1" style={{ color: "#000" }}>
                 {t("profile.title") || "Hồ sơ sinh viên"}
               </h1>
               <span className="text-xs text-slate-500 font-medium mt-1">
@@ -5787,7 +5759,7 @@ export default function Home() {
                     {/* Name & Quick Info */}
                     <div className="flex flex-col pb-2">
                       <div className="flex items-center gap-3 mb-1">
-                        <span className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white leading-none tracking-tight">{fullName}</span>
+                        <span className="text-2xl md:text-3xl font-black leading-none tracking-tight" style={{ color: "#000" }}>{fullName}</span>
                         <span className="text-[10px] text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-900/40 px-2.5 py-1 rounded font-black uppercase tracking-widest">{user?.role === "ADMIN" ? "Quản trị viên" : "Hệ sinh viên"}</span>
                       </div>
 
@@ -5817,7 +5789,7 @@ export default function Home() {
             {/* 2. Personal & Academic Info Card */}
             <Card className="liquid-glass rounded-3xl p-6 md:p-8 flex flex-col gap-6 shadow-sm relative overflow-hidden border-0">
               <div className="flex justify-between items-center z-10 relative border-b border-slate-100 dark:border-slate-800/60 pb-4">
-                <h3 className="text-sm font-extrabold tracking-wider uppercase text-slate-900 dark:text-white flex items-center gap-2.5">
+                <h3 className="text-sm font-extrabold tracking-wider uppercase flex items-center gap-2.5" style={{ color: "#000" }}>
                   <UserIcon className="w-4 h-4 text-purple-500" /> {language === "vi" ? "Thông tin cá nhân & Học tập" : "Personal & Academic Info"}
                 </h3>
                 {!isEditingProfile ? (
@@ -5954,14 +5926,14 @@ export default function Home() {
 
             {/* 3. Storage Card */}
             <Card className="liquid-glass rounded-3xl p-6 md:p-8 flex flex-col gap-6 shadow-sm border-0">
-              <h3 className="text-sm font-extrabold tracking-wider uppercase text-slate-900 dark:text-white flex items-center gap-2.5 border-b border-slate-100 dark:border-slate-800/60 pb-4">
+              <h3 className="text-sm font-extrabold tracking-wider uppercase flex items-center gap-2.5 border-b border-slate-100 dark:border-slate-800/60 pb-4" style={{ color: "#000" }}>
                 <Cloud className="w-4 h-4 text-blue-500" /> {language === "vi" ? "Dung lượng lưu trữ" : "Storage Usage"}
               </h3>
 
               <div className="flex flex-col md:flex-row items-start md:items-end justify-between gap-6 md:gap-10">
                 <div className="flex flex-col gap-2 flex-1 w-full">
                   <div className="flex items-end gap-2 mb-2">
-                    <span className="text-4xl md:text-5xl font-black text-slate-900 dark:text-white leading-none tracking-tight">{usageInGB}<span className="text-xl md:text-2xl text-slate-500 ml-1 font-bold">GB</span></span>
+                    <span className="text-4xl md:text-5xl font-black leading-none tracking-tight" style={{ color: "#000" }}>{usageInGB}<span className="text-xl md:text-2xl text-slate-500 ml-1 font-bold">GB</span></span>
                     <span className="text-sm font-bold text-slate-400 mb-1">/ {limitInGB} GB {language === "vi" ? "đã sử dụng" : "used"}</span>
                   </div>
 
@@ -5986,7 +5958,7 @@ export default function Home() {
             {/* 4. Password Form Card */}
             <Card className="liquid-glass rounded-3xl p-6 md:p-8 flex flex-col gap-6 shadow-sm border-0">
               <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800/60 pb-4">
-                <h3 className="text-sm font-extrabold tracking-wider uppercase text-slate-900 dark:text-white flex items-center gap-2.5">
+                <h3 className="text-sm font-extrabold tracking-wider uppercase flex items-center gap-2.5" style={{ color: "#000" }}>
                   <Lock className="w-4 h-4 text-purple-500" /> {isResettingPasswordWithOtp ? (language === "vi" ? "Đặt lại mật khẩu qua OTP" : "Reset Password via OTP") : (t("profile.change_password") || "Đổi mật khẩu học tập")}
                 </h3>
                 {isResettingPasswordWithOtp ? (
@@ -6139,7 +6111,7 @@ export default function Home() {
               <AlertTriangle className="w-6 h-6 text-red-555 animate-pulse" />
             </div>
             <div className="flex flex-col gap-1">
-              <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">{language === "vi" ? "Xác nhận xóa học liệu" : "Confirm Delete Learning Material"}</h3>
+              <h3 className="text-sm font-black uppercase tracking-wider" style={{ color: "#000" }}>{language === "vi" ? "Xác nhận xóa học liệu" : "Confirm Delete Learning Material"}</h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed font-medium">{language === "vi" ? "Bạn có chắc chắn muốn xóa vĩnh viễn tài liệu này khỏi hệ thống lưu trữ đám mây của AIStudyHub không?" : "Are you sure you want to permanently delete this document from the AIStudyHub cloud storage system?"}</p>
             </div>
             <div className="flex gap-3 mt-2">
@@ -6172,7 +6144,7 @@ export default function Home() {
               <AlertTriangle className="w-6 h-6 text-yellow-555 animate-pulse" />
             </div>
             <div className="flex flex-col gap-1">
-              <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">Xác nhận trùng lặp</h3>
+              <h3 className="text-sm font-black uppercase tracking-wider" style={{ color: "#000" }}>Xác nhận trùng lặp</h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed font-medium">
                 {duplicateConfirmData.isFileDuplicate && duplicateConfirmData.isTitleDuplicate ? (
                   <>Tệp tin và Tiêu đề học liệu <span className="font-bold text-slate-800 dark:text-slate-200">"{duplicateConfirmData.title}"</span> đã tồn tại. Bạn có muốn đổi tên thành bản sao "(1)" và tiếp tục tải lên không?</>
@@ -6207,7 +6179,12 @@ export default function Home() {
                     finalTitle = `${finalTitle} (1)`;
                   }
                   setDuplicateConfirmData(null);
-                  handleRealUpload(null, true, { fileToUpload: finalFile, finalTitle });
+                  handleRealUpload(null, true, {
+                    fileToUpload: finalFile,
+                    finalTitle,
+                    subject: duplicateConfirmData.quickUploadSubject,
+                    tags: duplicateConfirmData.quickUploadTags
+                  });
                 }}
                 className="flex-1 px-4 py-2.5 rounded-lg bg-yellow-50 dark:bg-yellow-950/30 text-yellow-650 dark:text-yellow-400 border border-yellow-200/60 dark:border-yellow-900/30 hover:bg-yellow-500 hover:text-white dark:hover:text-white hover:border-transparent font-bold text-xs cursor-pointer select-none shadow-sm transition-all duration-300"
               >
@@ -6217,6 +6194,8 @@ export default function Home() {
           </div>
         </div>
       )}
+
+
 
       {/* Share Document Modal */}
       {shareModalDoc && (
@@ -6248,7 +6227,7 @@ export default function Home() {
                   <Pencil className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">Chỉnh sửa tài liệu</h3>
+                  <h3 className="text-sm font-black uppercase tracking-wider" style={{ color: "#000" }}>Chỉnh sửa tài liệu</h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">Cập nhật thông tin tài liệu</p>
                 </div>
               </div>
