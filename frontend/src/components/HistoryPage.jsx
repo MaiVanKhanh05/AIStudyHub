@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
+import { API_URL } from "@/config/api.js";
 import { motion } from 'motion/react';
 import { 
   ClockCounterClockwise, 
@@ -20,7 +21,7 @@ export default function HistoryPage({ user, onPreview }) {
     setLoading(true);
     try {
       const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-      const res = await fetch(`http://localhost:5000/api/documents/history/me`, {
+      const res = await fetch(`${API_URL}/api/documents/history/me`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -52,7 +53,7 @@ export default function HistoryPage({ user, onPreview }) {
     
     try {
       const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-      const res = await fetch(`http://localhost:5000/api/documents/history/me`, {
+      const res = await fetch(`${API_URL}/api/documents/history/me`, {
         method: 'DELETE',
         headers: { 
           'Authorization': `Bearer ${token}`,

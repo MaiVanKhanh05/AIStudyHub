@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+﻿import { useState, useEffect, useRef, useMemo } from "react";
+import { API_URL } from "@/config/api.js";
 import { useSearchHistory } from "../hooks/useSearchHistory";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useLanguage } from "../context/LanguageContext";
@@ -240,7 +241,7 @@ function InlinedDocumentCard({ docId, onPreview }) {
     const fetchDoc = async () => {
       try {
         const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-        const res = await fetch(`http://localhost:5000/api/documents/${docId}`, {
+        const res = await fetch(`${API_URL}/api/documents/${docId}`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         if (!res.ok) throw new Error('Not found');
@@ -866,7 +867,7 @@ export default function Home() {
   const fetchCommunityTopics = async () => {
     setCommunityTopicsLoading(true);
     try {
-      const res = await axios.get("http://localhost:5000/api/topics");
+      const res = await axios.get("${API_URL}/api/topics");
       setCommunityTopics(res.data || []);
     } catch (err) {
       console.error("Error loading topics:", err);
@@ -879,7 +880,7 @@ export default function Home() {
     setCommunityTopicsLoading(true);
     try {
       const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-      const res = await axios.post("http://localhost:5000/api/topics/regenerate", {}, {
+      const res = await axios.post("${API_URL}/api/topics/regenerate", {}, {
         headers: token ? { Authorization: `Bearer ${token}` } : {}
       });
       setCommunityTopics(res.data.topics || []);
@@ -892,7 +893,7 @@ export default function Home() {
 
   const fetchSubjectsDocCounts = async () => {
     try {
-      const res = await axios.get("http://localhost:5000/api/subjects/doc-counts");
+      const res = await axios.get("${API_URL}/api/subjects/doc-counts");
       setSubjectsDocCounts(res.data || []);
     } catch (err) {
       console.error("Error loading subjects doc counts:", err);
@@ -937,7 +938,7 @@ export default function Home() {
     setCommunityLoading(true);
     try {
       const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-      const res = await fetch("http://localhost:5000/api/documents/community", {
+      const res = await fetch("${API_URL}/api/documents/community", {
         headers: { "Authorization": `Bearer ${token}` }
       });
       if (res.ok) {
@@ -961,7 +962,7 @@ export default function Home() {
   const fetchBookmarkedDocs = async () => {
     try {
       const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-      const res = await fetch("http://localhost:5000/api/documents/bookmarks", {
+      const res = await fetch("${API_URL}/api/documents/bookmarks", {
         headers: { "Authorization": `Bearer ${token}` }
       });
       if (res.ok) {
@@ -1115,7 +1116,7 @@ export default function Home() {
       const recordHistory = async () => {
         try {
           const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-          await fetch(`http://localhost:5000/api/documents/${previewDoc.document_id}/history`, {
+          await fetch(`${API_URL}/api/documents/${previewDoc.document_id}/history`, {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${token}`
@@ -1157,7 +1158,7 @@ export default function Home() {
           if (token) {
             headers["Authorization"] = `Bearer ${token}`;
           }
-          const res = await fetch(`http://localhost:5000/api/documents/${openDocId}`, {
+          const res = await fetch(`${API_URL}/api/documents/${openDocId}`, {
             headers
           });
           if (res.ok) {
@@ -1236,7 +1237,7 @@ export default function Home() {
       if (!user) return;
       try {
         const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-        const res = await axios.get("http://localhost:5000/api/chat/history", {
+        const res = await axios.get("${API_URL}/api/chat/history", {
           headers: {
             "Authorization": `Bearer ${token}`
           }
@@ -1426,7 +1427,7 @@ export default function Home() {
 
     try {
       const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-      await axios.put(`http://localhost:5000/api/chat/history/pin/${chatId}`, { isPinned: newPinState }, {
+      await axios.put(`${API_URL}/api/chat/history/pin/${chatId}`, { isPinned: newPinState }, {
         headers: { "Authorization": `Bearer ${token}` }
       });
     } catch (err) {
@@ -1434,7 +1435,7 @@ export default function Home() {
       toast.error("Không thể ghim cuộc trò chuyện.");
       if (user) {
         const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-        const res = await axios.get("http://localhost:5000/api/chat/history", {
+        const res = await axios.get("${API_URL}/api/chat/history", {
           headers: { "Authorization": `Bearer ${token}` }
         });
         setChats(res.data || []);
@@ -1451,12 +1452,12 @@ export default function Home() {
 
     try {
       const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-      await axios.delete(`http://localhost:5000/api/chat/history/${chatId}`, {
+      await axios.delete(`${API_URL}/api/chat/history/${chatId}`, {
         headers: { "Authorization": `Bearer ${token}` }
       });
 
       // Reload from server to confirm sync
-      const res = await axios.get("http://localhost:5000/api/chat/history", {
+      const res = await axios.get("${API_URL}/api/chat/history", {
         headers: { "Authorization": `Bearer ${token}` }
       });
       const formatted = (res.data || []).map(c => ({
@@ -1475,7 +1476,7 @@ export default function Home() {
       // Rollback: reload from server
       if (user) {
         const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-        const res = await axios.get("http://localhost:5000/api/chat/history", {
+        const res = await axios.get("${API_URL}/api/chat/history", {
           headers: { "Authorization": `Bearer ${token}` }
         });
         const formatted = (res.data || []).map(c => ({
@@ -1512,7 +1513,7 @@ export default function Home() {
 
     try {
       const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-      await axios.put(`http://localhost:5000/api/chat/history/rename/${chatId}`, { title: newTitle }, {
+      await axios.put(`${API_URL}/api/chat/history/rename/${chatId}`, { title: newTitle }, {
         headers: { "Authorization": `Bearer ${token}` }
       });
     } catch (err) {
@@ -1520,7 +1521,7 @@ export default function Home() {
       toast.error("Không thể đổi tên cuộc trò chuyện.");
       if (user) {
         const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-        const res = await axios.get("http://localhost:5000/api/chat/history", {
+        const res = await axios.get("${API_URL}/api/chat/history", {
           headers: { "Authorization": `Bearer ${token}` }
         });
         setChats(res.data || []);
@@ -1562,7 +1563,7 @@ export default function Home() {
 
     try {
       const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-      await axios.post("http://localhost:5000/api/chat/history/save", {
+      await axios.post("${API_URL}/api/chat/history/save", {
         id: chatId,
         title: finalTitle || initialTitleText.substring(0, 40) || "Cuộc trò chuyện mới",
         messages: messages
@@ -1924,7 +1925,7 @@ export default function Home() {
 
       // 3. Update backend database with the new avatar URL
       const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-      const res = await fetch("http://localhost:5000/api/users/profile", {
+      const res = await fetch("${API_URL}/api/users/profile", {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -2011,7 +2012,7 @@ export default function Home() {
     setIsSavingProfile(true);
     try {
       const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-      const res = await fetch("http://localhost:5000/api/users/profile", {
+      const res = await fetch("${API_URL}/api/users/profile", {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -2065,10 +2066,10 @@ export default function Home() {
       const token = localStorage.getItem("token") || sessionStorage.getItem("token");
 
       const [dashRes, bookmarkRes] = await Promise.all([
-        axios.get(`http://localhost:5000/api/documents/dashboard?userId=${user.user_id}`, {
+        axios.get(`${API_URL}/api/documents/dashboard?userId=${user.user_id}`, {
           headers: { "Authorization": `Bearer ${token}` }
         }),
-        axios.get(`http://localhost:5000/api/documents/bookmarks`, {
+        axios.get(`${API_URL}/api/documents/bookmarks`, {
           headers: { "Authorization": `Bearer ${token}` }
         }).catch(err => {
           console.error("Error fetching bookmarks:", err);
@@ -2116,7 +2117,7 @@ export default function Home() {
       const token = localStorage.getItem("token") || sessionStorage.getItem("token");
       if (!token) return;
 
-      const res = await axios.get("http://localhost:5000/api/notifications", {
+      const res = await axios.get("${API_URL}/api/notifications", {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -2156,7 +2157,7 @@ export default function Home() {
   const handleApproveAccess = async (notificationId) => {
     try {
       const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-      const res = await axios.post(`http://localhost:5000/api/notifications/${notificationId}/approve`, {}, {
+      const res = await axios.post(`${API_URL}/api/notifications/${notificationId}/approve`, {}, {
         headers: { Authorization: `Bearer ${token}` }
       });
       toast.success(res.data.message || "Đã phê duyệt yêu cầu truy cập!");
@@ -2170,7 +2171,7 @@ export default function Home() {
   const handleDenyAccess = async (notificationId) => {
     try {
       const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-      const res = await axios.post(`http://localhost:5000/api/notifications/${notificationId}/deny`, {}, {
+      const res = await axios.post(`${API_URL}/api/notifications/${notificationId}/deny`, {}, {
         headers: { Authorization: `Bearer ${token}` }
       });
       toast.success(res.data.message || "Đã từ chối yêu cầu truy cập.");
@@ -2184,7 +2185,7 @@ export default function Home() {
   const handleMarkAsRead = async (notificationId) => {
     try {
       const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-      await axios.put(`http://localhost:5000/api/notifications/${notificationId}/read`, {}, {
+      await axios.put(`${API_URL}/api/notifications/${notificationId}/read`, {}, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setNotificationsList(prev => prev.map(n => n.notification_id === notificationId ? { ...n, is_read: true } : n));
@@ -2196,7 +2197,7 @@ export default function Home() {
   const handleMarkAllAsRead = async () => {
     try {
       const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-      await axios.put(`http://localhost:5000/api/notifications/read-all`, {}, {
+      await axios.put(`${API_URL}/api/notifications/read-all`, {}, {
         headers: { Authorization: `Bearer ${token}` }
       });
       toast.success("Đã đánh dấu tất cả thông báo là đã đọc.");
@@ -2230,7 +2231,7 @@ export default function Home() {
     const loadSubjects = async () => {
       try {
         const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-        const response = await axios.get("http://localhost:5000/api/subjects", {
+        const response = await axios.get("${API_URL}/api/subjects", {
           headers: {
             "Authorization": `Bearer ${token}`
           }
@@ -2256,7 +2257,7 @@ export default function Home() {
       if (!uploadSubject) return;
       try {
         const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-        const response = await axios.get(`http://localhost:5000/api/tags/subject/${uploadSubject}`, {
+        const response = await axios.get(`${API_URL}/api/tags/subject/${uploadSubject}`, {
           headers: {
             "Authorization": `Bearer ${token}`
           }
@@ -2282,7 +2283,7 @@ export default function Home() {
     }
     try {
       const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-      const response = await axios.get(`http://localhost:5000/api/tags/search?q=${val.trim()}`, {
+      const response = await axios.get(`${API_URL}/api/tags/search?q=${val.trim()}`, {
         headers: {
           "Authorization": `Bearer ${token}`
         }
@@ -2318,7 +2319,7 @@ export default function Home() {
       }
       try {
         const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-        const response = await axios.get(`http://localhost:5000/api/tags/subject/${editSubject}`, {
+        const response = await axios.get(`${API_URL}/api/tags/subject/${editSubject}`, {
           headers: {
             "Authorization": `Bearer ${token}`
           }
@@ -2341,7 +2342,7 @@ export default function Home() {
     }
     try {
       const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-      const response = await axios.get(`http://localhost:5000/api/tags/search?q=${val.trim()}`, {
+      const response = await axios.get(`${API_URL}/api/tags/search?q=${val.trim()}`, {
         headers: {
           "Authorization": `Bearer ${token}`
         }
@@ -2442,7 +2443,7 @@ export default function Home() {
 
       // 2. Delete the record from PostgreSQL database via backend API
       const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-      await axios.delete(`http://localhost:5000/api/documents/${docId}?userId=${user.user_id}`, {
+      await axios.delete(`${API_URL}/api/documents/${docId}?userId=${user.user_id}`, {
         headers: {
           "Authorization": `Bearer ${token}`
         }
@@ -2521,7 +2522,7 @@ export default function Home() {
 
       // 2. Save metadata to backend API
       const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-      const response = await axios.post("http://localhost:5000/api/documents/upload", {
+      const response = await axios.post("${API_URL}/api/documents/upload", {
         user_id: user.user_id,
         subject: finalSubject || null,
         title: finalTitle,
@@ -2655,7 +2656,7 @@ export default function Home() {
           : ""
       };
 
-      const res = await axios.post("http://localhost:5000/api/chat", payload, {
+      const res = await axios.post("${API_URL}/api/chat", payload, {
         headers: {
           "Authorization": `Bearer ${token}`
         }
@@ -2723,7 +2724,7 @@ export default function Home() {
         payload.documentContext = msgFiles.map(file => `--- TẬP TIN: ${file.name} ---\n${file.content}`).join("\n\n");
       }
 
-      const res = await axios.post("http://localhost:5000/api/chat", payload, {
+      const res = await axios.post("${API_URL}/api/chat", payload, {
         headers: {
           "Authorization": `Bearer ${token}`
         }
@@ -2799,7 +2800,7 @@ export default function Home() {
         payload.documentContext = msgFiles.map(file => `--- TẬP TIN: ${file.name} ---\n${file.content}`).join("\n\n");
       }
 
-      const res = await axios.post("http://localhost:5000/api/chat", payload, {
+      const res = await axios.post("${API_URL}/api/chat", payload, {
         headers: {
           "Authorization": `Bearer ${token}`
         }
@@ -2898,7 +2899,7 @@ export default function Home() {
             const formData = new FormData();
             formData.append("file", file);
 
-            const res = await axios.post("http://localhost:5000/api/chat/upload-temp", formData, {
+            const res = await axios.post("${API_URL}/api/chat/upload-temp", formData, {
               headers: {
                 "Content-Type": "multipart/form-data",
                 "Authorization": `Bearer ${token}`
@@ -3127,7 +3128,7 @@ export default function Home() {
 
     try {
       setResetEmailLoading(true);
-      const response = await fetch("http://localhost:5000/api/auth/forgot-password", {
+      const response = await fetch("${API_URL}/api/auth/forgot-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: user.email })
@@ -3173,7 +3174,7 @@ export default function Home() {
 
     try {
       setChangePasswordLoading(true);
-      const response = await fetch("http://localhost:5000/api/auth/reset-password", {
+      const response = await fetch("${API_URL}/api/auth/reset-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -3223,7 +3224,7 @@ export default function Home() {
 
     try {
       setChangePasswordLoading(true);
-      const response = await fetch("http://localhost:5000/api/auth/change-password", {
+      const response = await fetch("${API_URL}/api/auth/change-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -4687,7 +4688,7 @@ export default function Home() {
                                             setProcessingDocId(doc.document_id || doc.id);
                                             try {
                                               const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-                                              await axios.put(`http://localhost:5000/api/documents/${doc.document_id || doc.id}/unshare`, {}, {
+                                              await axios.put(`${API_URL}/api/documents/${doc.document_id || doc.id}/unshare`, {}, {
                                                 headers: { Authorization: `Bearer ${token}` }
                                               });
                                               toast.success(t("myDocs.toast_unpost_success") || "Đã hủy đăng tài liệu khỏi cộng đồng!");
@@ -4711,7 +4712,7 @@ export default function Home() {
                                             setProcessingDocId(doc.document_id || doc.id);
                                             try {
                                               const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-                                              await axios.put(`http://localhost:5000/api/documents/${doc.document_id || doc.id}/share`, {}, {
+                                              await axios.put(`${API_URL}/api/documents/${doc.document_id || doc.id}/share`, {}, {
                                                 headers: { Authorization: `Bearer ${token}` }
                                               });
                                               toast.success(t("myDocs.toast_post_success") || "Đã đăng tài liệu lên cộng đồng thành công!");
@@ -6732,7 +6733,7 @@ export default function Home() {
                   try {
                     const token = localStorage.getItem("token") || sessionStorage.getItem("token");
                     const targetId = editModalDoc.document_id || editModalDoc.id;
-                    const res = await fetch(`http://localhost:5000/api/documents/${targetId}/edit`, {
+                    const res = await fetch(`${API_URL}/api/documents/${targetId}/edit`, {
                       method: "PUT",
                       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
                       body: JSON.stringify({

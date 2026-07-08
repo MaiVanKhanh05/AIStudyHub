@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+﻿import { useState, useEffect, useMemo, useRef } from "react";
+import { API_URL } from "@/config/api.js";
 import { Cpu, Activity, AlertTriangle, ChevronDown, HardDrive } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area } from "recharts";
 
@@ -79,7 +80,7 @@ export default function AdminStorageManagement() {
   useEffect(() => {
     setLoading(true);
     setErrorMsg(null);
-    fetch(`http://localhost:5000/api/admin/api-usage?days=${days}`, {
+    fetch(`${API_URL}/api/admin/api-usage?days=${days}`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then(async r => {
@@ -104,7 +105,7 @@ export default function AdminStorageManagement() {
       });
 
     // Fetch storage stats
-    fetch("http://localhost:5000/api/admin/stats", {
+    fetch("${API_URL}/api/admin/stats", {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then(r => r.json())

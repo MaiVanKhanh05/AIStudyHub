@@ -1,7 +1,9 @@
 import dotenv from "dotenv";
 dotenv.config({ override: true });
+
 import express from "express";
 import cors from "cors";
+
 import userRoutes from "./routes/user.routes.js";
 import authRoutes from "./routes/auth.routes.js";
 import documentRoutes from "./routes/document.routes.js";
@@ -15,10 +17,30 @@ import topicRoutes from "./routes/topic.routes.js";
 
 import { connectDB } from "../DB/db.js";
 
-
 const app = express();
 
-app.use(cors());
+// Cho phép cả localhost (dev) và Vercel (production)
+const allowedOrigins = [
+    "http://localhost:5173",
+    process.env.FRONTEND_URL,
+];
+
+app.use(
+    cors({
+        origin: (origin, callback) => {
+            // Cho phép Postman hoặc request không có Origin
+            if (!origin) return callback(null, true);
+
+            if (allowedOrigins.includes(origin)) {
+                return callback(null, true);
+            }
+
+            return callback(new Error("Not allowed by CORS"));
+        },
+        credentials: true,
+    })
+);
+
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
 

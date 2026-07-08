@@ -1,4 +1,5 @@
-import { useEffect, useState, useCallback } from "react";
+﻿import { useEffect, useState, useCallback } from "react";
+import { API_URL } from "@/config/api.js";
 import axios from "axios";
 import DocumentCard from "../components/DocumentCard";
 import SearchBar from "../components/SearchBar";
@@ -14,7 +15,7 @@ import {
   Search, TrendingUp, Star, Calendar, Hash, Layers, RefreshCw,
 } from "lucide-react";
 
-const API_BASE   = "http://localhost:5000";
+const API_BASE   = "${API_URL}";
 const PAGE_SIZE  = 30;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from "react";
+﻿import React, { useEffect, useState } from "react";
+import { API_URL } from "@/config/api.js";
 import { useParams, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import DocumentPreviewModal from "../components/DocumentPreviewModal";
@@ -30,7 +31,7 @@ export default function PreviewPage() {
         headers["Authorization"] = `Bearer ${token}`;
       }
 
-      const res = await fetch(`http://localhost:5000/api/documents/${id}`, {
+      const res = await fetch(`${API_URL}/api/documents/${id}`, {
         headers
       });
 
@@ -72,7 +73,7 @@ export default function PreviewPage() {
         return;
       }
 
-      const res = await fetch(`http://localhost:5000/api/notifications/request-access/${id}`, {
+      const res = await fetch(`${API_URL}/api/notifications/request-access/${id}`, {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${token}`

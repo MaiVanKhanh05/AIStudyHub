@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
+import { API_URL } from "@/config/api.js";
 import { Search, CheckCircle, Trash2, FileText, RefreshCw, Flame, Send } from "lucide-react";
 import Pagination from "../../components/Pagination";
 
@@ -33,7 +34,7 @@ export default function AdminDocumentManagement() {
 
   useEffect(() => {
     setLoading(true);
-    fetch("http://localhost:5000/api/admin/documents", {
+    fetch("${API_URL}/api/admin/documents", {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then(r => r.json())
@@ -53,7 +54,7 @@ export default function AdminDocumentManagement() {
   };
 
   const logAction = (action, doc) => {
-    fetch("http://localhost:5000/api/admin/log", {
+    fetch("${API_URL}/api/admin/log", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify({ action, targetDocId: doc.document_id || doc.id, targetTitle: doc.title }),
@@ -63,7 +64,7 @@ export default function AdminDocumentManagement() {
   // BR-AM-07: Approve document
   const handleApprove = async (doc) => {
     try {
-      await fetch(`http://localhost:5000/api/admin/documents/${doc.document_id || doc.id}/approve`, {
+      await fetch(`${API_URL}/api/admin/documents/${doc.document_id || doc.id}/approve`, {
         method: "POST", headers: { Authorization: `Bearer ${token}` },
       });
       logAction("APPROVE_DOCUMENT", doc);
@@ -76,7 +77,7 @@ export default function AdminDocumentManagement() {
   // BR-AM-07: Delete document
   const handleDelete = async (doc) => {
     try {
-      await fetch(`http://localhost:5000/api/admin/documents/${doc.document_id || doc.id}`, {
+      await fetch(`${API_URL}/api/admin/documents/${doc.document_id || doc.id}`, {
         method: "DELETE", headers: { Authorization: `Bearer ${token}` },
       });
       logAction("DELETE_DOCUMENT", doc);
@@ -89,7 +90,7 @@ export default function AdminDocumentManagement() {
   // BR-AM-07: Update status
   const handleReject = async (doc) => {
     try {
-      await fetch(`http://localhost:5000/api/admin/documents/${doc.document_id || doc.id}/status`, {
+      await fetch(`${API_URL}/api/admin/documents/${doc.document_id || doc.id}/status`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ status: "rejected" }),

@@ -1,4 +1,5 @@
-import { Copy, Download, ExternalLink, X, Send, Sparkles, Share2 } from "lucide-react";
+﻿import { Copy, Download, ExternalLink, X, Send, Sparkles, Share2 } from "lucide-react";
+import { API_URL } from "@/config/api.js";
 import { useMemo, useState } from "react";
 import { useLanguage } from "../context/LanguageContext";
 import { createPortal } from "react-dom";
@@ -72,7 +73,7 @@ export default function DocumentPreviewModal({ doc, onClose, currentUserId, onSh
 
     try {
       const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-      const response = await fetch("http://localhost:5000/api/chat", {
+      const response = await fetch("${API_URL}/api/chat", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -128,7 +129,7 @@ export default function DocumentPreviewModal({ doc, onClose, currentUserId, onSh
 
     try {
       const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-      const response = await fetch("http://localhost:5000/api/chat", {
+      const response = await fetch("${API_URL}/api/chat", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

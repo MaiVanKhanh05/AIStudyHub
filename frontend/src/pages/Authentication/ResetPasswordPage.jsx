@@ -1,4 +1,5 @@
-import { useState } from "react";
+﻿import { useState } from "react";
+import { API_URL } from "@/config/api.js";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Eye, EyeOff, AlertTriangle, ArrowLeft } from "lucide-react";
 import bgLogin from "../../assets/background-login.png";
@@ -58,7 +59,7 @@ export default function ResetPasswordPage() {
       setError("");
       setMessage("");
 
-      const response = await fetch("http://localhost:5000/api/auth/reset-password", {
+      const response = await fetch("${API_URL}/api/auth/reset-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, token, newPassword: password }),

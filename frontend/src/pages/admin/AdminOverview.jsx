@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
+import { API_URL } from "@/config/api.js";
 import { Users, BookOpen, HardDrive, GraduationCap, Mic2, ClipboardList, TrendingUp, Eye, Download } from "lucide-react";
 import AdminAnalyticsCharts from "./AdminAnalyticsCharts";
 
@@ -11,7 +12,7 @@ export default function AdminOverview({ onNavigate }) {
 
   useEffect(() => {
     const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-    fetch("http://localhost:5000/api/admin/stats", {
+    fetch("${API_URL}/api/admin/stats", {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then(r => r.json())

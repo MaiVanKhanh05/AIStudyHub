@@ -1,4 +1,5 @@
-import { useState } from "react";
+﻿import { useState } from "react";
+import { API_URL } from "@/config/api.js";
 import { User, Mail, Shield, Key, Globe } from "lucide-react";
 
 export default function AdminPersonalProfile() {
@@ -25,7 +26,7 @@ export default function AdminPersonalProfile() {
     }
     setSavingPw(true);
     try {
-      const r = await fetch("http://localhost:5000/api/auth/change-password", {
+      const r = await fetch("${API_URL}/api/auth/change-password", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

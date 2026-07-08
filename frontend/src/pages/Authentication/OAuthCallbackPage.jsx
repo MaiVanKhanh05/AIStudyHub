@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
+import { API_URL } from "@/config/api.js";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { AlertTriangle, GraduationCap, BookOpen } from "lucide-react";
 import bgLogin from "../../assets/background-login.png";
@@ -108,7 +109,7 @@ export default function OAuthCallbackPage() {
     try {
       setSubmitting(true);
 
-      const response = await fetch("http://localhost:5000/api/auth/google-register", {
+      const response = await fetch("${API_URL}/api/auth/google-register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

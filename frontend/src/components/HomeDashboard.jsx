@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
+import { API_URL } from "@/config/api.js";
 import { motion, useReducedMotion } from 'motion/react';
 import {
   FileText, BookmarkSimple, ClockCounterClockwise, Bell,
@@ -61,7 +62,7 @@ export default function HomeDashboard({
       if (user?.user_id) {
         try {
           const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-          const res = await fetch(`http://localhost:5000/api/documents/history/me`, {
+          const res = await fetch(`${API_URL}/api/documents/history/me`, {
             headers: { 'Authorization': `Bearer ${token}` }
           });
           if (res.ok) {
@@ -80,7 +81,7 @@ export default function HomeDashboard({
     const fetchLatestCommunityDoc = async () => {
       try {
         const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-        const res = await fetch("http://localhost:5000/api/documents/community", {
+        const res = await fetch("${API_URL}/api/documents/community", {
           headers: { "Authorization": `Bearer ${token}` }
         });
         const data = await res.json();

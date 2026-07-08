@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
+import { API_URL } from "@/config/api.js";
 import {
   AreaChart,
   Area,
@@ -60,13 +61,13 @@ export default function AdminAnalyticsCharts() {
     setLoading(true);
 
     Promise.all([
-      fetch(`http://localhost:5000/api/admin/analytics?days=${days}`, {
+      fetch(`${API_URL}/api/admin/analytics?days=${days}`, {
         headers: { Authorization: `Bearer ${token}` },
       }).then((r) => {
         if (!r.ok) throw new Error("Failed to fetch analytics");
         return r.json();
       }),
-      fetch("http://localhost:5000/api/admin/storage-distribution", {
+      fetch("${API_URL}/api/admin/storage-distribution", {
         headers: { Authorization: `Bearer ${token}` },
       }).then((r) => {
         if (!r.ok) throw new Error("Failed to fetch storage distribution");

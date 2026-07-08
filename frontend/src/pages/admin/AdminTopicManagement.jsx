@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
+import { API_URL } from "@/config/api.js";
 import { Folder, Plus, Edit2, Trash2, BookOpen, AlertCircle, Loader, X, Check, Search } from "lucide-react";
 
 export default function AdminTopicManagement() {
@@ -27,7 +28,7 @@ export default function AdminTopicManagement() {
   const fetchTopics = async () => {
     try {
       const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-      const res = await fetch("http://localhost:5000/api/admin/topics", {
+      const res = await fetch("${API_URL}/api/admin/topics", {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
@@ -43,7 +44,7 @@ export default function AdminTopicManagement() {
   const fetchSubjects = async () => {
     try {
       const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-      const res = await fetch("http://localhost:5000/api/subjects", {
+      const res = await fetch("${API_URL}/api/subjects", {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
@@ -93,7 +94,7 @@ export default function AdminTopicManagement() {
     setIsAddingSubject(true);
     try {
       const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-      const res = await fetch("http://localhost:5000/api/subjects", {
+      const res = await fetch("${API_URL}/api/subjects", {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
         body: JSON.stringify({ subject_code: newSubjectCode, subject_name: newSubjectName })
@@ -123,7 +124,7 @@ export default function AdminTopicManagement() {
     setIsAddingSubject(true);
     try {
       const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-      const res = await fetch("http://localhost:5000/api/subjects", {
+      const res = await fetch("${API_URL}/api/subjects", {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
         body: JSON.stringify({ subject_code: newSubjectCode, subject_name: newSubjectName })
@@ -152,8 +153,8 @@ export default function AdminTopicManagement() {
       const token = localStorage.getItem("token") || sessionStorage.getItem("token");
       const method = editingTopic ? "PUT" : "POST";
       const url = editingTopic 
-        ? `http://localhost:5000/api/admin/topics/${editingTopic.topic_id}` 
-        : `http://localhost:5000/api/admin/topics`;
+        ? `${API_URL}/api/admin/topics/${editingTopic.topic_id}` 
+        : `${API_URL}/api/admin/topics`;
 
       const res = await fetch(url, {
         method,
@@ -174,7 +175,7 @@ export default function AdminTopicManagement() {
 
       // Nếu có subjects, gọi API assign subjects
       if (formData.subjects) {
-        await fetch(`http://localhost:5000/api/admin/topics/${savedTopic.topic_id || editingTopic.topic_id}/subjects`, {
+        await fetch(`${API_URL}/api/admin/topics/${savedTopic.topic_id || editingTopic.topic_id}/subjects`, {
           method: "POST",
           headers: { 
             "Content-Type": "application/json",
@@ -197,7 +198,7 @@ export default function AdminTopicManagement() {
     if (!window.confirm("Bạn có chắc chắn muốn xóa chủ đề này?")) return;
     try {
       const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-      const res = await fetch(`http://localhost:5000/api/admin/topics/${id}`, {
+      const res = await fetch(`${API_URL}/api/admin/topics/${id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` }
       });
