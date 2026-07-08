@@ -5839,93 +5839,12 @@ export default function Home() {
                                     </span>
                                   )}
                                 </div>
-                              </div>
-                            );
-                          })}
-
-
-                        </div>
-                      );
-                    })()
-                  ) : (
-                    /* DOCS GRID (or inside subject) */
-                    filteredCommunityDocs.length > 0 ? (
-                      <>
-                        {/* Pinned Documents */}
-                        {pinnedCommunityDocs.length > 0 && (
-                          <div className="space-y-3 bg-purple-50/20 dark:bg-purple-950/5 p-4 rounded-2xl border border-purple-100/30 text-left w-full">
-                            <div className="text-[10px] font-extrabold text-purple-600 dark:text-purple-400 uppercase tracking-widest flex items-center gap-1.5 pl-1">
-                              <span>{language === "vi" ? "📌 Tài liệu ghim đầu trang" : "📌 Pinned Documents"}</span>
-                              <span className="bg-purple-500 text-white text-[9px] px-1.5 py-0.5 rounded-full font-extrabold">
-                                {pinnedCommunityDocs.length}
-                              </span>
-                            </div>
-                            <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 xl:grid-cols-3 w-full">
-                              {pinnedCommunityDocs.map((doc) => (
-                                <DocumentCard
-                                  key={doc.document_id || doc.id}
-                                  doc={doc}
-                                  isPinned={doc.isPinned}
-                                  onTogglePin={() => handleToggleCommunityPin(doc.id)}
-                                  isPersonal={false}
-                                  isMyShared={communityFilterMode === "MY_SHARED"}
-                                />
                               ))}
                             </div>
-                          </div>
-                        )}
-
-                        {/* Regular Documents */}
-                        <div className="space-y-3 text-left w-full">
-                          {pinnedCommunityDocs.length > 0 && (
-                            <div className="text-[10px] font-extrabold text-slate-455 uppercase tracking-widest pl-1">
-                              {language === "vi" ? "📂 Tài liệu cộng đồng khác" : "📂 Other community documents"}
-                            </div>
-                          )}
-
-                          {regularCommunityDocs.length > 0 ? (
-                            <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 xl:grid-cols-3 w-full">
-                              {regularCommunityDocs.map((doc) => (
-                                <DocumentCard
-                                  key={doc.document_id || doc.id}
-                                  doc={doc}
-                                  isPinned={doc.isPinned}
-                                  onTogglePin={() => handleToggleCommunityPin(doc.id)}
-                                  isPersonal={false}
-                                  isMyShared={communityFilterMode === "MY_SHARED"}
-                                />
-                              ))}
-                            </div>
-                          ) : (
-                            pinnedCommunityDocs.length > 0 && (
-                              <div className="text-center py-6 text-slate-400 text-xs font-medium bg-white/40 dark:bg-black/10 rounded-2xl border border-slate-100 dark:border-white/5">
-                                {language === "vi" ? "Không còn tài liệu nào khác trên trang này." : "No other documents on this page."}
-                              </div>
-                            )
                           )}
                         </div>
-
-                        {/* Pagination */}
-                        <div className="mt-6 flex justify-center">
-                          <Pagination
-                            page={communityPage}
-                            totalPages={communityTotalPages}
-                            setPage={setCommunityPage}
-                          />
-                        </div>
-                      </>
-                    ) : (
-                      /* Empty State */
-                      <div className="text-center py-20 bg-white/30 dark:bg-[#0f111a]/30 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 p-8 w-full">
-                        <div className="text-5xl mb-4">📂</div>
-                        <p className="text-sm font-bold text-slate-850 dark:text-slate-200 m-0">
-                          {t("community.no_docs") || "Không tìm thấy tài liệu phù hợp"}
-                        </p>
-                        <p className="text-xs text-slate-450 mt-2 m-0">
-                          {language === "vi" ? "Vui lòng thử tìm kiếm bằng một từ khóa khác hoặc xóa bộ lọc ngày." : "Please try searching with another keyword or clear the date filter."}
-                        </p>
-                      </div>
-                    )
+                      )}
+                    </>
                   )}
                 </>
               )}
