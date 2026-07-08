@@ -21,7 +21,7 @@ const app = express();
 
 // Cho phép cả localhost (dev) và Vercel (production)
 const allowedOrigins = [
-    "http://localhost:5173",
+    "https://ai-study-hub-rho.vercel.app",
     ...(process.env.FRONTEND_URL
         ? process.env.FRONTEND_URL.split(",").map((u) => u.trim())
         : []),
