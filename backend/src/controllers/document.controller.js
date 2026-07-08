@@ -249,6 +249,38 @@ export const toggleBookmark = async (req, res) => {
         if (!id || !userId) {
             return res.status(400).json({ error: "Missing document or user information" });
         }
+
+        // Before toggling, check if the document is ALREADY bookmarked.
+        const isBookmarked = await documentService.checkIfBookmarked(userId, id);
+        
+        // If it is NOT bookmarked, they are trying to BOOKMARK it -> require access!
+        if (!isBookmarked) {
+            const document = await documentService.getDocumentById(id);
+            if (!document) {
+                return res.status(404).json({ error: "Document not found" });
+            }
+            
+            // Replicate requireDocumentAccess logic:
+            // 1. User is owner
+            const isOwner = document.user_id === userId;
+            // 2. Document is PUBLIC
+            const isPublic = document.visibility === "PUBLIC";
+            
+            let hasPermission = false;
+            if (!isOwner && !isPublic) {
+                 const perm = await documentPermissionRepository.getPermission(id, userId);
+                 if (perm && ["EDITOR", "VIEWER"].includes(perm.role)) {
+                     hasPermission = true;
+                 }
+            }
+            
+            if (!isOwner && !isPublic && !hasPermission) {
+                return res.status(403).json({ error: "Access denied. You do not have permission to view this document." });
+            }
+        }
+
+        // If we reach here, either they are unbookmarking (always allowed) 
+        // OR they are bookmarking and passed the access check.
         const result = await documentService.toggleBookmark(userId, id);
         return res.json({ success: true, bookmarked: result.bookmarked });
     } catch (error) {

@@ -40,6 +40,9 @@ export const connectDB = async () => {
         await pool.query("ALTER TABLE document ADD COLUMN IF NOT EXISTS downloads INT DEFAULT 0");
         console.log("Database schema columns (views, downloads) verified.");
 
+        // Add payload column to otp_verifications for pending registration data
+        await pool.query("ALTER TABLE otp_verifications ADD COLUMN IF NOT EXISTS payload JSONB");
+
         // Ensure user profile columns exist
         await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(20)");
         await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS dob DATE");

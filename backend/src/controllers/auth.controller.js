@@ -157,30 +157,31 @@ export const register = async (req, res) => {
         // 2. Hash mật khẩu
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        // 3. Lưu tài khoản mới vào Postgres database với status = 'PENDING_OTP'
-        const result = await pool.query(
-            "INSERT INTO users (user_id, email, password_hash, first_name, last_name, role, status) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *",
-            [finalUserId, trimmedEmail, hashedPassword, firstName.trim(), lastName.trim(), role, "PENDING_OTP"]
-        );
-
-        const newUser = result.rows[0];
+        // 3. Chuẩn bị payload thông tin user
+        const payload = {
+            userId: finalUserId,
+            firstName: firstName.trim(),
+            lastName: lastName.trim(),
+            role: role,
+            passwordHash: hashedPassword
+        };
 
         // 4. Tạo mã OTP xác thực
         const otp = generateOTP();
         const expiryTime = new Date(Date.now() + 5 * 60 * 1000); // 5 phút
 
         await pool.query(
-            "INSERT INTO otp_verifications (email, otp_code, purpose, expiry_time) VALUES ($1, $2, $3, $4)",
-            [newUser.email, otp, "REGISTER", expiryTime]
+            "INSERT INTO otp_verifications (email, otp_code, purpose, expiry_time, payload) VALUES ($1, $2, $3, $4, $5)",
+            [trimmedEmail, otp, "REGISTER", expiryTime, JSON.stringify(payload)]
         );
 
         // In mã OTP ra màn hình console để DEV test
-        sendOTPEmail(newUser.email, otp, "REGISTER");
+        sendOTPEmail(trimmedEmail, otp, "REGISTER");
 
         return res.status(201).json({
-            message: "Đăng ký thành công! Vui lòng xác thực bằng mã OTP 6 chữ số gửi qua email.",
+            message: "Mã xác thực OTP đã được gửi! Vui lòng kiểm tra email để hoàn tất đăng ký.",
             status: "pending_otp",
-            email: newUser.email,
+            email: trimmedEmail,
         });
 
     } catch (error) {
@@ -901,24 +902,45 @@ export const verifyOtp = async (req, res) => {
         );
 
         if (purpose === "REGISTER") {
-            // Find user
-            const { rows: userRows } = await pool.query(
-                "SELECT * FROM users WHERE email = $1",
-                [trimmedEmail]
-            );
+            let user = null;
+            let finalStatus = "ACTIVE";
 
-            if (userRows.length === 0) {
-                return res.status(404).json({ error: "Không tìm thấy tài khoản người dùng tương ứng." });
+            if (otpRecord.payload) {
+                // New flow: Account is created only after OTP is verified
+                const payload = typeof otpRecord.payload === "string" ? JSON.parse(otpRecord.payload) : otpRecord.payload;
+                finalStatus = payload.role === "LECTURER" ? "PENDING" : "ACTIVE";
+
+                // Check if user already exists
+                const { rows: existingUser } = await pool.query("SELECT * FROM users WHERE email = $1", [trimmedEmail]);
+                if (existingUser.length > 0) {
+                    user = existingUser[0];
+                } else {
+                    const result = await pool.query(
+                        "INSERT INTO users (user_id, email, password_hash, first_name, last_name, role, status) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *",
+                        [payload.userId, trimmedEmail, payload.passwordHash, payload.firstName, payload.lastName, payload.role, finalStatus]
+                    );
+                    user = result.rows[0];
+                }
+            } else {
+                // Old flow (Backward compatibility)
+                const { rows: userRows } = await pool.query(
+                    "SELECT * FROM users WHERE email = $1",
+                    [trimmedEmail]
+                );
+
+                if (userRows.length === 0) {
+                    return res.status(404).json({ error: "Không tìm thấy tài khoản người dùng tương ứng." });
+                }
+
+                user = userRows[0];
+                finalStatus = user.role === "LECTURER" ? "PENDING" : "ACTIVE";
+
+                // Update user status
+                await pool.query(
+                    "UPDATE users SET status = $1, updated_at = NOW() WHERE email = $2",
+                    [finalStatus, trimmedEmail]
+                );
             }
-
-            const user = userRows[0];
-            const finalStatus = user.role === "LECTURER" ? "PENDING" : "ACTIVE";
-
-            // Update user status
-            await pool.query(
-                "UPDATE users SET status = $1, updated_at = NOW() WHERE email = $2",
-                [finalStatus, trimmedEmail]
-            );
 
             user.status = finalStatus;
             const { password_hash: _, ...safeUser } = user;

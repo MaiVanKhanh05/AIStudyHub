@@ -448,6 +448,11 @@ const renderFolderGrid = () => (
               isPersonal={false}
               isMyShared={currentUser && doc.user_id === currentUser.user_id}
               onUnshare={fetchDocuments}
+              onBookmarkChange={(docId, isBookmarked) => {
+                if (!isBookmarked) {
+                  setBookmarkedDocs(prev => prev.filter(d => String(d.document_id || d.id) !== String(docId)));
+                }
+              }}
             />
           ))}
           {docsToShow.length === 0 && (
@@ -483,6 +488,11 @@ const renderFolderGrid = () => (
                   isPersonal={false}
                   isMyShared={currentUser && doc.user_id === currentUser.user_id}
                   onUnshare={fetchDocuments}
+                  onBookmarkChange={(docId, isBookmarked) => {
+                    if (!isBookmarked) {
+                      setBookmarkedDocs(prev => prev.filter(d => String(d.document_id || d.id) !== String(docId)));
+                    }
+                  }}
                 />
               ))}
             </div>
@@ -502,6 +512,11 @@ const renderFolderGrid = () => (
             isPersonal={false}
             isMyShared={currentUser && doc.user_id === currentUser.user_id}
             onUnshare={fetchDocuments}
+            onBookmarkChange={(docId, isBookmarked) => {
+              if (!isBookmarked) {
+                setBookmarkedDocs(prev => prev.filter(d => String(d.document_id || d.id) !== String(docId)));
+              }
+            }}
           />
         ))}
       </div>

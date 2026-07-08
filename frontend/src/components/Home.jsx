@@ -4596,6 +4596,11 @@ export default function Home() {
                           doc={{ ...doc, isBookmarked: true }}
                           isPersonal={false}
                           isMyShared={false}
+                          onBookmarkChange={(docId, isBookmarked) => {
+                            if (!isBookmarked) {
+                              setBookmarkedDocs(prev => prev.filter(d => String(d.document_id || d.id) !== String(docId)));
+                            }
+                          }}
                         />
                       ))}
                     </div>

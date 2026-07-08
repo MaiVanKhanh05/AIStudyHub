@@ -64,7 +64,7 @@ function getFileType(url = "") {
   return "other";
 }
 
-export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, onShare, isMyShared, onDelete, onUnshare }) {
+export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, onShare, isMyShared, onDelete, onUnshare, onBookmarkChange }) {
   const { t, language } = useLanguage();
   const [open, setOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -324,6 +324,9 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
           toast.success(language === "vi" ? "Đã lưu tài liệu vào Kho Yêu Thích!" : "Saved to Favorites!");
         } else {
           toast.info(language === "vi" ? "Đã bỏ lưu tài liệu khỏi Kho Yêu Thích." : "Removed from Favorites.");
+        }
+        if (onBookmarkChange) {
+          onBookmarkChange(docId, data.bookmarked);
         }
       }
     } catch (err) {
