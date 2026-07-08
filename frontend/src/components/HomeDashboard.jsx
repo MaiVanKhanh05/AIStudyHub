@@ -81,7 +81,7 @@ export default function HomeDashboard({
     const fetchLatestCommunityDoc = async () => {
       try {
         const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-        const res = await fetch(`/api/documents/community`, {
+        const res = await fetch(`${API_URL}/api/documents/community`, {
           headers: { "Authorization": `Bearer ${token}` }
         });
         const data = await res.json();

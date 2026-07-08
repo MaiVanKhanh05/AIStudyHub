@@ -109,7 +109,7 @@ export default function OAuthCallbackPage() {
     try {
       setSubmitting(true);
 
-      const response = await fetch(`/api/auth/google-register`, {
+      const response = await fetch(`${API_URL}/api/auth/google-register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

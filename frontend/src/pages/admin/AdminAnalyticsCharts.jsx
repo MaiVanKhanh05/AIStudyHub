@@ -67,7 +67,7 @@ export default function AdminAnalyticsCharts() {
         if (!r.ok) throw new Error("Failed to fetch analytics");
         return r.json();
       }),
-      fetch(`/api/admin/storage-distribution`, {
+      fetch(`${API_URL}/api/admin/storage-distribution`, {
         headers: { Authorization: `Bearer ${token}` },
       }).then((r) => {
         if (!r.ok) throw new Error("Failed to fetch storage distribution");

@@ -34,7 +34,7 @@ export default function AdminDocumentManagement() {
 
   useEffect(() => {
     setLoading(true);
-    fetch(`/api/admin/documents`, {
+    fetch(`${API_URL}/api/admin/documents`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then(r => r.json())
@@ -54,7 +54,7 @@ export default function AdminDocumentManagement() {
   };
 
   const logAction = (action, doc) => {
-    fetch(`/api/admin/log`, {
+    fetch(`${API_URL}/api/admin/log`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify({ action, targetDocId: doc.document_id || doc.id, targetTitle: doc.title }),

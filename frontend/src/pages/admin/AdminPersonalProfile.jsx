@@ -26,7 +26,7 @@ export default function AdminPersonalProfile() {
     }
     setSavingPw(true);
     try {
-      const r = await fetch(`/api/auth/change-password`, {
+      const r = await fetch(`${API_URL}/api/auth/change-password`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

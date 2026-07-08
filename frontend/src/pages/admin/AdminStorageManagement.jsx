@@ -105,7 +105,7 @@ export default function AdminStorageManagement() {
       });
 
     // Fetch storage stats
-    fetch(`/api/admin/stats`, {
+    fetch(`${API_URL}/api/admin/stats`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then(r => r.json())
