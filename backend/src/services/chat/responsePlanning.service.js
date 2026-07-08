@@ -34,6 +34,7 @@ export function planResponse(llmResponse, context, retrievalData, sourceData) {
         if (validDocs.length > 0) {
             finalResponse.suggestedDocs = validDocs;
             finalResponse.action = "RECOMMEND";
+            finalResponse.text = "Dưới đây là các tài liệu liên quan mà tôi tìm thấy:";
         }
     }
 
