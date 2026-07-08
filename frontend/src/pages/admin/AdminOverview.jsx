@@ -12,7 +12,7 @@ export default function AdminOverview({ onNavigate }) {
 
   useEffect(() => {
     const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-    fetch("${API_URL}/api/admin/stats", {
+    fetch(`/api/admin/stats`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then(r => r.json())

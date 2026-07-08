@@ -7,7 +7,7 @@ import {
 import { useLanguage } from "../context/LanguageContext";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
-const API_BASE   = "${API_URL}";
+const API_BASE = API_URL;
 const STORE_KEY  = "aistudyhub_search_history";
 const MAX_STORED = 50;
 const PREVIEW    = 10;

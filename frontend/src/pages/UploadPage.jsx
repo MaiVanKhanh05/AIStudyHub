@@ -8,7 +8,7 @@ import {
 import { uploadFileToSupabase } from "@/lib/supabase";
 import { toast } from "sonner";
 
-const API_BASE = "${API_URL}";
+const API_BASE = API_URL;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function getToken() {

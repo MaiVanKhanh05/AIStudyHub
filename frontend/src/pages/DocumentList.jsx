@@ -15,7 +15,7 @@ import {
   Search, TrendingUp, Star, Calendar, Hash, Layers, RefreshCw,
 } from "lucide-react";
 
-const API_BASE   = "${API_URL}";
+const API_BASE = API_URL;
 const PAGE_SIZE  = 30;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

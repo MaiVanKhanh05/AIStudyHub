@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import { API_URL } from "@/config/api.js";
 import { useNavigate } from "react-router-dom";
 import { Eye, EyeOff, AlertTriangle } from "lucide-react";
@@ -36,7 +36,7 @@ export default function LoginPage() {
       setLoading(true);
       setError("");
 
-      const response = await fetch("${API_URL}/api/auth/login", {
+      const response = await fetch(`/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
@@ -244,7 +244,7 @@ export default function LoginPage() {
 
             {/* Google Login Button — custom styled as anchor */}
             <a
-              href="${API_URL}/api/auth/google"
+              href={`${API_URL}/api/auth/google`}
               id="google-signin-btn"
               className="w-full flex items-center justify-center gap-3 rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-white/10 hover:bg-gray-50 dark:hover:bg-white/20 text-gray-700 dark:text-white text-sm font-semibold py-3 transition-all duration-200 shadow-sm select-none"
             >
@@ -260,7 +260,7 @@ export default function LoginPage() {
 
             {/* GitHub Button */}
             <a
-              href="${API_URL}/api/auth/github"
+              href={`${API_URL}/api/auth/github`}
               id="github-signin-btn"
               className="mt-3 w-full flex items-center justify-center gap-3 rounded-xl border border-[#30363d] bg-[#161b22] hover:bg-[#21262d] text-white text-sm font-semibold py-3 transition-all duration-200 shadow-sm select-none"
             >
@@ -273,7 +273,7 @@ export default function LoginPage() {
 
             {/* Facebook Button */}
             <a
-              href="${API_URL}/api/auth/facebook"
+              href={`${API_URL}/api/auth/facebook`}
               id="facebook-signin-btn"
               className="mt-3 w-full flex items-center justify-center gap-3 rounded-xl border border-[#1877f2]/40 bg-[#1877f2] hover:bg-[#166fe5] text-white text-sm font-semibold py-3 transition-all duration-200 shadow-sm select-none"
             >

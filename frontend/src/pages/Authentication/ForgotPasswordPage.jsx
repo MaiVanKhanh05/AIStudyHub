@@ -111,7 +111,7 @@ export default function ForgotPasswordPage() {
       setError("");
       setMessage("");
 
-      const response = await fetch("${API_URL}/api/auth/forgot-password", {
+      const response = await fetch(`/api/auth/forgot-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
@@ -171,7 +171,7 @@ export default function ForgotPasswordPage() {
       setError("");
       setMessage("");
 
-      const response = await fetch("${API_URL}/api/auth/reset-password", {
+      const response = await fetch(`/api/auth/reset-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -205,7 +205,7 @@ export default function ForgotPasswordPage() {
       setError("");
       setMessage("");
 
-      const response = await fetch("${API_URL}/api/auth/resend-otp", {
+      const response = await fetch(`/api/auth/resend-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

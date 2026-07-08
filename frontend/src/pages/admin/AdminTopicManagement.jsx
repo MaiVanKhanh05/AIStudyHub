@@ -28,7 +28,7 @@ export default function AdminTopicManagement() {
   const fetchTopics = async () => {
     try {
       const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-      const res = await fetch("${API_URL}/api/admin/topics", {
+      const res = await fetch(`/api/admin/topics`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
@@ -44,7 +44,7 @@ export default function AdminTopicManagement() {
   const fetchSubjects = async () => {
     try {
       const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-      const res = await fetch("${API_URL}/api/subjects", {
+      const res = await fetch(`/api/subjects`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
@@ -94,7 +94,7 @@ export default function AdminTopicManagement() {
     setIsAddingSubject(true);
     try {
       const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-      const res = await fetch("${API_URL}/api/subjects", {
+      const res = await fetch(`/api/subjects`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
         body: JSON.stringify({ subject_code: newSubjectCode, subject_name: newSubjectName })
@@ -124,7 +124,7 @@ export default function AdminTopicManagement() {
     setIsAddingSubject(true);
     try {
       const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-      const res = await fetch("${API_URL}/api/subjects", {
+      const res = await fetch(`/api/subjects`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
         body: JSON.stringify({ subject_code: newSubjectCode, subject_name: newSubjectName })
