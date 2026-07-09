@@ -1,4 +1,4 @@
 $kind: http-request
-url: http://localhost:5000/api/admin/users
+url: https://aistudyhub-802u.onrender.com/api/admin/users
 method: GET
 order: 855218711156051

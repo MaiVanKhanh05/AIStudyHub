@@ -54,7 +54,7 @@ To allow authenticated users to upload files:
 ```bash
 VITE_SUPABASE_URL=your_supabase_url_here
 VITE_SUPABASE_ANON_KEY=your_supabase_anon_key_here
-VITE_API_URL=http://localhost:5000
+VITE_API_URL=https://aistudyhub-802u.onrender.com
 ```
 
 2. Replace the placeholders with your actual Supabase credentials
@@ -142,7 +142,7 @@ The upload page includes:
 - Verify your JWT token is being sent in the Authorization header
 
 ### "Document metadata failed to save"
-- Ensure your backend server is running on `http://localhost:5000`
+- Ensure your backend server is running on `https://aistudyhub-802u.onrender.com`
 - Check that you're authenticated with a valid JWT token
 - Verify the PostgreSQL database connection is working
 

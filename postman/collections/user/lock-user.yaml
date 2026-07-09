@@ -1,6 +1,6 @@
 $kind: http-request
-name: http://localhost:5000/api/admin/users/SE190808/lock
-url: http://localhost:5000/api/admin/users/SE190808/lock
+name: https://aistudyhub-802u.onrender.com/api/admin/users/SE190808/lock
+url: https://aistudyhub-802u.onrender.com/api/admin/users/SE190808/lock
 method: POST
 body:
   type: json
