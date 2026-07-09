@@ -569,7 +569,7 @@ export const googleOAuthRedirect = (req, res) => {
 
 // GET /api/auth/google/callback — Google gọi về với code
 export const googleOAuthCallback = async (req, res) => {
-    const frontendUrl = process.env.FRONTEND_URL || 'https://ai-study-hub-rho.vercel.app';
+    const frontendUrl = process.env.FRONTEND_URL || 'https://aistudyhub.site';
     const { code } = req.query;
 
     if (!code) {
@@ -676,7 +676,7 @@ export const githubRedirect = (req, res) => {
 
 // GET /api/auth/github/callback — GitHub gọi về với code
 export const githubCallback = async (req, res) => {
-    const frontendUrl = process.env.FRONTEND_URL || 'https://ai-study-hub-rho.vercel.app';
+    const frontendUrl = process.env.FRONTEND_URL || 'https://aistudyhub.site';
     const { code } = req.query;
 
     if (!code) {
@@ -790,7 +790,7 @@ export const facebookRedirect = (req, res) => {
 
 // GET /api/auth/facebook/callback — Facebook gọi về với code
 export const facebookCallback = async (req, res) => {
-    const frontendUrl = process.env.FRONTEND_URL || 'https://ai-study-hub-rho.vercel.app';
+    const frontendUrl = process.env.FRONTEND_URL || 'https://aistudyhub.site';
     const { code } = req.query;
 
     if (!code) {
