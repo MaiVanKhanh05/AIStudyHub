@@ -2,6 +2,7 @@
 import { API_URL } from "@/config/api.js";
 import { Search, Lock, Unlock, Users, ChevronDown } from "lucide-react";
 import Pagination from "../../components/Pagination";
+import { useLanguage } from "../../context/LanguageContext";
 
 // BR-AM-03 / 04 / 05 / 06
 const PAGE_SIZE = 10;
@@ -21,9 +22,8 @@ const ROLE_BADGE = {
   ADMIN: "bg-amber-100 text-amber-700 border-amber-200",
 };
 
-const ROLE_LABEL = { STUDENT: "Sinh viên", LECTURER: "Giảng viên", ADMIN: "Admin" };
-
 export default function AdminUserManagement({ roleFilter = "all" }) {
+  const { language } = useLanguage();
   const [localRoleFilter, setLocalRoleFilter] = useState(roleFilter);
   const [users, setUsers] = useState([]);
   const [search, setSearch] = useState("");
@@ -48,10 +48,12 @@ export default function AdminUserManagement({ roleFilter = "all" }) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  const ROLE_LABEL = { STUDENT: language === "vi" ? "Sinh viên" : "Student", LECTURER: language === "vi" ? "Giảng viên" : "Lecturer", ADMIN: "Admin" };
+
   const roleOptions = [
-    { value: "all", label: "Tất cả vai trò" },
-    { value: "STUDENT", label: "Sinh viên" },
-    { value: "LECTURER", label: "Giảng viên" },
+    { value: "all", label: language === "vi" ? "Tất cả vai trò" : "All roles" },
+    { value: "STUDENT", label: language === "vi" ? "Sinh viên" : "Student" },
+    { value: "LECTURER", label: language === "vi" ? "Giảng viên" : "Lecturer" },
     { value: "ADMIN", label: "Admin" },
   ];
   const selectedRole = roleOptions.find(r => r.value === localRoleFilter) || roleOptions[0];
@@ -134,12 +136,12 @@ export default function AdminUserManagement({ roleFilter = "all" }) {
     setConfirm(null);
   };
 
-  const pageTitle = "Quản lý Người dùng";
+  const pageTitle = language === "vi" ? "Quản lý Người dùng" : "User Management";
 
-  const tableSubtitle = localRoleFilter === "STUDENT" ? "Sinh viên"
-    : localRoleFilter === "LECTURER" ? "Giảng viên"
+  const tableSubtitle = localRoleFilter === "STUDENT" ? (language === "vi" ? "Sinh viên" : "Student")
+    : localRoleFilter === "LECTURER" ? (language === "vi" ? "Giảng viên" : "Lecturer")
     : localRoleFilter === "ADMIN" ? "Admin"
-    : "Tất cả người dùng";
+    : (language === "vi" ? "Tất cả người dùng" : "All users");
 
   return (
     <div>
@@ -147,7 +149,7 @@ export default function AdminUserManagement({ roleFilter = "all" }) {
       <div className="flex items-end justify-between mb-6 pb-4 border-b border-gray-200">
         <div>
           <h1 className="text-xl font-extrabold !text-slate-800 tracking-tight">{pageTitle}</h1>
-          <p className="text-[13px] text-slate-400 mt-0.5 font-medium">{totalCount} kết quả</p>
+          <p className="text-[13px] text-slate-400 mt-0.5 font-medium">{totalCount} {language === "vi" ? "kết quả" : "results"}</p>
         </div>
         <span className="inline-flex items-center px-3 py-1 rounded-full bg-purple-50 text-purple-700 text-[11px] font-bold tracking-widest uppercase border border-purple-200">
           {tableSubtitle}
@@ -193,7 +195,7 @@ export default function AdminUserManagement({ roleFilter = "all" }) {
                 id="adm-user-search"
                 type="text"
                 className="pl-8 pr-3 py-1.5 text-[12.5px] border border-gray-200 rounded-lg bg-white outline-none focus:border-purple-400 focus:ring-2 focus:ring-purple-100 w-52 font-medium"
-                placeholder="Tìm theo tên, email..."
+                placeholder={language === "vi" ? "Tìm theo tên, email..." : "Search by name, email..."}
                 value={search}
                 onChange={e => setSearch(e.target.value)}
               />
@@ -205,7 +207,7 @@ export default function AdminUserManagement({ roleFilter = "all" }) {
         <table className="w-full border-collapse">
           <thead>
             <tr>
-              {["ID", "Họ tên", "Email", "Vai trò", "Đã sử dụng", "Trạng thái", "Thao tác"].map(h => (
+              {(language === "vi" ? ["ID", "Họ tên", "Email", "Vai trò", "Đã sử dụng", "Trạng thái", "Thao tác"] : ["ID", "Full Name", "Email", "Role", "Used", "Status", "Actions"]).map(h => (
                 <th key={h} className="px-5 py-2.5 text-left text-[11px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50 border-b border-gray-200">
                   {h}
                 </th>
@@ -229,7 +231,7 @@ export default function AdminUserManagement({ roleFilter = "all" }) {
               <tr>
                 <td colSpan="7" className="py-16 text-center">
                   <Users size={40} className="mx-auto mb-3 text-slate-300" />
-                  <p className="text-[13px] text-slate-400 font-semibold">Không tìm thấy người dùng</p>
+                  <p className="text-[13px] text-slate-400 font-semibold">{language === "vi" ? "Không tìm thấy người dùng" : "No users found"}</p>
                 </td>
               </tr>
             ) : (
@@ -248,7 +250,7 @@ export default function AdminUserManagement({ roleFilter = "all" }) {
                     </td>
                     <td className="px-5 py-3">
                       {user.role === "ADMIN" ? (
-                        <span className="text-slate-400 text-[12px] font-semibold italic">Không khả dụng</span>
+                        <span className="text-slate-400 text-[12px] font-semibold italic">{language === "vi" ? "Không khả dụng" : "N/A"}</span>
                       ) : (() => {
                         const usedGB = Number(user.used_storage) / (1024 ** 3);
                         const limitGB = Number(user.max_storage_bytes || 2147483648) / (1024 ** 3);
@@ -276,7 +278,7 @@ export default function AdminUserManagement({ roleFilter = "all" }) {
                           : user.status === "PENDING" ? "bg-amber-50 text-amber-600 border border-amber-200"
                             : "bg-green-50 text-green-700 border border-green-200"}`}>
                         <span className="w-1.5 h-1.5 rounded-full bg-current" />
-                        {isLocked ? "Đã khóa" : user.status === "PENDING" ? "Chờ duyệt" : "Hoạt động"}
+                        {isLocked ? (language === "vi" ? "Đã khóa" : "Locked") : user.status === "PENDING" ? (language === "vi" ? "Chờ duyệt" : "Pending") : (language === "vi" ? "Hoạt động" : "Active")}
                       </span>
                     </td>
                     <td className="px-5 py-3">
@@ -287,7 +289,7 @@ export default function AdminUserManagement({ roleFilter = "all" }) {
                             onClick={() => setConfirm({ action: "unlock", user })}
                             className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11.5px] font-semibold text-green-700 bg-green-50 border border-green-200 hover:bg-green-100 transition-colors"
                           >
-                            <Unlock size={10} /> Mở khóa
+                            <Unlock size={10} /> {language === "vi" ? "Mở khóa" : "Unlock"}
                           </button>
                         ) : user.status === "PENDING" ? (
                           <button
@@ -295,7 +297,7 @@ export default function AdminUserManagement({ roleFilter = "all" }) {
                             onClick={() => setConfirm({ action: "approve", user })}
                             className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11.5px] font-semibold text-purple-700 bg-purple-50 border border-purple-200 hover:bg-purple-100 transition-colors"
                           >
-                            <Unlock size={10} /> Duyệt tài khoản
+                            <Unlock size={10} /> {language === "vi" ? "Duyệt tài khoản" : "Approve"}
                           </button>
                         ) : (
                           <button
@@ -305,7 +307,7 @@ export default function AdminUserManagement({ roleFilter = "all" }) {
                             onClick={() => !isMe && setConfirm({ action: "lock", user })}
                             className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11.5px] font-semibold text-red-600 bg-red-50 border border-red-200 hover:bg-red-100 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                           >
-                            <Lock size={10} /> Khóa
+                            <Lock size={10} /> {language === "vi" ? "Khóa" : "Lock"}
                           </button>
                         )}
                       </div>
@@ -332,22 +334,22 @@ export default function AdminUserManagement({ roleFilter = "all" }) {
           <div className="bg-white rounded-2xl p-7 w-[420px] shadow-2xl border border-gray-200"
             onClick={e => e.stopPropagation()}>
             <h2 className="text-[16px] font-extrabold !text-slate-800 mb-2">
-              {confirm.action === "lock" && "Khóa tài khoản"}
-              {confirm.action === "unlock" && "Mở khóa tài khoản"}
-              {confirm.action === "approve" && "Duyệt tài khoản"}
+              {confirm.action === "lock" && (language === "vi" ? "Khóa tài khoản" : "Lock Account")}
+              {confirm.action === "unlock" && (language === "vi" ? "Mở khóa tài khoản" : "Unlock Account")}
+              {confirm.action === "approve" && (language === "vi" ? "Duyệt tài khoản" : "Approve Account")}
             </h2>
             <p className="text-[13.5px] text-slate-500 leading-relaxed mb-6">
               {confirm.action === "lock" &&
-                <>Bạn có chắc muốn <strong>khóa</strong> tài khoản <strong>{confirm.user.email}</strong>? Người dùng sẽ không thể đăng nhập.</>}
+                <>{language === "vi" ? "Bạn có chắc muốn" : "Are you sure you want to"} <strong>{language === "vi" ? "khóa" : "lock"}</strong> {language === "vi" ? "tài khoản" : "account"} <strong>{confirm.user.email}</strong>? {language === "vi" ? "Người dùng sẽ không thể đăng nhập." : "The user will not be able to log in."}</>}
               {confirm.action === "unlock" &&
-                <>Mở khóa tài khoản <strong>{confirm.user.email}</strong> để cho phép đăng nhập trở lại?</>}
+                <>{language === "vi" ? "Mở khóa tài khoản" : "Unlock account"} <strong>{confirm.user.email}</strong> {language === "vi" ? "để cho phép đăng nhập trở lại?" : "to allow logging in again?"}</>}
               {confirm.action === "approve" &&
-                <>Duyệt hoạt động tài khoản giảng viên <strong>{confirm.user.email}</strong>?</>}
+                <>{language === "vi" ? "Duyệt hoạt động tài khoản giảng viên" : "Approve lecturer account"} <strong>{confirm.user.email}</strong>?</>}
             </p>
             <div className="flex justify-end gap-2">
               <button onClick={() => setConfirm(null)}
                 className="px-4 py-2 rounded-lg text-[13px] font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors">
-                Hủy
+                {language === "vi" ? "Hủy" : "Cancel"}
               </button>
               <button
                 id="adm-confirm-action-btn"
@@ -357,7 +359,7 @@ export default function AdminUserManagement({ roleFilter = "all" }) {
                 }}
                 className={`px-4 py-2 rounded-lg text-[13px] font-bold text-white transition-opacity hover:opacity-90
                   ${confirm.action === "lock" ? "bg-red-600" : "bg-purple-600"}`}>
-                Xác nhận
+                {language === "vi" ? "Xác nhận" : "Confirm"}
               </button>
             </div>
           </div>

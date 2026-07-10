@@ -153,25 +153,27 @@ export default function AdminSidebar({ activeSection, onNavigate }) {
                   <Globe size={10} />
                   <span>{language === "vi" ? "Ngôn ngữ hiển thị" : "Display Language"}</span>
                 </div>
-                <div className="relative">
-                  <select
-                    value={language}
-                    onChange={(e) => {
-                      const lang = e.target.value;
-                      setLanguage(lang);
-                      localStorage.setItem("admin_lang", lang);
-                    }}
-                    className="w-full bg-[#130924] border border-white/10 text-white rounded-lg text-[12px] py-1.5 pl-2 pr-8 outline-none focus:border-purple-400 cursor-pointer appearance-none"
-                    style={{
-                      backgroundImage: `url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e")`,
-                      backgroundRepeat: 'no-repeat',
-                      backgroundPosition: 'right 8px center',
-                      backgroundSize: '10px'
-                    }}
-                  >
-                    <option value="vi">🇻🇳 Tiếng Việt</option>
-                    <option value="en">🇺🇸 English</option>
-                  </select>
+                <div className="flex items-center mt-2">
+                  <div className="flex p-0.5 bg-white/5 rounded-full border border-white/10 w-full">
+                    <button
+                      onClick={() => {
+                        setLanguage("vi");
+                        localStorage.setItem("admin_lang", "vi");
+                      }}
+                      className={`flex-1 py-1 text-[11px] font-bold rounded-full transition-all ${language === "vi" ? "bg-purple-600 text-white shadow-sm" : "text-white/50 hover:text-white/80"}`}
+                    >
+                      VI
+                    </button>
+                    <button
+                      onClick={() => {
+                        setLanguage("en");
+                        localStorage.setItem("admin_lang", "en");
+                      }}
+                      className={`flex-1 py-1 text-[11px] font-bold rounded-full transition-all ${language === "en" ? "bg-purple-600 text-white shadow-sm" : "text-white/50 hover:text-white/80"}`}
+                    >
+                      EN
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>

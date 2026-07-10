@@ -1,8 +1,10 @@
 ﻿import { useState, useEffect } from "react";
 import { API_URL } from "@/config/api.js";
 import { Folder, Plus, Edit2, Trash2, BookOpen, AlertCircle, Loader, X, Check, Search } from "lucide-react";
+import { useLanguage } from "../../context/LanguageContext";
 
 export default function AdminTopicManagement() {
+  const { language } = useLanguage();
   const [topics, setTopics] = useState([]);
   const [subjects, setSubjects] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -37,7 +39,7 @@ export default function AdminTopicManagement() {
       }
     } catch (err) {
       console.error(err);
-      showToast("Lỗi khi tải danh sách chủ đề", "error");
+      showToast(language === "vi" ? "Lỗi khi tải danh sách chủ đề" : "Error loading topics", "error");
     }
   };
 
@@ -88,7 +90,7 @@ export default function AdminTopicManagement() {
   const handleStandaloneCreateSubject = async (e) => {
     e.preventDefault();
     if (!newSubjectCode || !newSubjectName) {
-      showToast("Vui lòng nhập đầy đủ mã môn và mô tả", "error");
+      showToast(language === "vi" ? "Vui lòng nhập đầy đủ mã môn và tên môn" : "Please enter both subject code and name", "error");
       return;
     }
     setIsAddingSubject(true);
@@ -170,7 +172,7 @@ export default function AdminTopicManagement() {
         })
       });
 
-      if (!res.ok) throw new Error("Lỗi khi lưu chủ đề");
+      if (!res.ok) throw new Error(language === "vi" ? "Lỗi khi lưu chủ đề" : "Error saving topic");
       const savedTopic = await res.json();
 
       // Nếu có subjects, gọi API assign subjects
@@ -185,7 +187,7 @@ export default function AdminTopicManagement() {
         });
       }
 
-      showToast(editingTopic ? "Cập nhật thành công" : "Tạo chủ đề thành công");
+      showToast(editingTopic ? (language === "vi" ? "Cập nhật thành công" : "Update successful") : (language === "vi" ? "Tạo chủ đề thành công" : "Topic created"));
       setIsModalOpen(false);
       fetchTopics();
     } catch (err) {
@@ -195,7 +197,7 @@ export default function AdminTopicManagement() {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Bạn có chắc chắn muốn xóa chủ đề này?")) return;
+    if (!window.confirm(language === "vi" ? "Bạn có chắc chắn muốn xóa chủ đề này?" : "Are you sure you want to delete this topic?")) return;
     try {
       const token = localStorage.getItem("token") || sessionStorage.getItem("token");
       const res = await fetch(`${API_URL}/api/admin/topics/${id}`, {
@@ -203,10 +205,10 @@ export default function AdminTopicManagement() {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
-        showToast("Xóa thành công");
+        showToast(language === "vi" ? "Xóa thành công" : "Deleted successfully");
         fetchTopics();
       } else {
-        throw new Error("Lỗi khi xóa");
+        throw new Error(language === "vi" ? "Lỗi khi xóa" : "Error deleting");
       }
     } catch (err) {
       showToast(err.message, "error");
@@ -234,22 +236,22 @@ export default function AdminTopicManagement() {
       {/* Header */}
       <div className="flex items-end justify-between mb-8 pb-4 border-b border-gray-200">
         <div>
-          <h1 className="text-2xl font-extrabold !text-slate-800 tracking-tight">Quản lý Chủ đề (Topics)</h1>
-          <p className="text-[14px] text-slate-500 mt-1 font-medium">Nhóm các môn học vào chủ đề để dễ quản lý</p>
+          <h1 className="text-2xl font-extrabold !text-slate-800 tracking-tight">{language === "vi" ? "Quản lý Chủ đề (Topics)" : "Topic Management"}</h1>
+          <p className="text-[14px] text-slate-500 mt-1 font-medium">{language === "vi" ? "Nhóm các môn học vào chủ đề để dễ quản lý" : "Group subjects into topics for easy management"}</p>
         </div>
         <div className="flex gap-3">
           <button 
             onClick={() => setIsSubjectModalOpen(true)}
             className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold transition-all shadow-sm active:scale-95"
           >
-            <Plus size={18} /> Thêm Mã Môn
+            <Plus size={18} /> {language === "vi" ? "Thêm Mã Môn" : "Add Subject"}
           </button>
           <button 
             onClick={() => handleOpenModal()}
             className="flex items-center gap-2 px-4 py-2.5 bg-violet-600 hover:bg-violet-700 text-white rounded-lg font-bold transition-all shadow-sm active:scale-95"
           >
-          <Plus size={18} /> Thêm Chủ đề
-        </button>
+          <Plus size={18} /> {language === "vi" ? "Thêm Chủ đề" : "Add Topic"}
+          </button>
         </div>
       </div>
 
@@ -273,17 +275,17 @@ export default function AdminTopicManagement() {
                 </div>
               </div>
               <h3 className="text-lg font-bold text-slate-800 mb-1">{topic.name}</h3>
-              <p className="text-sm text-slate-500 line-clamp-2 h-10 mb-4">{topic.description || "Chưa có mô tả."}</p>
+              <p className="text-sm text-slate-500 line-clamp-2 h-10 mb-4">{topic.description || (language === "vi" ? "Chưa có mô tả." : "No description yet.")}</p>
               
               <div className="flex items-center gap-2 text-xs font-semibold text-slate-600 bg-slate-50 p-2.5 rounded-lg border border-slate-100">
                 <BookOpen size={14} className="text-slate-400" />
-                {topic.subjects?.length || 0} môn học
+                {topic.subjects?.length || 0} {language === "vi" ? "môn học" : "subjects"}
               </div>
             </div>
           ))}
           {topics.length === 0 && (
              <div className="col-span-full py-12 text-center text-slate-500 bg-white rounded-2xl border border-slate-200 border-dashed">
-                Chưa có chủ đề nào. Hãy tạo chủ đề đầu tiên!
+                {language === "vi" ? "Chưa có chủ đề nào. Hãy tạo chủ đề đầu tiên!" : "No topics yet. Create your first topic!"}
              </div>
           )}
         </div>
@@ -295,19 +297,19 @@ export default function AdminTopicManagement() {
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
             <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
               <h2 className="text-lg font-bold text-slate-800">
-                {editingTopic ? "Cập nhật Chủ đề" : "Tạo Chủ đề mới"}
+                {editingTopic ? (language === "vi" ? "Cập nhật Chủ đề" : "Update Topic") : (language === "vi" ? "Tạo Chủ đề mới" : "Create New Topic")}
               </h2>
-              <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
+              <button type="button" onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
             </div>
             
             <form onSubmit={handleSubmit} className="p-6 overflow-y-auto flex-1 space-y-5">
               <div className="grid grid-cols-2 gap-5">
                 <div className="col-span-2 md:col-span-1 space-y-1.5">
-                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">Tên chủ đề</label>
-                  <input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 outline-none transition-all text-sm" placeholder="VD: Công nghệ thông tin" />
+                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">{language === "vi" ? "Tên chủ đề" : "Topic Name"}</label>
+                  <input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 outline-none transition-all text-sm" placeholder={language === "vi" ? "VD: Công nghệ thông tin" : "Ex: Information Technology"} />
                 </div>
                 <div className="col-span-2 md:col-span-1 space-y-1.5">
-                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">Màu sắc</label>
+                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">{language === "vi" ? "Màu sắc" : "Color"}</label>
                   <div className="flex gap-2 items-center h-10">
                     <input type="color" value={formData.color} onChange={e => setFormData({...formData, color: e.target.value})} className="w-10 h-10 rounded cursor-pointer border-0 p-0" />
                     <span className="text-sm text-slate-500 uppercase">{formData.color}</span>
@@ -316,27 +318,27 @@ export default function AdminTopicManagement() {
               </div>
               
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">Mô tả</label>
-                <textarea value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} rows={2} className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 outline-none transition-all text-sm resize-none" placeholder="Nhập mô tả ngắn..." />
+                <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">{language === "vi" ? "Mô tả" : "Description"}</label>
+                <textarea value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} rows={2} className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 outline-none transition-all text-sm resize-none" placeholder={language === "vi" ? "Nhập mô tả ngắn..." : "Enter short description..."} />
               </div>
 
               <div className="space-y-2">
                 
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">Môn học ({formData.subjects.length} đã chọn)</label>
+                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">{language === "vi" ? `Môn học (${formData.subjects.length} đã chọn)` : `Subjects (${formData.subjects.length} selected)`}</label>
                   <div className="flex gap-2">
                     <button 
                       type="button"
                       onClick={() => setShowAddSubject(!showAddSubject)}
                       className="px-3 py-1.5 text-xs font-semibold bg-emerald-100 text-emerald-700 hover:bg-emerald-200 rounded-md transition-colors flex items-center gap-1"
                     >
-                      <Plus size={14} /> Thêm môn
+                      <Plus size={14} /> {language === "vi" ? "Thêm môn" : "Add Subject"}
                     </button>
                     <div className="relative w-48">
                       <Search className="absolute left-2.5 top-1.5 text-slate-400 w-4 h-4" />
                       <input 
                         type="text" 
-                        placeholder="Tìm kiếm môn học..."
+                        placeholder={language === "vi" ? "Tìm kiếm môn học..." : "Search subject..."}
                         value={subjectSearch}
                         onChange={e => setSubjectSearch(e.target.value)}
                         className="w-full pl-8 pr-3 py-1 text-sm border border-slate-200 rounded-md focus:ring-1 focus:ring-violet-500 focus:border-violet-500 outline-none"
@@ -368,23 +370,23 @@ export default function AdminTopicManagement() {
                     <div className="flex gap-2">
                       <input 
                         type="text" 
-                        placeholder="Mã môn (VD: CS101)" 
+                        placeholder={language === "vi" ? "Mã môn (VD: CS101)" : "Subject Code (Ex: CS101)"} 
                         value={newSubjectCode}
                         onChange={e => setNewSubjectCode(e.target.value)}
                         className="w-1/3 px-3 py-1.5 text-sm border border-slate-200 rounded-lg focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none"
                       />
                       <input 
                         type="text" 
-                        placeholder="Mô tả / Tên môn học" 
+                        placeholder={language === "vi" ? "Mô tả / Tên môn học" : "Description / Subject Name"} 
                         value={newSubjectName}
                         onChange={e => setNewSubjectName(e.target.value)}
                         className="flex-1 px-3 py-1.5 text-sm border border-slate-200 rounded-lg focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none"
                       />
                     </div>
                     <div className="flex justify-end gap-2">
-                      <button type="button" onClick={() => setShowAddSubject(false)} className="px-3 py-1.5 text-xs font-medium text-slate-500 hover:bg-slate-200 rounded-lg">Hủy</button>
+                      <button type="button" onClick={() => setShowAddSubject(false)} className="px-3 py-1.5 text-xs font-medium text-slate-500 hover:bg-slate-200 rounded-lg">{language === "vi" ? "Hủy" : "Cancel"}</button>
                       <button type="button" onClick={handleCreateSubject} disabled={isAddingSubject} className="px-4 py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-sm disabled:opacity-50">
-                        {isAddingSubject ? "Đang thêm..." : "Lưu môn học"}
+                        {isAddingSubject ? (language === "vi" ? "Đang thêm..." : "Adding...") : (language === "vi" ? "Lưu môn học" : "Save subject")}
                       </button>
                     </div>
                   </div>
@@ -413,9 +415,9 @@ export default function AdminTopicManagement() {
             </form>
 
             <div className="p-4 border-t border-slate-100 flex justify-end gap-3 bg-slate-50">
-              <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-200 rounded-lg font-medium text-sm transition-colors">Hủy</button>
+              <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-200 rounded-lg font-medium text-sm transition-colors">{language === "vi" ? "Hủy" : "Cancel"}</button>
               <button type="submit" className="px-6 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-lg font-bold text-sm shadow-sm transition-all active:scale-95">
-                {editingTopic ? "Lưu thay đổi" : "Tạo Chủ đề"}
+                {editingTopic ? (language === "vi" ? "Lưu thay đổi" : "Save changes") : (language === "vi" ? "Tạo Chủ đề" : "Create Topic")}
               </button>
             </div>
           </div>
@@ -428,39 +430,39 @@ export default function AdminTopicManagement() {
             <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
               <h2 className="text-lg font-extrabold text-slate-800 flex items-center gap-2">
                 <BookOpen size={20} className="text-emerald-500" />
-                Thêm Mã Môn Mới
+                {language === "vi" ? "Thêm Mã Môn Mới" : "Add New Subject Code"}
               </h2>
-              <button onClick={() => setIsSubjectModalOpen(false)} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
+              <button type="button" onClick={() => setIsSubjectModalOpen(false)} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
             </div>
             
             <form onSubmit={handleStandaloneCreateSubject} className="p-5 space-y-4">
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">Mã môn học</label>
+                <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">{language === "vi" ? "Mã môn học" : "Subject Code"}</label>
                 <input 
                   type="text" 
                   value={newSubjectCode}
                   onChange={e => setNewSubjectCode(e.target.value)}
                   className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all text-sm uppercase" 
-                  placeholder="VD: PRJ301" 
+                  placeholder={language === "vi" ? "VD: PRJ301" : "Ex: PRJ301"} 
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">Mô tả / Tên môn học</label>
+                <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">{language === "vi" ? "Mô tả / Tên môn học" : "Description / Subject Name"}</label>
                 <input 
                   type="text" 
                   value={newSubjectName}
                   onChange={e => setNewSubjectName(e.target.value)}
                   className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all text-sm" 
-                  placeholder="VD: Lập trình Java Web" 
+                  placeholder={language === "vi" ? "VD: Lập trình Java Web" : "Ex: Java Web Programming"} 
                 />
               </div>
             </form>
 
             <div className="p-4 border-t border-slate-100 flex justify-end gap-3 bg-slate-50">
-              <button type="button" onClick={() => setIsSubjectModalOpen(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-200 rounded-lg font-medium text-sm transition-colors">Hủy</button>
+              <button type="button" onClick={() => setIsSubjectModalOpen(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-200 rounded-lg font-medium text-sm transition-colors">{language === "vi" ? "Hủy" : "Cancel"}</button>
               <button onClick={handleStandaloneCreateSubject} disabled={isAddingSubject} className="px-6 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-sm shadow-sm transition-all active:scale-95 disabled:opacity-50">
-                {isAddingSubject ? "Đang thêm..." : "Lưu môn học"}
+                {isAddingSubject ? (language === "vi" ? "Đang thêm..." : "Adding...") : (language === "vi" ? "Lưu môn học" : "Save subject")}
               </button>
             </div>
           </div>

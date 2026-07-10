@@ -2,6 +2,7 @@
 import { API_URL } from "@/config/api.js";
 import { Cpu, Activity, AlertTriangle, ChevronDown, HardDrive } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area } from "recharts";
+import { useLanguage } from "../../context/LanguageContext";
 
 function CustomDropdown({ value, options, onChange }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -63,6 +64,7 @@ function CustomDropdown({ value, options, onChange }) {
 }
 
 export default function AdminStorageManagement() {
+  const { language } = useLanguage();
   const [apiData, setApiData] = useState([]);
   const [overview, setOverview] = useState(null);
   const [errorMsg, setErrorMsg] = useState(null);
@@ -132,18 +134,18 @@ export default function AdminStorageManagement() {
       {/* Page header */}
       <div className="flex items-end justify-between mb-6 pb-4 border-b border-gray-200">
         <div>
-          <h1 className="text-xl font-extrabold !text-slate-800 tracking-tight">Quản lý Lưu trữ & API</h1>
-          <p className="text-[13px] text-slate-400 mt-0.5 font-medium">Giám sát dung lượng hệ thống và tài nguyên AI</p>
+          <h1 className="text-xl font-extrabold !text-slate-800 tracking-tight">{language === "vi" ? "Quản lý Lưu trữ & API" : "Storage & API Management"}</h1>
+          <p className="text-[13px] text-slate-400 mt-0.5 font-medium">{language === "vi" ? "Giám sát dung lượng hệ thống và tài nguyên AI" : "Monitor system storage and AI resources"}</p>
         </div>
         <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-          <span style={{ fontSize: 13, color: "#64748b", fontWeight: 500 }}>Thời gian:</span>
+          <span style={{ fontSize: 13, color: "#64748b", fontWeight: 500 }}>{language === "vi" ? "Thời gian:" : "Time:"}</span>
           <CustomDropdown
             value={days}
             onChange={setDays}
             options={[
-              { value: 7, label: "Last 7 days" },
-              { value: 14, label: "Last 14 days" },
-              { value: 30, label: "Last 30 days" }
+              { value: 7, label: language === "vi" ? "7 ngày qua" : "Last 7 days" },
+              { value: 14, label: language === "vi" ? "14 ngày qua" : "Last 14 days" },
+              { value: 30, label: language === "vi" ? "30 ngày qua" : "Last 30 days" }
             ]}
           />
         </div>
@@ -157,7 +159,7 @@ export default function AdminStorageManagement() {
         }}>
           <AlertTriangle size={20} color="#ef4444" />
           <div>
-            <div style={{ fontWeight: 700, fontSize: "14px", marginBottom: "4px" }}>OpenAI API Error</div>
+            <div style={{ fontWeight: 700, fontSize: "14px", marginBottom: "4px" }}>{language === "vi" ? "Lỗi OpenAI API" : "OpenAI API Error"}</div>
             <div style={{ fontSize: "13px", color: "#b91c1c" }}>{errorMsg}</div>
           </div>
         </div>
@@ -288,16 +290,16 @@ export default function AdminStorageManagement() {
       >
         <div style={{ padding: "20px 24px", borderBottom: "1px solid #f1f5f9", background: "#f8fafc" }}>
           <h2 style={{ fontSize: 16, fontWeight: 700, color: "#1e293b", margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
-            <HardDrive size={18} color="#6366f1" /> Dung lượng hệ thống
+            <HardDrive size={18} color="#6366f1" /> {language === "vi" ? "Dung lượng hệ thống" : "System Storage"}
           </h2>
-          <p style={{ fontSize: 13, color: "#64748b", margin: "4px 0 0 0" }}>Quản lý không gian lưu trữ tệp tin và cơ sở dữ liệu hệ thống</p>
+          <p style={{ fontSize: 13, color: "#64748b", margin: "4px 0 0 0" }}>{language === "vi" ? "Quản lý không gian lưu trữ tệp tin và cơ sở dữ liệu hệ thống" : "Manage file storage space and system database"}</p>
         </div>
 
         <div style={{ padding: "24px", display: "flex", flexWrap: "wrap", gap: "32px" }}>
           {/* File Storage */}
           <div style={{ flex: "1 1 300px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-              <span style={{ fontSize: 13, fontWeight: 600, color: "#475569" }}>Lưu trữ Tệp tin (PDF, Docx...)</span>
+              <span style={{ fontSize: 13, fontWeight: 600, color: "#475569" }}>{language === "vi" ? "Lưu trữ Tệp tin (PDF, Docx...)" : "File Storage (PDF, Docx...)"}</span>
               <span style={{ fontSize: 15, fontWeight: 800, color: "#4f46e5", background: "#e0e7ff", padding: "2px 10px", borderRadius: "20px" }}>
                 {stats ? `${stats.totalStorageUsed} GB` : "0 GB"}
               </span>
@@ -327,7 +329,7 @@ export default function AdminStorageManagement() {
           {/* DB Storage */}
           <div style={{ flex: "1 1 300px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-              <span style={{ fontSize: 13, fontWeight: 600, color: "#475569" }}>Cơ sở dữ liệu (Database)</span>
+              <span style={{ fontSize: 13, fontWeight: 600, color: "#475569" }}>{language === "vi" ? "Cơ sở dữ liệu (Database)" : "Database"}</span>
               <span style={{ fontSize: 15, fontWeight: 800, color: "#059669", background: "#d1fae5", padding: "2px 10px", borderRadius: "20px" }}>
                 {stats ? `${stats.dbStorageUsed} GB` : "0 GB"}
               </span>
