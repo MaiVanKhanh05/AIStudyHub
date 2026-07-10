@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from "react";
+﻿import { useState, useEffect, useRef } from "react";
+import { API_URL } from "@/config/api.js";
 import { Search, Lock, Unlock, Users, ChevronDown } from "lucide-react";
 import Pagination from "../../components/Pagination";
 import { useLanguage } from "../../context/LanguageContext";
@@ -70,7 +71,7 @@ export default function AdminUserManagement({ roleFilter = "all" }) {
 
   useEffect(() => {
     setLoading(true);
-    fetch(`http://localhost:5000/api/admin/users?page=${page}&limit=${PAGE_SIZE}&role=${localRoleFilter}&search=${encodeURIComponent(debouncedSearch)}`, {
+    fetch(`${API_URL}/api/admin/users?page=${page}&limit=${PAGE_SIZE}&role=${localRoleFilter}&search=${encodeURIComponent(debouncedSearch)}`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then(r => r.json())
@@ -99,7 +100,7 @@ export default function AdminUserManagement({ roleFilter = "all" }) {
 
   const handleLock = async (user) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/admin/users/${user.id}/lock`, {
+      const response = await fetch(`${API_URL}/api/admin/users/${user.id}/lock`, {
         method: "POST", headers: { Authorization: `Bearer ${token}` },
       });
       const data = await response.json();
@@ -118,7 +119,7 @@ export default function AdminUserManagement({ roleFilter = "all" }) {
 
   const handleUnlock = async (user) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/admin/users/${user.id}/unlock`, {
+      const response = await fetch(`${API_URL}/api/admin/users/${user.id}/unlock`, {
         method: "POST", headers: { Authorization: `Bearer ${token}` },
       });
       const data = await response.json();

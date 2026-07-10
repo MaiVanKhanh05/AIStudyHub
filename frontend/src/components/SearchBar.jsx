@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+﻿import { useState, useRef, useEffect, useCallback } from "react";
+import { API_URL } from "@/config/api.js";
 import {
   Search, X, Clock, Trash2, ChevronDown, ChevronUp,
   SlidersHorizontal, Tag, Calendar, FileText, User, Hash, Check
@@ -6,7 +7,7 @@ import {
 import { useLanguage } from "../context/LanguageContext";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
-const API_BASE   = "http://localhost:5000";
+const API_BASE = API_URL;
 const STORE_KEY  = "aistudyhub_search_history";
 const MAX_STORED = 50;
 const PREVIEW    = 10;

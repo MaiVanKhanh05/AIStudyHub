@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+﻿import { useState, useRef, useEffect, useCallback } from "react";
+import { API_URL } from "@/config/api.js";
 import {
   Upload, X, CheckCircle, AlertCircle, Loader, Globe, Lock,
   Search, Tag, BookOpen, ChevronDown, Plus, Hash, FolderPlus,
@@ -7,7 +8,7 @@ import {
 import { uploadFileToSupabase } from "@/lib/supabase";
 import { toast } from "sonner";
 
-const API_BASE = "http://localhost:5000";
+const API_BASE = API_URL;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function getToken() {

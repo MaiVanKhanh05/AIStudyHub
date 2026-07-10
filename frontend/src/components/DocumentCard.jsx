@@ -1,4 +1,5 @@
-import { useEffect, useState, useMemo } from "react";
+﻿import { useEffect, useState, useMemo } from "react";
+import { API_URL } from "@/config/api.js";
 import { useLanguage } from "../context/LanguageContext";
 import {
   FileText,
@@ -139,7 +140,7 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
     if (!docId) return;
     try {
       const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-      await fetch(`http://localhost:5000/api/documents/${docId}/view`, {
+      await fetch(`${API_URL}/api/documents/${docId}/view`, {
         method: "PUT",
         headers: token ? { Authorization: `Bearer ${token}` } : {}
       });
@@ -159,7 +160,7 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
     if (!docId) return;
     try {
       const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-      await fetch(`http://localhost:5000/api/documents/${docId}/download`, {
+      await fetch(`${API_URL}/api/documents/${docId}/download`, {
         method: "PUT",
         headers: token ? { Authorization: `Bearer ${token}` } : {}
       });
@@ -253,7 +254,7 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
 
       // 2. Delete the record from PostgreSQL database via backend API
       const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-      const res = await fetch(`http://localhost:5000/api/documents/${docId}`, {
+      const res = await fetch(`${API_URL}/api/documents/${docId}`, {
         method: "DELETE",
         headers: {
           "Authorization": `Bearer ${token}`
@@ -285,7 +286,7 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
 
     try {
       const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-      const res = await fetch(`http://localhost:5000/api/documents/${docId}/unshare`, {
+      const res = await fetch(`${API_URL}/api/documents/${docId}/unshare`, {
         method: "PUT",
         headers: {
           "Authorization": `Bearer ${token}`
@@ -313,7 +314,7 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
     if (!docId) return;
     try {
       const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-      const res = await fetch(`http://localhost:5000/api/documents/${docId}/bookmark`, {
+      const res = await fetch(`${API_URL}/api/documents/${docId}/bookmark`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` }
       });

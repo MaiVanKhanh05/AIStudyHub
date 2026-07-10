@@ -558,7 +558,7 @@ export const changePassword = async (req, res) => {
 export const googleOAuthRedirect = (req, res) => {
     const params = new URLSearchParams({
         client_id: process.env.GOOGLE_CLIENT_ID,
-        redirect_uri: `${process.env.BACKEND_URL || 'http://localhost:5000'}/api/auth/google/callback`,
+        redirect_uri: `${process.env.BACKEND_URL || 'https://aistudyhub-802u.onrender.com'}/api/auth/google/callback`,
         scope: 'openid email profile',
         response_type: 'code',
         access_type: 'offline',
@@ -569,7 +569,7 @@ export const googleOAuthRedirect = (req, res) => {
 
 // GET /api/auth/google/callback — Google gọi về với code
 export const googleOAuthCallback = async (req, res) => {
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const frontendUrl = process.env.FRONTEND_URL || 'https://aistudyhub.site';
     const { code } = req.query;
 
     if (!code) {
@@ -577,7 +577,7 @@ export const googleOAuthCallback = async (req, res) => {
     }
 
     try {
-        const redirectUri = `${process.env.BACKEND_URL || 'http://localhost:5000'}/api/auth/google/callback`;
+        const redirectUri = `${process.env.BACKEND_URL || 'https://aistudyhub-802u.onrender.com'}/api/auth/google/callback`;
 
         // 1. Đổi code lấy tokens từ Google
         const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
@@ -667,7 +667,7 @@ export const googleOAuthCallback = async (req, res) => {
 export const githubRedirect = (req, res) => {
     const params = new URLSearchParams({
         client_id: process.env.GITHUB_CLIENT_ID,
-        redirect_uri: `${process.env.BACKEND_URL || 'http://localhost:5000'}/api/auth/github/callback`,
+        redirect_uri: `${process.env.BACKEND_URL || 'https://aistudyhub-802u.onrender.com'}/api/auth/github/callback`,
         scope: 'user:email',
         state: crypto.randomBytes(16).toString('hex'),
     });
@@ -676,7 +676,7 @@ export const githubRedirect = (req, res) => {
 
 // GET /api/auth/github/callback — GitHub gọi về với code
 export const githubCallback = async (req, res) => {
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const frontendUrl = process.env.FRONTEND_URL || 'https://aistudyhub.site';
     const { code } = req.query;
 
     if (!code) {
@@ -692,7 +692,7 @@ export const githubCallback = async (req, res) => {
                 client_id: process.env.GITHUB_CLIENT_ID,
                 client_secret: process.env.GITHUB_CLIENT_SECRET,
                 code,
-                redirect_uri: `${process.env.BACKEND_URL || 'http://localhost:5000'}/api/auth/github/callback`,
+                redirect_uri: `${process.env.BACKEND_URL || 'https://aistudyhub-802u.onrender.com'}/api/auth/github/callback`,
             }),
         });
         const tokenData = await tokenRes.json();
@@ -780,7 +780,7 @@ export const githubCallback = async (req, res) => {
 export const facebookRedirect = (req, res) => {
     const params = new URLSearchParams({
         client_id: process.env.FACEBOOK_APP_ID,
-        redirect_uri: `${process.env.BACKEND_URL || 'http://localhost:5000'}/api/auth/facebook/callback`,
+        redirect_uri: `${process.env.BACKEND_URL || 'https://aistudyhub-802u.onrender.com'}/api/auth/facebook/callback`,
         scope: 'email,public_profile',
         response_type: 'code',
         state: crypto.randomBytes(16).toString('hex'),
@@ -790,7 +790,7 @@ export const facebookRedirect = (req, res) => {
 
 // GET /api/auth/facebook/callback — Facebook gọi về với code
 export const facebookCallback = async (req, res) => {
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const frontendUrl = process.env.FRONTEND_URL || 'https://aistudyhub.site';
     const { code } = req.query;
 
     if (!code) {
@@ -798,7 +798,7 @@ export const facebookCallback = async (req, res) => {
     }
 
     try {
-        const redirectUri = `${process.env.BACKEND_URL || 'http://localhost:5000'}/api/auth/facebook/callback`;
+        const redirectUri = `${process.env.BACKEND_URL || 'https://aistudyhub-802u.onrender.com'}/api/auth/facebook/callback`;
 
         // 1. Đổi code lấy access_token
         const tokenUrl = `https://graph.facebook.com/v19.0/oauth/access_token?client_id=${process.env.FACEBOOK_APP_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&client_secret=${process.env.FACEBOOK_APP_SECRET}&code=${code}`;

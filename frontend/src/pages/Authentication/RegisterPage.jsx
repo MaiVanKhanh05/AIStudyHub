@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { API_URL } from "@/config/api.js";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Eye, EyeOff, AlertTriangle, GraduationCap, BookOpen } from "lucide-react";
 import bgLogin from "../../assets/background-login.png";
@@ -134,7 +135,7 @@ export default function RegisterPage() {
       setError("");
       setSuccess("");
 
-      const response = await fetch("http://localhost:5000/api/auth/verify-otp", {
+      const response = await fetch(`${API_URL}/api/auth/verify-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -178,7 +179,7 @@ export default function RegisterPage() {
       setError("");
       setSuccess("");
 
-      const response = await fetch("http://localhost:5000/api/auth/resend-otp", {
+      const response = await fetch(`${API_URL}/api/auth/resend-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -240,7 +241,7 @@ export default function RegisterPage() {
     try {
       setLoading(true);
 
-      const response = await fetch("http://localhost:5000/api/auth/register", {
+      const response = await fetch(`${API_URL}/api/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -626,7 +627,7 @@ export default function RegisterPage() {
 
               {/* Google Register Button */}
               <a
-                href="http://localhost:5000/api/auth/google"
+                href={`${API_URL}/api/auth/google`}
                 id="google-register-btn"
                 className="w-full flex items-center justify-center gap-3 rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-white/10 hover:bg-gray-50 dark:hover:bg-white/20 text-gray-700 dark:text-white text-sm font-semibold py-3 transition-all duration-200 shadow-sm select-none"
               >
@@ -641,7 +642,7 @@ export default function RegisterPage() {
 
               {/* GitHub Register Button */}
               <a
-                href="http://localhost:5000/api/auth/github"
+                href={`${API_URL}/api/auth/github`}
                 id="github-register-btn"
                 className="w-full flex items-center justify-center gap-3 rounded-xl border border-[#30363d] bg-[#161b22] hover:bg-[#21262d] text-white text-sm font-semibold py-3 transition-all duration-200 shadow-sm select-none"
               >
@@ -653,7 +654,7 @@ export default function RegisterPage() {
 
               {/* Facebook Register Button */}
               <a
-                href="http://localhost:5000/api/auth/facebook"
+                href={`${API_URL}/api/auth/facebook`}
                 id="facebook-register-btn"
                 className="w-full flex items-center justify-center gap-3 rounded-xl border border-[#1877f2]/40 bg-[#1877f2] hover:bg-[#166fe5] text-white text-sm font-semibold py-3 transition-all duration-200 shadow-sm select-none"
               >

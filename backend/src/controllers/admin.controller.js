@@ -4,7 +4,7 @@ import pool from "../../DB/db.js";
 // GET /api/admin/stats — tổng hợp số liệu dashboard
 export const getAdminStats = async (req, res) => {
     try {
-        const [studentsResult, lecturersResult, documentsResult, storageResult] = await Promise.all([
+        const [studentsResult, lecturersResult, documentsResult, storageResult, dbSizeResult] = await Promise.all([
             // Tổng sinh viên
             pool.query(
                 "SELECT COUNT(*) AS count FROM users WHERE role = 'STUDENT' AND status = 'ACTIVE'"
@@ -21,6 +21,10 @@ export const getAdminStats = async (req, res) => {
             pool.query(
                 "SELECT COALESCE(SUM(file_size), 0) AS total FROM document"
             ),
+            // Kích thước database
+            pool.query(
+                "SELECT pg_database_size(current_database()) AS db_size"
+            ),
         ]);
 
         const totalStudents = parseInt(studentsResult.rows[0].count, 10);
@@ -28,6 +32,9 @@ export const getAdminStats = async (req, res) => {
         const totalDocuments = parseInt(documentsResult.rows[0].count, 10);
         const totalStorageBytes = parseInt(storageResult.rows[0].total, 10);
         const totalStorageGB = (totalStorageBytes / (1024 ** 3)).toFixed(2);
+        
+        const dbSizeBytes = parseInt(dbSizeResult.rows[0].db_size, 10);
+        const dbStorageGB = (dbSizeBytes / (1024 ** 3)).toFixed(4); // Lấy 4 chữ số thập phân cho DB size vì text/db thường khá nhỏ
 
         res.json({
             totalStudents,
@@ -35,6 +42,7 @@ export const getAdminStats = async (req, res) => {
             totalDocuments,
             totalStorageUsed: parseFloat(totalStorageGB),
             totalStorageLimit: 10,
+            dbStorageUsed: parseFloat(dbStorageGB)
         });
     } catch (error) {
         console.error("Error fetching admin stats:", error);
@@ -45,8 +53,43 @@ export const getAdminStats = async (req, res) => {
 // GET /api/admin/users — danh sách tất cả người dùng
 export const getAllUsers = async (req, res) => {
     try {
-        const { rows } = await pool.query(
-            `SELECT 
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const role = req.query.role || "all";
+        const search = req.query.search || "";
+        const offset = (page - 1) * limit;
+
+        let whereClauses = [];
+        let queryParams = [];
+        let paramIndex = 1;
+
+        if (role !== "all") {
+            whereClauses.push(`u.role = $${paramIndex}`);
+            queryParams.push(role);
+            paramIndex++;
+        }
+
+        if (search) {
+            whereClauses.push(`(u.email ILIKE $${paramIndex} OR (u.last_name || ' ' || u.first_name) ILIKE $${paramIndex})`);
+            queryParams.push(`%${search}%`);
+            paramIndex++;
+        }
+
+        const whereString = whereClauses.length > 0 ? `WHERE ${whereClauses.join(" AND ")}` : "";
+
+        // Get total count
+        const countQuery = `
+            SELECT COUNT(*) AS total
+            FROM users u
+            ${whereString}
+        `;
+        const countResult = await pool.query(countQuery, queryParams);
+        const totalCount = parseInt(countResult.rows[0].total, 10);
+        const totalPages = Math.ceil(totalCount / limit) || 1;
+
+        // Get paginated users
+        const dataQuery = `
+            SELECT 
                 u.user_id AS id, 
                 (u.last_name || ' ' || u.first_name) AS full_name, 
                 u.email, 
@@ -57,10 +100,21 @@ export const getAllUsers = async (req, res) => {
                 COALESCE(SUM(d.file_size), 0) AS used_storage
              FROM users u
              LEFT JOIN document d ON u.user_id = d.user_id
+             ${whereString}
              GROUP BY u.user_id, u.last_name, u.first_name, u.email, u.role, u.status, u.created_at, u.max_storage_bytes
-             ORDER BY u.created_at DESC`
-        );
-        res.json(rows);
+             ORDER BY u.created_at DESC
+             LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+        `;
+        
+        const dataParams = [...queryParams, limit, offset];
+        const { rows } = await pool.query(dataQuery, dataParams);
+
+        res.json({
+            users: rows,
+            totalCount,
+            totalPages,
+            currentPage: page
+        });
     } catch (error) {
         console.error("Error fetching all users:", error);
         res.status(500).json({ error: "Internal Server Error" });
@@ -402,7 +456,9 @@ export const getApiUsage = async (req, res) => {
         }
 
         let totalSpend = 0;
-        const apiData = [];
+        let totalRequests = 0;
+        let totalTokens = 0;
+        const dailyData = [];
         for (let i = days - 1; i >= 0; i--) {
             const date = new Date();
             date.setDate(date.getDate() - i);
@@ -411,17 +467,28 @@ export const getApiUsage = async (req, res) => {
             const usage = usageMap.get(dateStr) || { requests: 0, tokens: 0 };
             
             totalSpend += cost;
-            apiData.push({
+            totalRequests += usage.requests;
+            totalTokens += usage.tokens;
+
+            dailyData.push({
                 date: dateStr,
-                cost: parseFloat(cost.toFixed(4)),
+                spend: parseFloat(cost.toFixed(4)),
                 requests: usage.requests,
                 tokens: usage.tokens
             });
         }
 
+        const budgetLimit = 50; // Giả sử ngân sách 50$
+        const budgetUsedPct = Math.min(Math.round((totalSpend / budgetLimit) * 100), 100);
+
         res.json({
-            apiData,
-            totalSpend: parseFloat(totalSpend.toFixed(4))
+            dailyData,
+            overview: {
+                totalSpend: parseFloat(totalSpend.toFixed(4)),
+                totalRequests,
+                totalTokens,
+                budgetUsedPct
+            }
         });
 
     } catch (error) {

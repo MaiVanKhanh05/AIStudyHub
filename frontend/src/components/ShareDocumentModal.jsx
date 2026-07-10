@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from "react";
+﻿import React, { useState, useEffect, useRef } from "react";
+import { API_URL } from "@/config/api.js";
 import { createPortal } from "react-dom";
 import { X, Search, Globe, Lock, Shield, Trash2, Loader2, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
@@ -34,7 +35,7 @@ export default function ShareDocumentModal({ documentId, onClose }) {
     try {
       setLoading(true);
       const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-      const res = await axios.get(`http://localhost:5000/api/documents/${documentId}/share`, {
+      const res = await axios.get(`${API_URL}/api/documents/${documentId}/share`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setVisibility(res.data.visibility);
@@ -69,7 +70,7 @@ export default function ShareDocumentModal({ documentId, onClose }) {
     searchTimeoutRef.current = setTimeout(async () => {
       try {
         const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-        const res = await axios.get(`http://localhost:5000/api/users/search?q=${searchQuery}`, {
+        const res = await axios.get(`${API_URL}/api/users/search?q=${searchQuery}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         // Filter out owner and already added users
@@ -98,7 +99,7 @@ export default function ShareDocumentModal({ documentId, onClose }) {
       setSubmitting(true);
       const token = localStorage.getItem("token") || sessionStorage.getItem("token");
       await axios.post(
-        `http://localhost:5000/api/documents/${documentId}/share`,
+        `${API_URL}/api/documents/${documentId}/share`,
         { userId: selectedUser.user_id, role: selectedRole },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -120,7 +121,7 @@ export default function ShareDocumentModal({ documentId, onClose }) {
     try {
       const token = localStorage.getItem("token") || sessionStorage.getItem("token");
       await axios.patch(
-        `http://localhost:5000/api/documents/${documentId}/share/${targetUserId}`,
+        `${API_URL}/api/documents/${documentId}/share/${targetUserId}`,
         { role: newRole },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -137,7 +138,7 @@ export default function ShareDocumentModal({ documentId, onClose }) {
     try {
       const token = localStorage.getItem("token") || sessionStorage.getItem("token");
       await axios.delete(
-        `http://localhost:5000/api/documents/${documentId}/share/${targetUserId}`,
+        `${API_URL}/api/documents/${documentId}/share/${targetUserId}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       toast.success(language === "vi" ? "Đã xóa quyền truy cập!" : "Access removed!");
@@ -153,7 +154,7 @@ export default function ShareDocumentModal({ documentId, onClose }) {
     try {
       const token = localStorage.getItem("token") || sessionStorage.getItem("token");
       await axios.patch(
-        `http://localhost:5000/api/documents/${documentId}/visibility`,
+        `${API_URL}/api/documents/${documentId}/visibility`,
         { visibility: newVisibility },
         { headers: { Authorization: `Bearer ${token}` } }
       );
