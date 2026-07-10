@@ -66,17 +66,11 @@ app.use("/api/topics", topicRoutes);
 
 const PORT = Number(process.env.PORT) || 5000;
 
-if (process.env.NODE_ENV !== "production") {
-    const start = async () => {
-        await connectDB();
-        app.listen(PORT, () => {
-            console.log(`Server is running on http://localhost:${PORT}`);
-        });
-    };
-    start();
-} else {
-    // Cho môi trường production (Vercel Serverless)
-    connectDB().catch(console.error);
-}
+const start = async () => {
+    await connectDB();
+    app.listen(PORT, () => {
+        console.log(`Server is running on http://localhost:${PORT}`);
+    });
+};
 
-export default app;
+start();
