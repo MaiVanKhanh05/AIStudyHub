@@ -1,4 +1,5 @@
-﻿import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useSearchParams } from "react-router-dom";
 import { API_URL } from "@/config/api.js";
 import { Search, Lock, Unlock, Users, ChevronDown } from "lucide-react";
 import Pagination from "../../components/Pagination";
@@ -22,8 +23,10 @@ const ROLE_BADGE = {
   ADMIN: "bg-amber-100 text-amber-700 border-amber-200",
 };
 
-export default function AdminUserManagement({ roleFilter = "all" }) {
+export default function AdminUserManagement() {
   const { language } = useLanguage();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const roleFilter = searchParams.get("role") || "all";
   const [localRoleFilter, setLocalRoleFilter] = useState(roleFilter);
   const [users, setUsers] = useState([]);
   const [search, setSearch] = useState("");
@@ -47,6 +50,10 @@ export default function AdminUserManagement({ roleFilter = "all" }) {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    setLocalRoleFilter(searchParams.get("role") || "all");
+  }, [searchParams]);
 
   const ROLE_LABEL = { STUDENT: language === "vi" ? "Sinh viên" : "Student", LECTURER: language === "vi" ? "Giảng viên" : "Lecturer", ADMIN: "Admin" };
 
@@ -178,6 +185,7 @@ export default function AdminUserManagement({ roleFilter = "all" }) {
                       key={opt.value}
                       onClick={() => {
                         setLocalRoleFilter(opt.value);
+                        setSearchParams({ role: opt.value });
                         setIsRoleDropdownOpen(false);
                       }}
                       className={`w-full text-left px-3.5 py-2 text-[12.5px] font-medium transition-colors cursor-pointer

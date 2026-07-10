@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { User as UserIcon, Mail, Shield, Key, Globe, Camera, UploadCloud, Lock, AlertTriangle, CheckCircle } from "lucide-react";
 import { useLanguage } from "../../context/LanguageContext";
+import { API_URL } from "@/config/api.js";
 
 export default function AdminPersonalProfile() {
   const userStr = localStorage.getItem("user") || sessionStorage.getItem("user");
@@ -9,6 +10,9 @@ export default function AdminPersonalProfile() {
   const [pwForm, setPwForm] = useState({ current: "", next: "", confirm: "" });
   const [toast, setToast] = useState(null);
   const [savingPw, setSavingPw] = useState(false);
+  const [isResettingWithOtp, setIsResettingWithOtp] = useState(false);
+  const [resetEmailLoading, setResetEmailLoading] = useState(false);
+  const [otpCode, setOtpCode] = useState("");
   const { language, setLanguage } = useLanguage();
 
   const token = localStorage.getItem("token") || sessionStorage.getItem("token");
@@ -42,6 +46,68 @@ export default function AdminPersonalProfile() {
       setPwForm({ current: "", next: "", confirm: "" });
     } catch (err) {
       showToast("error", err.message || "Không thể đổi mật khẩu. Vui lòng kiểm tra lại.");
+    } finally {
+      setSavingPw(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    if (!user.email) {
+      showToast("error", "Không tìm thấy email của tài khoản.");
+      return;
+    }
+    setResetEmailLoading(true);
+    try {
+      const response = await fetch(`${API_URL}/api/auth/forgot-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: user.email })
+      });
+      const data = await response.json();
+      if (response.ok) {
+        showToast("success", `Mã xác thực OTP đã được gửi đến email: ${user.email}`);
+        setIsResettingWithOtp(true);
+        setPwForm({ current: "", next: "", confirm: "" });
+        setOtpCode("");
+      } else {
+        showToast("error", data.error || "Gửi email xác thực thất bại.");
+      }
+    } catch (err) {
+      showToast("error", "Không thể kết nối đến máy chủ.");
+    } finally {
+      setResetEmailLoading(false);
+    }
+  };
+
+  const handleResetPassword = async (e) => {
+    e.preventDefault();
+    if (pwForm.next !== pwForm.confirm) {
+      showToast("error", "Mật khẩu xác nhận không khớp.");
+      return;
+    }
+    if (!otpCode) {
+      showToast("error", "Vui lòng nhập mã OTP.");
+      return;
+    }
+    setSavingPw(true);
+    try {
+      const r = await fetch(`${API_URL}/api/auth/reset-password`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email: user.email, token: otpCode, newPassword: pwForm.next }),
+      });
+      const data = await r.json();
+      if (!r.ok) {
+        throw new Error(data.error || "Mã OTP không chính xác hoặc đã hết hạn.");
+      }
+      showToast("success", "Khôi phục mật khẩu thành công!");
+      setIsResettingWithOtp(false);
+      setPwForm({ current: "", next: "", confirm: "" });
+      setOtpCode("");
+    } catch (err) {
+      showToast("error", err.message || "Không thể khôi phục mật khẩu. Vui lòng kiểm tra lại.");
     } finally {
       setSavingPw(false);
     }
@@ -153,20 +219,40 @@ export default function AdminPersonalProfile() {
             <Lock className="w-4 h-4 text-purple-500" /> {language === "vi" ? "Đổi mật khẩu bảo mật" : "Change Security Password"}
           </h3>
         </div>
-        <form onSubmit={handleChangePassword} className="flex flex-col gap-6">
+        <form onSubmit={isResettingWithOtp ? handleResetPassword : handleChangePassword} className="flex flex-col gap-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="grid gap-2">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">{language === "vi" ? "Mật khẩu hiện tại" : "Current Password"}</label>
-              <input
-                type="password"
-                placeholder="••••••••"
-                value={pwForm.current}
-                onChange={(e) => setPwForm(f => ({ ...f, current: e.target.value }))}
-                required
-                disabled={savingPw}
-                className="bg-slate-50 dark:bg-slate-900/50 border border-slate-200/60 dark:border-slate-800 rounded-xl px-4 py-3 text-sm font-semibold focus-visible:ring-1 focus-visible:ring-purple-500 outline-none placeholder:text-slate-400"
-              />
-            </div>
+            {!isResettingWithOtp ? (
+              <div className="grid gap-2 relative">
+                <div className="flex justify-between items-center pr-1">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">{language === "vi" ? "Mật khẩu hiện tại" : "Current Password"}</label>
+                  <button type="button" onClick={handleForgotPassword} disabled={resetEmailLoading} className="text-[10px] font-bold text-purple-600 hover:text-purple-700 hover:underline cursor-pointer">
+                    {resetEmailLoading ? (language === "vi" ? "Đang gửi..." : "Sending...") : (language === "vi" ? "Quên mật khẩu?" : "Forgot password?")}
+                  </button>
+                </div>
+                <input
+                  type="password"
+                  placeholder="••••••••"
+                  value={pwForm.current}
+                  onChange={(e) => setPwForm(f => ({ ...f, current: e.target.value }))}
+                  required
+                  disabled={savingPw}
+                  className="bg-slate-50 dark:bg-slate-900/50 border border-slate-200/60 dark:border-slate-800 rounded-xl px-4 py-3 text-sm font-semibold focus-visible:ring-1 focus-visible:ring-purple-500 outline-none placeholder:text-slate-400"
+                />
+              </div>
+            ) : (
+              <div className="grid gap-2">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">{language === "vi" ? "Mã OTP" : "OTP Code"}</label>
+                <input
+                  type="text"
+                  placeholder={language === "vi" ? "Nhập mã OTP từ email" : "Enter OTP from email"}
+                  value={otpCode}
+                  onChange={(e) => setOtpCode(e.target.value)}
+                  required
+                  disabled={savingPw}
+                  className="bg-slate-50 dark:bg-slate-900/50 border border-slate-200/60 dark:border-slate-800 rounded-xl px-4 py-3 text-sm font-semibold focus-visible:ring-1 focus-visible:ring-purple-500 outline-none placeholder:text-slate-400"
+                />
+              </div>
+            )}
             <div className="grid gap-2">
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">{language === "vi" ? "Mật khẩu mới" : "New Password"}</label>
               <input
@@ -198,14 +284,24 @@ export default function AdminPersonalProfile() {
               <span className="font-bold text-red-600">{language === "vi" ? "Mật khẩu mới không khớp!" : "New password does not match!"}</span>
             </div>
           )}
-          <div className="flex justify-start mt-2">
+          <div className="flex justify-start mt-2 gap-3">
             <button
               type="submit"
               disabled={savingPw}
               className="bg-purple-600 hover:bg-purple-700 text-white font-extrabold text-xs tracking-wider px-8 py-4 rounded-xl shadow-sm transition-transform active:scale-95 cursor-pointer"
             >
-              {savingPw ? (language === "vi" ? "Đang cập nhật..." : "Updating...") : (language === "vi" ? "Cập nhật mật khẩu" : "Update password")}
+              {savingPw ? (language === "vi" ? "Đang xử lý..." : "Processing...") : (isResettingWithOtp ? (language === "vi" ? "Đặt lại mật khẩu" : "Reset Password") : (language === "vi" ? "Cập nhật mật khẩu" : "Update password"))}
             </button>
+            {isResettingWithOtp && (
+              <button
+                type="button"
+                onClick={() => setIsResettingWithOtp(false)}
+                disabled={savingPw}
+                className="bg-slate-100 hover:bg-slate-200 text-slate-600 font-extrabold text-xs tracking-wider px-8 py-4 rounded-xl shadow-sm transition-transform active:scale-95 cursor-pointer"
+              >
+                {language === "vi" ? "Hủy" : "Cancel"}
+              </button>
+            )}
           </div>
         </form>
       </div>

@@ -1,7 +1,7 @@
-﻿import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { API_URL } from "@/config/api.js";
 import { useSearchHistory } from "../hooks/useSearchHistory";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { useLanguage } from "../context/LanguageContext";
 import {
   Home as HomeIcon,
@@ -700,14 +700,38 @@ export default function Home() {
     ? nameParts.slice(-2).join(" ")
     : fullName;
 
-  // Active navigation tab
-  const [activeTab, setActiveTab] = useState(() => {
-    return sessionStorage.getItem("activeTab") || "Home";
-  });
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  useEffect(() => {
-    sessionStorage.setItem("activeTab", activeTab);
-  }, [activeTab]);
+  // Active navigation tab from URL path
+  const getActiveTab = () => {
+    switch (location.pathname) {
+      case "/": return "Home";
+      case "/my-documents": return "Document Management";
+      case "/bookmarks": return "Bookmarks";
+      case "/ai-assistant": return "AI Assistant";
+      case "/community": return "Community";
+      case "/history": return "History";
+      case "/notifications": return "Notifications";
+      case "/profile": return "Personal Profile";
+      default: return "Home";
+    }
+  };
+
+  const activeTab = getActiveTab();
+
+  const setActiveTab = (tabName) => {
+    switch (tabName) {
+      case "Home": navigate("/"); break;
+      case "Document Management": navigate("/my-documents"); break;
+      case "Bookmarks": navigate("/bookmarks"); break;
+      case "AI Assistant": navigate("/ai-assistant"); break;
+      case "Community": navigate("/community"); break;
+      case "History": navigate("/history"); break;
+      case "Notifications": navigate("/notifications"); break;
+      case "Personal Profile": navigate("/profile"); break;
+      default: navigate("/"); break;
+    }
+  };
 
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const [showSettingsDropdown, setShowSettingsDropdown] = useState(false);
@@ -762,7 +786,13 @@ export default function Home() {
   const [communityTopics, setCommunityTopics] = useState([]);
   const [communityTopicsLoading, setCommunityTopicsLoading] = useState(false);
   const [selectedCommunityTopicId, setSelectedCommunityTopicId] = useState(null);
-  const [selectedCommunitySubjectCode, setSelectedCommunitySubjectCode] = useState(null);
+  const selectedCommunitySubjectCode = searchParams.get("subject") || null;
+  const setSelectedCommunitySubjectCode = (subject) => {
+    const newParams = new URLSearchParams(searchParams);
+    if (subject) newParams.set("subject", subject);
+    else newParams.delete("subject");
+    setSearchParams(newParams);
+  };
   const [communityClassificationTab, setCommunityClassificationTab] = useState("ALL"); // "ALL" | "SEMESTERS"
   // Map of subject_code -> { subject_code, subject_name, doc_count } for subjects with public docs
   const [subjectsDocCounts, setSubjectsDocCounts] = useState([]);
@@ -1132,7 +1162,13 @@ export default function Home() {
   const [shareDescription, setShareDescription] = useState("");
   const [isSharing, setIsSharing] = useState(false);
   const [docManageMode, setDocManageMode] = useState("UPLOADED"); // "UPLOADED" | "BOOKMARKED"
-  const [personalSelectedFolder, setPersonalSelectedFolder] = useState(null);
+  const personalSelectedFolder = searchParams.get("subject") || null;
+  const setPersonalSelectedFolder = (folder) => {
+    const newParams = new URLSearchParams(searchParams);
+    if (folder) newParams.set("subject", folder);
+    else newParams.delete("subject");
+    setSearchParams(newParams);
+  };
 
   useEffect(() => {
     const handlePopState = (e) => {
@@ -1220,17 +1256,14 @@ export default function Home() {
 
   // AI Assistant Chatbot States
   const [chats, setChats] = useState([]);
-  const [currentChatId, setCurrentChatId] = useState(() => {
-    return sessionStorage.getItem("currentChatId") || null;
-  });
-
-  useEffect(() => {
-    if (currentChatId !== null) {
-      sessionStorage.setItem("currentChatId", currentChatId);
+  const currentChatId = (location.pathname === "/ai-assistant" && location.search) ? location.search.substring(1) : null;
+  const setCurrentChatId = (chatId) => {
+    if (chatId) {
+      navigate(`${location.pathname}?${chatId}`, { replace: true });
     } else {
-      sessionStorage.removeItem("currentChatId");
+      navigate(location.pathname, { replace: true });
     }
-  }, [currentChatId]);
+  };
 
   useEffect(() => {
     const fetchHistory = async () => {
@@ -1252,10 +1285,11 @@ export default function Home() {
           }))
         }));
         setChats(formattedChats);
-        const storedChatId = sessionStorage.getItem("currentChatId");
-        if (storedChatId && formattedChats.some(c => c.id === storedChatId)) {
-          setCurrentChatId(storedChatId);
-        } else if (formattedChats.length > 0) {
+        const urlChatId = (location.pathname === "/ai-assistant" && location.search) ? location.search.substring(1) : null;
+        if (urlChatId && formattedChats.some(c => c.id === urlChatId)) {
+          // URL already has a valid chatId, no need to update
+        } else if (formattedChats.length > 0 && !urlChatId && location.pathname === "/ai-assistant") {
+          // If no chatId in URL and we are ON the AI Assistant tab, default to the most recent one
           setCurrentChatId(formattedChats[0].id);
         }
       } catch (err) {
@@ -2618,8 +2652,12 @@ export default function Home() {
     let isNew = false;
     if (!activeId) {
       activeId = String(Date.now());
-      setCurrentChatId(activeId);
       isNew = true;
+      if (location.pathname !== "/ai-assistant") {
+        navigate(`/ai-assistant?${activeId}`);
+      } else {
+        setCurrentChatId(activeId);
+      }
     }
     // Add user message
     const userMsg = {
@@ -3504,7 +3542,6 @@ export default function Home() {
                   onClick={() => {
                     setActiveTab(item.name);
                     if (item.name === "AI Assistant") {
-                      setCurrentChatId(null);
                       setAiMessages([]);
                       setShowChatSidebar(false);
                       setSidebarWidth(230);
@@ -5693,14 +5730,30 @@ export default function Home() {
                           )}
                         </>
                       ) : (
-                        <div className="text-center py-20 bg-white/30 dark:bg-[#0f111a]/30 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 p-8 w-full">
-                          <div className="text-5xl mb-4">📂</div>
-                          <p className="text-sm font-bold text-slate-850 dark:text-slate-200 m-0">
-                            {language === "vi" ? "Không tìm thấy tài liệu phù hợp" : "No matching documents found"}
-                          </p>
-                          <p className="text-xs text-slate-455 mt-2 m-0">
-                            {language === "vi" ? "Vui lòng thử tìm kiếm bằng từ khóa khác." : "Try a different search term."}
-                          </p>
+                        <div className="flex flex-col items-center justify-center py-20 gap-5 select-none bg-white/30 dark:bg-[#0f111a]/30 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 p-8 w-full">
+                          {/* Illustrated icon */}
+                          <div className="relative">
+                            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-purple-100 to-purple-50 dark:from-purple-950/60 dark:to-purple-900/20 border border-purple-200/60 dark:border-purple-800/30 flex items-center justify-center shadow-sm">
+                              <svg className="w-10 h-10 text-purple-400 dark:text-purple-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                <polyline points="14 2 14 8 20 8" />
+                                <circle cx="11.5" cy="14.5" r="2.5" />
+                                <line x1="13.27" y1="16.27" x2="15.5" y2="18.5" />
+                              </svg>
+                            </div>
+                            <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-purple-400/30 dark:bg-purple-500/30 animate-pulse" />
+                            <div className="absolute -bottom-1 -left-1 w-2 h-2 rounded-full bg-violet-400/40 dark:bg-violet-500/30 animate-pulse delay-300" />
+                          </div>
+
+                          {/* Text */}
+                          <div className="flex flex-col items-center gap-1.5 text-center max-w-sm">
+                            <span className="text-sm font-bold text-slate-700 dark:text-slate-200">
+                              {language === "vi" ? "Không tìm thấy tài liệu phù hợp" : "No matching documents found"}
+                            </span>
+                            <span className="text-xs text-slate-400 dark:text-slate-500 leading-relaxed">
+                              {language === "vi" ? "Vui lòng thử tìm kiếm bằng từ khóa hoặc bộ lọc khác." : "Try a different search term or filter."}
+                            </span>
+                          </div>
                         </div>
                       )}
                     </div>

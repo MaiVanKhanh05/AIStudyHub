@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   LayoutDashboard, HardDrive, UserCog, User, Folder,
   Settings, LogOut, GraduationCap, Mic2, BookOpen, ShieldCheck, Globe
@@ -8,8 +8,9 @@ import { useLanguage } from "../../context/LanguageContext";
 
 // NAV_SECTIONS is now defined dynamically inside the component to support active language switching
 
-export default function AdminSidebar({ activeSection, onNavigate }) {
+export default function AdminSidebar() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [showSettings, setShowSettings] = useState(false);
   const { t, language, setLanguage } = useLanguage();
   const userStr = localStorage.getItem("user") || sessionStorage.getItem("user");
@@ -17,6 +18,17 @@ export default function AdminSidebar({ activeSection, onNavigate }) {
   const initials = user?.full_name
     ? user.full_name.split(" ").map(n => n[0]).slice(0, 2).join("").toUpperCase()
     : "A";
+
+  const currentPath = location.pathname;
+  const activeSection = currentPath === "/admin" || currentPath === "/admin/" ? "dashboard" : currentPath.split("/")[2] || "dashboard";
+
+  const onNavigate = (key) => {
+    if (key === "dashboard") {
+      navigate("/admin");
+    } else {
+      navigate(`/admin/${key}`);
+    }
+  };
 
   const navSections = [
     {

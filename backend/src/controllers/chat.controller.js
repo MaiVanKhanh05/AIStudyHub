@@ -601,31 +601,17 @@ export async function saveSession(req, res) {
       [String(id), userId, title]
     );
 
-    // 2. Chèn tin nhắn mới hoặc cập nhật tin nhắn đã tồn tại
-    const existingMsgsRes = await client.query(
-      "SELECT id FROM chat_messages WHERE session_id = $1",
-      [String(id)]
-    );
-    const existingMsgIds = new Set(existingMsgsRes.rows.map(r => String(r.id)));
-
+    // 2. Chèn tin nhắn mới hoặc cập nhật tin nhắn đã tồn tại (dùng UPSERT để tránh race condition)
     for (const msg of messages) {
       const msgId = String(msg.id);
       const filesJson = msg.files ? JSON.stringify(msg.files) : '[]';
-      if (!existingMsgIds.has(msgId)) {
-        await client.query(
-          `INSERT INTO chat_messages (id, session_id, sender, text, files)
-           VALUES ($1, $2, $3, $4, $5)`,
-          [msgId, String(id), msg.sender, msg.text, filesJson]
-        );
-      } else {
-        await client.query(
-          `INSERT INTO chat_messages (id, session_id, sender, text, files)
-           VALUES ($1, $2, $3, $4, $5)
-           ON CONFLICT (id)
-           DO UPDATE SET text = EXCLUDED.text, files = EXCLUDED.files`,
-          [msgId, String(id), msg.sender, msg.text, filesJson]
-        );
-      }
+      await client.query(
+        `INSERT INTO chat_messages (id, session_id, sender, text, files)
+         VALUES ($1, $2, $3, $4, $5)
+         ON CONFLICT (id)
+         DO UPDATE SET text = EXCLUDED.text, files = EXCLUDED.files`,
+        [msgId, String(id), msg.sender, msg.text, filesJson]
+      );
     }
 
     await client.query("COMMIT");

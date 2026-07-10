@@ -1,12 +1,14 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { API_URL } from "@/config/api.js";
 import { Users, BookOpen, HardDrive, GraduationCap, Mic2, ClipboardList, TrendingUp, Eye, Download } from "lucide-react";
 import AdminAnalyticsCharts from "./AdminAnalyticsCharts";
 import { useLanguage } from "../../context/LanguageContext";
 
 // BR-AM-08: Dashboard phải hiển thị tổng user, tài liệu, storage
-export default function AdminOverview({ onNavigate }) {
+export default function AdminOverview() {
   const { language } = useLanguage();
+  const navigate = useNavigate();
   const [stats, setStats] = useState(null);
   const [popularDocs, setPopularDocs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -104,9 +106,9 @@ export default function AdminOverview({ onNavigate }) {
           const isClickable = isStorage || isStudents || isLecturers;
 
           const handleClick = () => {
-            if (isStorage && onNavigate) onNavigate("storage");
-            if (isStudents && onNavigate) onNavigate("users", "STUDENT");
-            if (isLecturers && onNavigate) onNavigate("users", "LECTURER");
+            if (isStorage) navigate("/admin/storage");
+            if (isStudents) navigate("/admin/users?role=STUDENT");
+            if (isLecturers) navigate("/admin/users?role=LECTURER");
           };
 
           return (

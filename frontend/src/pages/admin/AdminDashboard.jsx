@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect } from "react";
+import { Routes, Route, useNavigate, Navigate } from "react-router-dom";
 import AdminSidebar from "./AdminSidebar";
 import AdminOverview from "./AdminOverview";
 import AdminUserManagement from "./AdminUserManagement";
@@ -11,13 +11,6 @@ import AdminPersonalProfile from "./AdminPersonalProfile";
 // BR-AM-01 & BR-AM-02: Chỉ admin mới được truy cập
 export default function AdminDashboard() {
   const navigate = useNavigate();
-  const [activeSection, setActiveSection] = useState("dashboard");
-  const [userRoleFilter, setUserRoleFilter] = useState("all");
-
-  const handleNavigate = (section, filter = "all") => {
-    setActiveSection(section);
-    if (section === "users") setUserRoleFilter(filter);
-  };
 
   useEffect(() => {
     const token = localStorage.getItem("token") || sessionStorage.getItem("token");
@@ -34,23 +27,19 @@ export default function AdminDashboard() {
     }
   }, [navigate]);
 
-  const renderSection = () => {
-    switch (activeSection) {
-      case "dashboard":  return <AdminOverview onNavigate={handleNavigate} />;
-      case "topics":     return <AdminTopicManagement />;
-      case "storage":    return <AdminStorageManagement />;
-      case "users":      return <AdminUserManagement roleFilter={userRoleFilter} />;
-      case "profile":    return <AdminPersonalProfile />;
-      case "documents":  return <AdminDocumentManagement />;
-      default:           return <AdminOverview onNavigate={handleNavigate} />;
-    }
-  };
-
   return (
     <div className="flex min-h-screen bg-slate-100 font-sans">
-      <AdminSidebar activeSection={activeSection} onNavigate={handleNavigate} />
+      <AdminSidebar />
       <main className="flex-1 min-w-0 p-7 overflow-x-hidden">
-        {renderSection()}
+        <Routes>
+          <Route path="/" element={<AdminOverview />} />
+          <Route path="topics" element={<AdminTopicManagement />} />
+          <Route path="storage" element={<AdminStorageManagement />} />
+          <Route path="users" element={<AdminUserManagement />} />
+          <Route path="profile" element={<AdminPersonalProfile />} />
+          <Route path="documents" element={<AdminDocumentManagement />} />
+          <Route path="*" element={<Navigate to="/admin" replace />} />
+        </Routes>
       </main>
     </div>
   );

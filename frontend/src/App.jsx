@@ -18,7 +18,10 @@ function AppLayout() {
   const { t, language, setLanguage } = useLanguage();
   const location = useLocation();
   const navigate = useNavigate();
-  const hideNav = ["/login", "/register", "/forgot-password", "/reset-password", "/", "/oauth-callback"].includes(location.pathname) || location.pathname.startsWith("/admin") || location.pathname.startsWith("/preview");
+  const hideNav = [
+    "/login", "/register", "/forgot-password", "/reset-password", "/", "/oauth-callback",
+    "/my-documents", "/bookmarks", "/ai-assistant", "/community", "/history", "/notifications", "/profile"
+  ].includes(location.pathname) || location.pathname.startsWith("/admin") || location.pathname.startsWith("/preview");
 
   // Retrieve user session
   const token = localStorage.getItem("token") || sessionStorage.getItem("token");
@@ -115,6 +118,13 @@ function AppLayout() {
       )}
       <Routes>
         <Route path="/" element={<Home />} />
+        <Route path="/my-documents" element={<Home />} />
+        <Route path="/bookmarks" element={<Home />} />
+        <Route path="/ai-assistant" element={<Home />} />
+        <Route path="/community" element={<Home />} />
+        <Route path="/history" element={<Home />} />
+        <Route path="/notifications" element={<Home />} />
+        <Route path="/profile" element={<Home />} />
         <Route path="/documents" element={<DocumentList />} />
         <Route path="/upload" element={<UploadPage />} />
         <Route path="/login" element={<Login />} />

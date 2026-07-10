@@ -33,10 +33,16 @@ app.use(
             // Cho phép Postman hoặc request không có Origin
             if (!origin) return callback(null, true);
 
+            // Cho phép tất cả localhost trong môi trường dev
+            if (origin.startsWith("http://localhost:") || origin.startsWith("http://127.0.0.1:")) {
+                return callback(null, true);
+            }
+
             if (allowedOrigins.includes(origin)) {
                 return callback(null, true);
             }
 
+            console.error(`CORS Error: Origin '${origin}' is not allowed.`);
             return callback(new Error("Not allowed by CORS"));
         },
         credentials: true,
@@ -60,11 +66,17 @@ app.use("/api/topics", topicRoutes);
 
 const PORT = Number(process.env.PORT) || 5000;
 
-const start = async () => {
-    await connectDB();
-    app.listen(PORT, () => {
-        console.log(`Server is running on http://localhost:${PORT}`);
-    });
-};
+if (process.env.NODE_ENV !== "production") {
+    const start = async () => {
+        await connectDB();
+        app.listen(PORT, () => {
+            console.log(`Server is running on http://localhost:${PORT}`);
+        });
+    };
+    start();
+} else {
+    // Cho môi trường production (Vercel Serverless)
+    connectDB().catch(console.error);
+}
 
-start();
+export default app;
