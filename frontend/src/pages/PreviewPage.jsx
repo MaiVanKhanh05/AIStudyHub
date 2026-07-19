@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { API_URL } from "@/config/api.js";
 import { useParams, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -140,10 +140,10 @@ export default function PreviewPage() {
               </button>
             )}
             <button 
-              onClick={() => navigate("/")}
+            onClick={() => navigate(-1)}
               className="w-full px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm rounded-xl transition-all cursor-pointer"
             >
-              Quay về trang chủ
+              Quay lại
             </button>
           </div>
         </div>
@@ -163,10 +163,10 @@ export default function PreviewPage() {
           <h1 className="text-xl font-bold text-slate-800 mb-2">Lỗi truy cập</h1>
           <p className="text-slate-500 mb-6">{error}</p>
           <button 
-            onClick={() => navigate("/")}
+            onClick={() => navigate(-1)}
             className="px-6 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-xl transition-colors"
           >
-            Quay về trang chủ
+            Quay lại
           </button>
         </div>
       </div>
@@ -180,7 +180,7 @@ export default function PreviewPage() {
           doc={{ ...doc, hideChat: true }} 
           currentUserId={currentUserId}
           onShare={() => setShowShareModal(true)}
-          onClose={() => navigate("/")} 
+          onClose={() => navigate(-1)} 
         />
       )}
       {showShareModal && doc && (

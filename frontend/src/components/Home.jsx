@@ -1331,17 +1331,7 @@ export default function Home() {
     setSearchParams(newParams);
   };
 
-  useEffect(() => {
-    const handlePopState = (e) => {
-      if (!e.state || e.state.view !== 'folder') {
-        setPersonalSelectedFolder(null);
-      } else if (e.state && e.state.view === 'folder') {
-        setPersonalSelectedFolder(e.state.subj);
-      }
-    };
-    window.addEventListener("popstate", handlePopState);
-    return () => window.removeEventListener("popstate", handlePopState);
-  }, []);
+
 
   useEffect(() => {
     const checkOpenDoc = async () => {
@@ -4860,7 +4850,6 @@ export default function Home() {
                           onClick={() => {
                             setPersonalSelectedFolder(subj);
                             setDocManagePage(1);
-                            window.history.pushState({ view: 'folder', subj }, "");
                           }}
                           onContextMenu={(e) => handleContextMenu(e, 'folder', subj)}
                           className="cursor-pointer bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 hover:border-purple-500 hover:shadow-lg transition-all group flex flex-col justify-between"
