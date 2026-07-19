@@ -225,11 +225,7 @@ export default function AdminUserManagement() {
                       key={opt.value}
                       onClick={() => {
                         setLocalRoleFilter(opt.value);
-<<<<<<< HEAD
-                        setSearchParams(prev => { prev.set("role", opt.value); return prev; });
-=======
                         setSearchParams({ role: opt.value, status: localStatusFilter });
->>>>>>> 2583635 (feat: improve admin user filter, UI layout and URL routing)
                         setIsRoleDropdownOpen(false);
         setIsStatusDropdownOpen(false);
                       }}
@@ -242,18 +238,10 @@ export default function AdminUserManagement() {
                 </div>
               )}
             </div>
-<<<<<<< HEAD
-
-            <div className="relative" ref={statusDropdownRef}>
-              <button
-                type="button"
-                onClick={() => setIsStatusDropdownOpen(!isStatusDropdownOpen)}
-=======
             <div className="relative" ref={statusDropdownRef}>
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); setIsStatusDropdownOpen(!isStatusDropdownOpen); setIsRoleDropdownOpen(false); }}
->>>>>>> 2583635 (feat: improve admin user filter, UI layout and URL routing)
                 className="flex items-center justify-between gap-3 px-3.5 py-1.5 text-[12.5px] border border-gray-200 hover:border-purple-300 hover:bg-purple-50/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-purple-100 min-w-[150px] font-medium text-slate-700 transition-all shadow-sm cursor-pointer"
               >
                 <span className="truncate">{selectedStatus.label}</span>
@@ -266,11 +254,7 @@ export default function AdminUserManagement() {
                       key={opt.value}
                       onClick={() => {
                         setLocalStatusFilter(opt.value);
-<<<<<<< HEAD
-                        setSearchParams(prev => { prev.set("status", opt.value); return prev; });
-=======
                         setSearchParams({ role: localRoleFilter, status: opt.value });
->>>>>>> 2583635 (feat: improve admin user filter, UI layout and URL routing)
                         setIsStatusDropdownOpen(false);
                       }}
                       className={`w-full text-left px-3.5 py-2 text-[12.5px] font-medium transition-colors cursor-pointer
@@ -282,10 +266,7 @@ export default function AdminUserManagement() {
                 </div>
               )}
             </div>
-<<<<<<< HEAD
             
-=======
->>>>>>> 2583635 (feat: improve admin user filter, UI layout and URL routing)
             <div className="relative">
               <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
