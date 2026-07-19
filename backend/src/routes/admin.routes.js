@@ -27,6 +27,7 @@ router.get("/popular-documents", adminController.getPopularDocuments);
 router.get("/api-usage", adminController.getApiUsage);
 
 import * as adminTopicController from "../controllers/adminTopic.controller.js";
+import * as adminSemesterController from "../controllers/adminSemester.controller.js";
 
 // Topics Management
 router.get("/topics", adminTopicController.getAdminTopics);
@@ -34,5 +35,12 @@ router.post("/topics", adminTopicController.createAdminTopic);
 router.put("/topics/:id", adminTopicController.updateAdminTopic);
 router.delete("/topics/:id", adminTopicController.deleteAdminTopic);
 router.post("/topics/:id/subjects", adminTopicController.assignSubjectsToTopic);
+
+// Semesters Management
+router.get("/semesters", adminSemesterController.getAdminSemesters);
+router.post("/semesters", adminSemesterController.createAdminSemester);
+router.put("/semesters/:id", adminSemesterController.updateAdminSemester);
+router.delete("/semesters/:id", adminSemesterController.deleteAdminSemester);
+router.post("/semesters/:id/subjects", adminSemesterController.assignSubjectsToSemester);
 
 export default router;

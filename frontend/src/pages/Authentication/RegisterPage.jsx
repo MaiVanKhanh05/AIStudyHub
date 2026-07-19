@@ -450,7 +450,7 @@ export default function RegisterPage() {
                 </div>
                 {role === "LECTURER" && (
                   <p className="text-[11px] text-purple-600/70 dark:text-purple-400/70 mt-0.5 pl-0.5">
-                    {language === "vi" ? "ℹ️ Tài khoản giảng viên sẽ chờ Admin xác nhận trước khi kích hoạt." : "ℹ️ Lecturer accounts will await Admin approval before activation."}
+                    {language === "vi" ? "Tài khoản giảng viên sẽ chờ Admin xác nhận trước khi kích hoạt." : "Lecturer accounts will await Admin approval before activation."}
                   </p>
                 )}
               </div>

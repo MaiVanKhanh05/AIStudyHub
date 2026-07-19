@@ -62,6 +62,14 @@ export const translations = {
         },
         // General Dashboard / Home
         dashboard: {
+            title_main: "Quản lý tài liệu thông minh",
+            title_highlight: "cùng AI",
+            subtitle: "Lưu trữ, tìm kiếm và quản lý tài liệu một cách hiệu quả. Tận dụng AI để trò chuyện với tài liệu, tóm tắt nội dung, tìm kiếm thông tin và hỗ trợ xử lý tài liệu nhanh chóng.",
+            ai_name: "AI Assistant",
+            ai_status: "Online",
+            ai_suggestion: "Hãy giúp tôi học tốt hơn nhé?",
+            ai_hello: "Tôi có thể giúp bạn phân tích dữ liệu, viết code, trả lời câu hỏi và nhiều hơn nữa. Bạn muốn khám phá điều gì hôm nay?",
+            ai_placeholder: "Hãy hỏi tôi bất cứ điều gì nhé...",
             welcome: "Chào",
             welcome_sub: "Chào mừng bạn quay lại AIStudyHub. Hệ thống lưu trữ học tập đã sẵn sàng.",
             ai_assistant: "Trợ lý học tập AI",
@@ -77,6 +85,7 @@ export const translations = {
             sort_oldest: "Cũ nhất",
             sort_name: "Tên tài liệu",
             sort_size: "Kích thước tệp",
+            community_btn: "Xem cộng đồng",
 
             tabs: {
                 home: "Trang chủ",
@@ -138,10 +147,16 @@ export const translations = {
             notifications_see_all: "Xem tất cả",
             no_notifications: "Không có thông báo mới",
             quick_stats: "Tổng quan cá nhân",
-            total_docs: "Tài liệu đã lưu",
-            storage_used: "Dung lượng dùng",
+            total_docs: "Tài liệu đã tải lên",
+            storage_used: "Dung lượng đã sử dụng",
             account_type: "Loại tài khoản",
             unread: "Chưa đọc",
+            recent_community: "Cộng đồng chia sẻ gần đây",
+            recent_viewed: "Tài liệu đã xem gần đây",
+            no_community_docs: "Không có tài liệu nào được chia sẻ trong 3 ngày qua.",
+            no_views_yet: "Bạn chưa xem tài liệu nào gần đây",
+            contact_support: "Liên hệ hỗ trợ",
+            yours: "của bạn"
         },
         // My Documents screen
         myDocs: {
@@ -521,6 +536,14 @@ export const translations = {
         },
         // General Dashboard / Home
         dashboard: {
+            title_main: "Smart document management",
+            title_highlight: "with AI",
+            subtitle: "Store, search, and manage documents effectively. Leverage AI to chat with documents, summarize content, search for information, and process documents quickly.",
+            ai_name: "AI Assistant",
+            ai_status: "Online",
+            ai_suggestion: "Can you help me study better?",
+            ai_hello: "I can help you analyze data, write code, answer questions, and much more. What would you like to explore today?",
+            ai_placeholder: "Ask me anything...",
             welcome: "Hi",
             welcome_sub: "Welcome back to AIStudyHub. Your study vault is ready.",
             ai_assistant: "AI Study Assistant",
@@ -536,6 +559,7 @@ export const translations = {
             sort_oldest: "Oldest",
             sort_name: "Document Name",
             sort_size: "File Size",
+            community_btn: "View Community",
 
             tabs: {
                 home: "Home",
@@ -590,9 +614,9 @@ export const translations = {
         },
         // Home screen section headings
         home: {
-            recent_materials: "Recently stored materials",
+            recent_materials: "Recently Uploaded Documents",
             view_repository: "View repository",
-            no_uploads_yet: "No academic materials uploaded yet. Please add your files.",
+            no_uploads_yet: "You haven't uploaded any documents recently.",
             notifications_title: "System Notifications",
             notifications_see_all: "See all",
             no_notifications: "No new notifications",
@@ -601,6 +625,12 @@ export const translations = {
             storage_used: "Storage Used",
             account_type: "Account Type",
             unread: "Unread",
+            recent_community: "Recently Shared Community",
+            recent_viewed: "Recently Viewed Documents",
+            no_community_docs: "No documents shared in the past 3 days.",
+            no_views_yet: "You haven't viewed any documents recently",
+            contact_support: "Contact Support",
+            yours: "yours"
         },
         // My Documents screen
         myDocs: {

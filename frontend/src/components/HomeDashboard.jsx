@@ -1,4 +1,5 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { useLanguage } from "../context/LanguageContext";
 import { API_URL } from "@/config/api.js";
 import { motion, useReducedMotion } from 'motion/react';
 import {
@@ -50,8 +51,10 @@ export default function HomeDashboard({
   handleMarkAsRead,
   handlePreviewClick
 }) {
+  const { t, language } = useLanguage();
   const [quickQuery, setQuickQuery] = useState("");
   const [showNotifMenu, setShowNotifMenu] = useState(false);
+  const [activeNotificationTab, setActiveNotificationTab] = useState('ALL');
   const notifMenuRef = useRef(null);
   const [recentCommunityDocs, setRecentCommunityDocs] = useState([]);
   const [viewHistory, setViewHistory] = useState([]);
@@ -283,7 +286,7 @@ export default function HomeDashboard({
               style={{ color: '#0f172a' }}
               className="text-5xl md:text-6xl lg:text-[4.5rem] font-bold tracking-tight leading-[1.15]"
             >
-              Quản lý tài liệu thông minh <span style={{ color: '#6366f1' }}>cùng AI</span>
+              {t("dashboard.title_main") || "Quản lý tài liệu thông minh"} <span style={{ color: '#6366f1' }}>{t("dashboard.title_highlight") || "cùng AI"}</span>
             </h1>
 
             {/* Subtitle */}
@@ -291,7 +294,7 @@ export default function HomeDashboard({
               style={{ color: '#64748b' }}
               className="text-lg md:text-xl font-normal leading-relaxed max-w-3xl px-4"
             >
-              Lưu trữ, tìm kiếm và quản lý tài liệu một cách hiệu quả. Tận dụng AI để trò chuyện với tài liệu, tóm tắt nội dung, tìm kiếm thông tin và hỗ trợ xử lý tài liệu nhanh chóng.
+              {t("dashboard.subtitle") || "Lưu trữ, tìm kiếm và quản lý tài liệu một cách hiệu quả. Tận dụng AI để trò chuyện với tài liệu, tóm tắt nội dung, tìm kiếm thông tin và hỗ trợ xử lý tài liệu nhanh chóng."}
             </p>
 
             {/* Action Buttons */}
@@ -301,7 +304,7 @@ export default function HomeDashboard({
                 style={{ backgroundColor: '#6366f1', color: '#ffffff' }}
                 className="w-[260px] h-[72px] justify-center rounded-2xl hover:opacity-90 font-semibold text-lg shadow-[0_4px_14px_0_rgba(99,102,241,0.39)] hover:shadow-[0_6px_20px_rgba(99,102,241,0.23)] hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center gap-2"
               >
-                Tải tài liệu lên <UploadSimple weight="bold" className="w-5 h-5 ml-1" />
+                {t("dashboard.upload_btn") || "Tải tài liệu lên"} <UploadSimple weight="bold" className="w-5 h-5 ml-1" />
               </button>
 
               <button
@@ -309,7 +312,7 @@ export default function HomeDashboard({
                 style={{ backgroundColor: 'transparent', color: '#334155' }}
                 className="w-[260px] h-[72px] justify-center rounded-2xl border-2 border-[#e2e8f0] hover:bg-slate-50 hover:border-indigo-500 hover:shadow-[0_0_15px_rgba(99,102,241,0.35)] hover:text-indigo-600 font-semibold text-lg transition-all duration-300 cursor-pointer flex items-center gap-2"
               >
-                Xem Cộng đồng
+                {t("dashboard.community_btn") || "Xem Cộng đồng"}
               </button>
             </div>
           </motion.div>
@@ -329,10 +332,10 @@ export default function HomeDashboard({
                 <Robot weight="fill" className="w-5 h-5 text-white" />
               </div>
               <div className="flex flex-col">
-                <h3 className="text-base font-bold text-slate-800 leading-tight">AI Assistant</h3>
+                <h3 className="text-base font-bold text-slate-800 leading-tight">{t("dashboard.ai_name") || "AI Assistant"}</h3>
                 <div className="flex items-center gap-1.5 mt-0.5">
                   <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-                  <span className="text-xs font-medium text-emerald-500">Online</span>
+                  <span className="text-xs font-medium text-emerald-500">{t("dashboard.ai_status") || "Online"}</span>
                 </div>
               </div>
             </div>
@@ -342,7 +345,7 @@ export default function HomeDashboard({
               {/* User Message */}
               <div className="flex justify-end">
                 <div className="bg-indigo-500 text-white px-5 py-3.5 rounded-2xl rounded-tr-sm text-sm font-medium shadow-sm max-w-[80%]">
-                  Hãy giúp tôi học tốt hơn nhé?
+                  {t("dashboard.ai_suggestion") || "Hãy giúp tôi học tốt hơn nhé?"}
                 </div>
               </div>
 
@@ -352,7 +355,7 @@ export default function HomeDashboard({
                   <Robot weight="fill" className="w-4 h-4 text-white" />
                 </div>
                 <div className="bg-white border border-slate-100 text-slate-700 px-5 py-3.5 rounded-2xl rounded-tl-sm text-sm font-medium shadow-sm max-w-[85%] leading-relaxed">
-                  Tôi có thể giúp bạn phân tích dữ liệu, viết code, trả lời câu hỏi và nhiều hơn nữa. Bạn muốn khám phá điều gì hôm nay?
+                      {t("dashboard.ai_hello") || "Tôi có thể giúp bạn phân tích dữ liệu, viết code, trả lời câu hỏi và nhiều hơn nữa. Bạn muốn khám phá điều gì hôm nay?"}
                 </div>
               </div>
             </div>
@@ -367,7 +370,7 @@ export default function HomeDashboard({
                   type="text"
                   value={quickQuery}
                   onChange={(e) => setQuickQuery(e.target.value)}
-                  placeholder="Hãy hỏi tôi bất cứ điều gì nhé..."
+                  placeholder={t("dashboard.ai_placeholder") || "Hãy hỏi tôi bất cứ điều gì nhé..."}
                   style={{ backgroundColor: '#f8fafc', borderColor: '#e2e8f0', color: '#0f172a' }}
                   className="flex-1 rounded-2xl border px-5 py-3.5 focus:outline-none focus:ring-0 focus:border-indigo-400 focus:bg-white text-sm font-medium placeholder:text-slate-400 placeholder:font-normal transition-all shadow-sm"
                 />
@@ -398,10 +401,10 @@ export default function HomeDashboard({
               <div style={{ borderColor: '#f1f5f9' }} className="flex justify-between items-center border-b pb-3">
                 <div className="flex items-center gap-2.5">
                   <Users weight="bold" className="w-5 h-5" style={{ color: '#6366f1' }} />
-                  <h3 style={{ color: '#1e293b' }} className="text-lg font-semibold">Cộng đồng chia sẻ gần đây</h3>
+                  <h3 style={{ color: '#1e293b' }} className="text-lg font-semibold">{t("home.recent_community")}</h3>
                 </div>
                 <span style={{ color: '#d946ef' }} className="text-sm font-medium hover:opacity-80 flex items-center gap-1 group/link cursor-pointer">
-                  Xem cộng đồng <CaretRight weight="bold" className="w-3.5 h-3.5 transition-transform group-hover/link:translate-x-0.5" />
+                  {t("dashboard.community_btn")} <CaretRight weight="bold" className="w-3.5 h-3.5 transition-transform group-hover/link:translate-x-0.5" />
                 </span>
               </div>
 
@@ -421,7 +424,7 @@ export default function HomeDashboard({
                   ))
                 ) : (
                   <div className="w-full flex items-center justify-center text-sm text-slate-400 italic py-4">
-                    Không có tài liệu nào được chia sẻ trong 3 ngày qua.
+                    {t("home.no_community_docs")}
                   </div>
                 )}
               </div>
@@ -436,14 +439,14 @@ export default function HomeDashboard({
                 <div style={{ borderColor: '#f1f5f9' }} className="flex justify-between items-center border-b pb-3 mb-2">
                   <div className="flex items-center gap-2.5">
                     <UploadSimple weight="bold" className="w-5 h-5" style={{ color: '#6366f1' }} />
-                    <h3 style={{ color: '#1e293b' }} className="text-lg font-semibold">Tài liệu upload gần đây</h3>
+                    <h3 style={{ color: '#1e293b' }} className="text-lg font-semibold">{t("home.recent_materials")}</h3>
                   </div>
                   <span
                     onClick={() => setActiveTab('Document Management')}
                     style={{ color: '#6366f1' }}
                     className="text-sm font-medium hover:opacity-80 flex items-center gap-1 group/link cursor-pointer"
                   >
-                    Xem tất cả <CaretRight weight="bold" className="w-3.5 h-3.5 transition-transform group-hover/link:translate-x-0.5" />
+                    {t("home.notifications_see_all")} <CaretRight weight="bold" className="w-3.5 h-3.5 transition-transform group-hover/link:translate-x-0.5" />
                   </span>
                 </div>
                 <div className="flex flex-col gap-2 overflow-y-auto custom-scrollbar pr-2 flex-1">
@@ -465,7 +468,7 @@ export default function HomeDashboard({
                     </div>
                   )) : (
                     <div style={{ color: '#94a3b8' }} className="flex items-center justify-center h-full text-sm">
-                      Bạn chưa tải lên tài liệu nào gần đây
+                      {t("home.no_uploads_yet")}
                     </div>
                   )}
                 </div>
@@ -479,14 +482,14 @@ export default function HomeDashboard({
                 <div style={{ borderColor: '#f1f5f9' }} className="flex justify-between items-center border-b pb-3 mb-2">
                   <div className="flex items-center gap-2.5">
                     <ClockCounterClockwise weight="bold" className="w-5 h-5" style={{ color: '#6366f1' }} />
-                    <h3 style={{ color: '#1e293b' }} className="text-lg font-semibold">Tài liệu đã xem gần đây</h3>
+                    <h3 style={{ color: '#1e293b' }} className="text-lg font-semibold">{t("home.recent_viewed")}</h3>
                   </div>
                   <span
                     onClick={() => setActiveTab('History')}
                     style={{ color: '#6366f1' }}
                     className="text-sm font-medium hover:opacity-80 flex items-center gap-1 group/link cursor-pointer"
                   >
-                    Xem tất cả <CaretRight weight="bold" className="w-3.5 h-3.5 transition-transform group-hover/link:translate-x-0.5" />
+                    {t("home.notifications_see_all")} <CaretRight weight="bold" className="w-3.5 h-3.5 transition-transform group-hover/link:translate-x-0.5" />
                   </span>
                 </div>
                 <div className="flex flex-col gap-2 overflow-y-auto custom-scrollbar pr-2 flex-1">
@@ -508,7 +511,7 @@ export default function HomeDashboard({
                     </div>
                   )) : (
                     <div style={{ color: '#94a3b8' }} className="flex items-center justify-center h-full text-sm">
-                      Bạn chưa xem tài liệu nào gần đây
+                      {t("home.no_views_yet")}
                     </div>
                   )}
                 </div>
@@ -522,7 +525,7 @@ export default function HomeDashboard({
               <div className="flex justify-between items-center text-xs font-semibold text-slate-800">
                 <div className="flex items-center gap-1.5">
                   <Cloud className="w-5 h-5 text-indigo-500" weight="duotone" />
-                  <span style={{ color: '#1e293b' }} className="text-sm font-semibold">Dung lượng đã sử dụng</span>
+                  <span style={{ color: '#1e293b' }} className="text-sm font-semibold">{t("home.storage_used")}</span>
                 </div>
                 <span style={{ color: '#6366f1' }} className="text-sm font-bold">1%</span>
               </div>
@@ -538,17 +541,17 @@ export default function HomeDashboard({
             <div className="flex flex-col items-center justify-center h-full">
               <div style={{ color: '#0f172a', fontSize: '4rem', lineHeight: 1 }} className="font-bold -mb-1">{documents.length}</div>
               <h3 style={{ color: '#475569' }} className="text-sm font-semibold text-center mt-2">
-                Tài liệu đã tải lên
+                {t("home.total_docs")}
               </h3>
               <div className="w-8 h-px bg-slate-200 my-3"></div>
-              <span style={{ color: '#94a3b8' }} className="text-[10px] uppercase font-bold tracking-widest">của bạn</span>
+              <span style={{ color: '#94a3b8' }} className="text-[10px] uppercase font-bold tracking-widest">{t("home.yours")}</span>
             </div>
           </SaasCard>
 
           {/* Contact (Col 4) */}
           <SaasCard className="md:col-span-4 md:row-span-1" delay={0.6} onClick={() => window.location.href = 'mailto:support@aistudyhub.com'} pClass="p-4 md:p-6">
             <div className="flex flex-col items-center justify-center h-full">
-              <h3 style={{ color: '#1e293b' }} className="text-2xl font-bold text-center">Liên hệ<br />hỗ trợ</h3>
+              <h3 style={{ color: '#1e293b' }} className="text-2xl font-bold text-center whitespace-pre-line">{t("home.contact_support")}</h3>
             </div>
           </SaasCard>
 

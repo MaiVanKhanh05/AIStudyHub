@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { API_URL } from "@/config/api.js";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { AlertTriangle, GraduationCap, BookOpen } from "lucide-react";
@@ -328,7 +328,7 @@ export default function OAuthCallbackPage() {
               )}
               {role === "LECTURER" && (
                 <p className="text-[11px] text-purple-600/70 dark:text-purple-400/70 pl-0.5">
-                  {language === "vi" ? "ℹ️ Tài khoản giảng viên sẽ chờ Admin xác nhận trước khi kích hoạt." : "ℹ️ Lecturer accounts will await Admin approval before activation."}
+                  {language === "vi" ? "Tài khoản giảng viên sẽ chờ Admin xác nhận trước khi kích hoạt." : "Lecturer accounts will await Admin approval before activation."}
                 </p>
               )}
 

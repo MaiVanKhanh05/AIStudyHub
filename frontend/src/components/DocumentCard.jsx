@@ -1,4 +1,4 @@
-﻿import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { API_URL } from "@/config/api.js";
 import { useLanguage } from "../context/LanguageContext";
 import {
@@ -280,9 +280,6 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
     if (e) e.stopPropagation();
     const docId = doc?.document_id || doc?.id;
     if (!docId) return;
-
-    const confirmed = window.confirm(language === "vi" ? "Bạn có chắc chắn muốn gỡ tài liệu này khỏi Trang Cộng Đồng không?" : "Are you sure you want to remove this document from the Community page?");
-    if (!confirmed) return;
 
     try {
       const token = localStorage.getItem("token") || sessionStorage.getItem("token");

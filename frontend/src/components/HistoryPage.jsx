@@ -1,4 +1,5 @@
 ﻿import React, { useState, useEffect } from 'react';
+import { useLanguage } from "../context/LanguageContext";
 import { API_URL } from "@/config/api.js";
 import { motion } from 'motion/react';
 import { 
@@ -12,6 +13,7 @@ import {
 } from '@phosphor-icons/react';
 
 export default function HistoryPage({ user, onPreview }) {
+  const { t, language } = useLanguage();
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -44,8 +46,8 @@ export default function HistoryPage({ user, onPreview }) {
   const handleClearHistory = async () => {
     const isDeletingAll = selectedItems.length === 0;
     const confirmMsg = isDeletingAll 
-      ? "Bạn có chắc chắn muốn xóa toàn bộ lịch sử xem tài liệu không? Hành động này không thể hoàn tác."
-      : `Bạn có chắc chắn muốn xóa ${selectedItems.length} mục đã chọn khỏi lịch sử không?`;
+      ? t("historyPage.confirm_delete_all", "Bạn có chắc chắn muốn xóa toàn bộ lịch sử xem tài liệu không? Hành động này không thể hoàn tác.")
+      : t("historyPage.confirm_delete_selected", "Bạn có chắc chắn muốn xóa {count} mục đã chọn khỏi lịch sử không?").replace("{count}", selectedItems.length);
       
     if (!window.confirm(confirmMsg)) {
       return;
@@ -104,11 +106,11 @@ export default function HistoryPage({ user, onPreview }) {
     
     let dateLabel = "";
     if (dateObj.toDateString() === today.toDateString()) {
-      dateLabel = `Hôm nay - ${dateObj.toLocaleDateString('vi-VN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}`;
+      dateLabel = `${t("historyPage.today", "Hôm nay")} - ${dateObj.toLocaleDateString(language === 'en' ? 'en-US' : 'vi-VN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}`;
     } else if (dateObj.toDateString() === yesterday.toDateString()) {
-      dateLabel = `Hôm qua - ${dateObj.toLocaleDateString('vi-VN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}`;
+      dateLabel = `${t("historyPage.yesterday", "Hôm qua")} - ${dateObj.toLocaleDateString(language === 'en' ? 'en-US' : 'vi-VN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}`;
     } else {
-      dateLabel = dateObj.toLocaleDateString('vi-VN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+      dateLabel = dateObj.toLocaleDateString(language === 'en' ? 'en-US' : 'vi-VN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
     }
     
     dateLabel = dateLabel.charAt(0).toUpperCase() + dateLabel.slice(1);
@@ -127,9 +129,9 @@ export default function HistoryPage({ user, onPreview }) {
         <div>
           <h1 className="text-2xl font-bold !text-slate-800 flex items-center gap-2">
             <ClockCounterClockwise className="w-7 h-7 text-indigo-600" weight="duotone" />
-            Lịch sử xem tài liệu
+            {t("historyPage.title", "Lịch sử xem tài liệu")}
           </h1>
-          <p className="!text-slate-500 mt-1">Quản lý các tài liệu bạn đã tương tác gần đây</p>
+          <p className="!text-slate-500 mt-1">{t("historyPage.subtitle", "Quản lý các tài liệu bạn đã tương tác gần đây")}</p>
         </div>
         
         {history.length > 0 && (
@@ -139,7 +141,7 @@ export default function HistoryPage({ user, onPreview }) {
                 onClick={() => setSelectedItems([])}
                 className="text-sm !text-slate-500 font-medium hover:!text-slate-700 transition-colors"
               >
-                Bỏ chọn
+                {t("historyPage.unselect", "Bỏ chọn")}
               </button>
             )}
             <button 
@@ -147,7 +149,7 @@ export default function HistoryPage({ user, onPreview }) {
               className="flex items-center gap-1.5 px-3 py-1.5 bg-transparent !text-slate-500 text-sm font-medium border border-slate-200 rounded-lg hover:bg-red-50 hover:!text-red-600 hover:border-red-200 transition-all"
             >
               <Trash weight="bold" className="w-4 h-4" />
-              {selectedItems.length > 0 ? `Xóa ${selectedItems.length} mục` : "Xóa toàn bộ lịch sử"}
+              {selectedItems.length > 0 ? t("historyPage.delete_selected", "Xóa {count} mục").replace("{count}", selectedItems.length) : t("historyPage.delete_all", "Xóa toàn bộ lịch sử")}
             </button>
           </div>
         )}
@@ -162,7 +164,7 @@ export default function HistoryPage({ user, onPreview }) {
             <MagnifyingGlass className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 !text-slate-400" />
             <input 
               type="text" 
-              placeholder="Tìm kiếm trong lịch sử (tên tài liệu, mã môn)..."
+              placeholder={t("historyPage.search_placeholder", "Tìm kiếm trong lịch sử (tên tài liệu, mã môn)...")}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-sm !text-slate-800 placeholder:!text-slate-400"
@@ -205,7 +207,7 @@ export default function HistoryPage({ user, onPreview }) {
                           />
                         </div>
                         <div className="w-12 text-sm font-medium !text-slate-500 shrink-0 text-center">
-                          {new Date(doc.viewed_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                          {new Date(doc.viewed_at).toLocaleTimeString(language === 'en' ? 'en-US' : 'vi-VN', { hour: '2-digit', minute: '2-digit' })}
                         </div>
                         <div className="w-8 h-8 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 shrink-0">
                           <FileText weight="fill" className="w-4 h-4" />
@@ -213,7 +215,7 @@ export default function HistoryPage({ user, onPreview }) {
                         <div className="flex flex-col min-w-0 justify-center flex-1 ml-2">
                           <h3 className="text-sm font-semibold !text-slate-800 truncate group-hover:!text-indigo-600 transition-colors">{doc.title}</h3>
                           <div className="text-[11px] !text-slate-500 font-medium truncate mt-0.5">
-                            {doc.subject_code} • {doc.uploader_name || 'Hệ thống'}
+                            {doc.subject_code} • {doc.uploader_name || t("historyPage.system", "Hệ thống")}
                           </div>
                         </div>
                       </div>
@@ -227,9 +229,9 @@ export default function HistoryPage({ user, onPreview }) {
               <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mb-4">
                 <ClockCounterClockwise weight="duotone" className="w-12 h-12 !text-slate-300" />
               </div>
-              <p className="text-lg font-medium !text-slate-600">Không tìm thấy lịch sử</p>
+              <p className="text-lg font-medium !text-slate-600">{t("historyPage.empty_title", "Không tìm thấy lịch sử")}</p>
               <p className="text-sm mt-1 text-center max-w-sm">
-                Bạn chưa xem tài liệu nào gần đây hoặc không có tài liệu nào khớp với từ khóa tìm kiếm.
+                {t("historyPage.empty_desc", "Bạn chưa xem tài liệu nào gần đây hoặc không có tài liệu nào khớp với từ khóa tìm kiếm.")}
               </p>
             </div>
           )}

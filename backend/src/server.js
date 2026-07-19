@@ -14,6 +14,7 @@ import subjectRoutes from "./routes/subject.routes.js";
 import chatRoutes from "./routes/chat.routes.js";
 import notificationRoutes from "./routes/notification.routes.js";
 import topicRoutes from "./routes/topic.routes.js";
+import semesterRoutes from "./routes/semester.routes.js";
 
 import { connectDB } from "../DB/db.js";
 
@@ -63,6 +64,7 @@ app.use("/api/subjects", subjectRoutes);
 app.use("/api/chat", chatRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/topics", topicRoutes);
+app.use("/api/semesters", semesterRoutes);
 
 const PORT = Number(process.env.PORT) || 5000;
 

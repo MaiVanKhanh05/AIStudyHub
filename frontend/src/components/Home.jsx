@@ -144,6 +144,58 @@ function renderMiniIcon(fileType = "") {
   return (
     <div className="w-8 h-8 rounded-lg bg-slate-600 text-white flex items-center justify-center font-extrabold text-[9px] select-none shadow-sm">
       FILE
+
+      {contextMenu && (
+        <div 
+          className="fixed z-[9999] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl py-1.5 min-w-[180px] overflow-hidden"
+          style={{ 
+            top: `${Math.min(contextMenu.y, window.innerHeight - 150)}px`, 
+            left: `${Math.min(contextMenu.x, window.innerWidth - 180)}px` 
+          }}
+          onClick={(e) => e.stopPropagation()}
+          onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); }}
+        >
+          {contextMenu.type === 'document' ? (
+            <>
+              <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800 mb-1">
+                Đã chọn {selectedDocIds.size} tài liệu
+              </div>
+              <button 
+                onClick={() => { setContextMenu(null); handleBulkShare(); }}
+                className="w-full flex items-center gap-2 px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-purple-50 dark:hover:bg-purple-900/30 hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
+              >
+                <Share2 className="w-4 h-4" />
+                Chia sẻ cộng đồng
+              </button>
+              <button 
+                onClick={() => { setContextMenu(null); handleBulkDelete(); }}
+                className="w-full flex items-center gap-2 px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-red-50 dark:hover:bg-red-900/30 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+              >
+                <Trash2 className="w-4 h-4" />
+                Xóa tài liệu
+              </button>
+            </>
+          ) : (
+            <>
+              <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800 mb-1">
+                {contextMenu.data}
+              </div>
+              <button 
+                onClick={() => { 
+                  setContextMenu(null); 
+                  setUploadSubject(contextMenu.data); 
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                className="w-full flex items-center gap-2 px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-purple-50 dark:hover:bg-purple-900/30 hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
+              >
+                <UploadCloud className="w-4 h-4" />
+                Tải lên môn này
+              </button>
+            </>
+          )}
+        </div>
+      )}
+
     </div>
   );
 }
@@ -161,6 +213,58 @@ function renderMiniBadge(fileType = "") {
   return (
     <div className={`w-10 h-10 rounded-xl ${bgClass} flex items-center justify-center shadow-sm shrink-0`}>
       <FileText className="w-5 h-5 text-white" />
+
+      {contextMenu && (
+        <div 
+          className="fixed z-[9999] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl py-1.5 min-w-[180px] overflow-hidden"
+          style={{ 
+            top: `${Math.min(contextMenu.y, window.innerHeight - 150)}px`, 
+            left: `${Math.min(contextMenu.x, window.innerWidth - 180)}px` 
+          }}
+          onClick={(e) => e.stopPropagation()}
+          onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); }}
+        >
+          {contextMenu.type === 'document' ? (
+            <>
+              <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800 mb-1">
+                Đã chọn {selectedDocIds.size} tài liệu
+              </div>
+              <button 
+                onClick={() => { setContextMenu(null); handleBulkShare(); }}
+                className="w-full flex items-center gap-2 px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-purple-50 dark:hover:bg-purple-900/30 hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
+              >
+                <Share2 className="w-4 h-4" />
+                Chia sẻ cộng đồng
+              </button>
+              <button 
+                onClick={() => { setContextMenu(null); handleBulkDelete(); }}
+                className="w-full flex items-center gap-2 px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-red-50 dark:hover:bg-red-900/30 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+              >
+                <Trash2 className="w-4 h-4" />
+                Xóa tài liệu
+              </button>
+            </>
+          ) : (
+            <>
+              <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800 mb-1">
+                {contextMenu.data}
+              </div>
+              <button 
+                onClick={() => { 
+                  setContextMenu(null); 
+                  setUploadSubject(contextMenu.data); 
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                className="w-full flex items-center gap-2 px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-purple-50 dark:hover:bg-purple-900/30 hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
+              >
+                <UploadCloud className="w-4 h-4" />
+                Tải lên môn này
+              </button>
+            </>
+          )}
+        </div>
+      )}
+
     </div>
   );
 }
@@ -335,6 +439,58 @@ function InlinedDocumentCard({ docId, onPreview }) {
           )}
         </div>
       </div>
+
+      {contextMenu && (
+        <div 
+          className="fixed z-[9999] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl py-1.5 min-w-[180px] overflow-hidden"
+          style={{ 
+            top: `${Math.min(contextMenu.y, window.innerHeight - 150)}px`, 
+            left: `${Math.min(contextMenu.x, window.innerWidth - 180)}px` 
+          }}
+          onClick={(e) => e.stopPropagation()}
+          onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); }}
+        >
+          {contextMenu.type === 'document' ? (
+            <>
+              <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800 mb-1">
+                Đã chọn {selectedDocIds.size} tài liệu
+              </div>
+              <button 
+                onClick={() => { setContextMenu(null); handleBulkShare(); }}
+                className="w-full flex items-center gap-2 px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-purple-50 dark:hover:bg-purple-900/30 hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
+              >
+                <Share2 className="w-4 h-4" />
+                Chia sẻ cộng đồng
+              </button>
+              <button 
+                onClick={() => { setContextMenu(null); handleBulkDelete(); }}
+                className="w-full flex items-center gap-2 px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-red-50 dark:hover:bg-red-900/30 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+              >
+                <Trash2 className="w-4 h-4" />
+                Xóa tài liệu
+              </button>
+            </>
+          ) : (
+            <>
+              <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800 mb-1">
+                {contextMenu.data}
+              </div>
+              <button 
+                onClick={() => { 
+                  setContextMenu(null); 
+                  setUploadSubject(contextMenu.data); 
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                className="w-full flex items-center gap-2 px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-purple-50 dark:hover:bg-purple-900/30 hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
+              >
+                <UploadCloud className="w-4 h-4" />
+                Tải lên môn này
+              </button>
+            </>
+          )}
+        </div>
+      )}
+
     </div>
   );
 }
@@ -785,7 +941,22 @@ export default function Home() {
   const [communityViewMode, setCommunityViewMode] = useState("TOPICS"); // TOPICS | DOCS
   const [communityTopics, setCommunityTopics] = useState([]);
   const [communityTopicsLoading, setCommunityTopicsLoading] = useState(false);
+  const [dbSemesters, setDbSemesters] = useState([]);
+  const [dbSemestersLoading, setDbSemestersLoading] = useState(false);
   const [selectedCommunityTopicId, setSelectedCommunityTopicId] = useState(null);
+
+  const selectedCommunitySemesterIdStr = searchParams.get("semester") || null;
+  const selectedCommunitySemesterId = selectedCommunitySemesterIdStr ? (isNaN(Number(selectedCommunitySemesterIdStr)) ? selectedCommunitySemesterIdStr : Number(selectedCommunitySemesterIdStr)) : null;
+
+  const setSelectedCommunitySemesterId = (id) => {
+    const newParams = new URLSearchParams(searchParams);
+    if (id !== null && id !== undefined) {
+      newParams.set("semester", id);
+    } else {
+      newParams.delete("semester");
+    }
+    setSearchParams(newParams);
+  };
   const selectedCommunitySubjectCode = searchParams.get("subject") || null;
   const setSelectedCommunitySubjectCode = (subject) => {
     const newParams = new URLSearchParams(searchParams);
@@ -793,13 +964,14 @@ export default function Home() {
     else newParams.delete("subject");
     setSearchParams(newParams);
   };
-  const [communityClassificationTab, setCommunityClassificationTab] = useState("ALL"); // "ALL" | "SEMESTERS"
+  const [communityClassificationTab, setCommunityClassificationTab] = useState(searchParams.get("semester") ? "SEMESTERS" : "ALL"); // "ALL" | "SEMESTERS"
   // Map of subject_code -> { subject_code, subject_name, doc_count } for subjects with public docs
   const [subjectsDocCounts, setSubjectsDocCounts] = useState([]);
 
   const getSemestersData = useMemo(() => {
-    // Build a map from all subjects that have public documents
-    // Source: /api/subjects/doc-counts — includes ALL subjects with docs, even those not in any topic
+    const searchLower = communitySearch.trim().toLowerCase();
+    
+    // Create map for fast lookup of doc counts from activeSubjectsMap
     const activeSubjectsMap = new Map();
     subjectsDocCounts.forEach(sub => {
       activeSubjectsMap.set(sub.subject_code, {
@@ -809,19 +981,16 @@ export default function Home() {
       });
     });
 
-    const allKnownCodes = new Set();
-    SEMESTER_MAP.forEach(sem => sem.subjects.forEach(c => allKnownCodes.add(c)));
-    OTHER_SUBJECTS_MAP.forEach(c => allKnownCodes.add(c));
-
-    const searchLower = communitySearch.trim().toLowerCase();
-
-    const groupedSemesters = SEMESTER_MAP.map(sem => {
-      const semSubjects = sem.subjects.map(code => {
-        const entry = activeSubjectsMap.get(code);
+    const colors = ["#3b82f6", "#10b981", "#8b5cf6", "#f59e0b", "#ec4899", "#06b6d4", "#f43f5e", "#14b8a6", "#6366f1", "#64748b"];
+    
+    return dbSemesters.map((sem, idx) => {
+      const semSubjects = (sem.subjects || []).map(sub => {
+        // Overwrite doc_count if activeSubjectsMap has it
+        const entry = activeSubjectsMap.get(sub.subject_code);
         return {
-          subject_code: code,
-          subject_name: entry ? entry.subject_name : "",
-          doc_count: entry ? entry.doc_count : 0
+          subject_code: sub.subject_code,
+          subject_name: sub.subject_name || "",
+          doc_count: entry ? entry.doc_count : (Number(sub.doc_count) || 0)
         };
       }).filter(sub => {
         if (!searchLower) return true;
@@ -830,69 +999,42 @@ export default function Home() {
         return codeMatch || nameMatch;
       });
 
+      // Sort subjects: ones with docs first, then alphabetically by subject code
+      semSubjects.sort((a, b) => {
+        if (a.doc_count > 0 && b.doc_count === 0) return -1;
+        if (a.doc_count === 0 && b.doc_count > 0) return 1;
+        return a.subject_code.localeCompare(b.subject_code);
+      });
+
       const totalDocs = semSubjects.reduce((acc, curr) => acc + curr.doc_count, 0);
 
       return {
-        semester_id: sem.id,
+        semester_id: sem.semester_id,
         name: sem.name,
         description: sem.description,
-        color: sem.color,
+        color: colors[idx % colors.length],
         subjects: semSubjects,
         totalDocs
       };
-    });
-
-    // Build "Khác" from:
-    // 1. Explicitly listed OTHER_SUBJECTS_MAP codes
-    // 2. Any subject with doc_count > 0 not in SEMESTER_MAP nor OTHER_SUBJECTS_MAP
-    let otherSubjects = [];
-    const addedOtherCodes = new Set();
-
-    OTHER_SUBJECTS_MAP.forEach(code => {
-      const entry = activeSubjectsMap.get(code);
-      otherSubjects.push({
-        subject_code: code,
-        subject_name: entry ? entry.subject_name : code,
-        doc_count: entry ? entry.doc_count : 0
-      });
-      addedOtherCodes.add(code);
-    });
-
-    // Append any remaining uploaded subjects not covered by SEMESTER_MAP or OTHER_SUBJECTS_MAP
-    activeSubjectsMap.forEach((subData, code) => {
-      if (!allKnownCodes.has(code) && !addedOtherCodes.has(code) && subData.doc_count > 0) {
-        otherSubjects.push(subData);
+    }).filter(sem => {
+      if (communitySearch) {
+         return sem.subjects.length > 0;
       }
+      return true; // Show all semesters when not searching
     });
+  }, [dbSemesters, communitySearch, subjectsDocCounts]);
 
-    // Filter other subjects
-    if (searchLower) {
-      otherSubjects = otherSubjects.filter(sub => {
-        const codeMatch = sub.subject_code.toLowerCase().includes(searchLower);
-        const nameMatch = (sub.subject_name || "").toLowerCase().includes(searchLower);
-        return codeMatch || nameMatch;
-      });
+  const fetchSemesters = async () => {
+    setDbSemestersLoading(true);
+    try {
+      const res = await axios.get(`${API_URL}/api/semesters`);
+      setDbSemesters(res.data || []);
+    } catch (err) {
+      console.error("Error fetching semesters:", err);
+    } finally {
+      setDbSemestersLoading(false);
     }
-
-    const otherTotalDocs = otherSubjects.reduce((acc, curr) => acc + curr.doc_count, 0);
-
-    const otherSemester = {
-      semester_id: "other",
-      name: "Khác",
-      description: "Các môn học ngoài chương trình chuẩn hoặc chưa phân loại học kỳ.",
-      color: "#64748b",
-      subjects: otherSubjects,
-      totalDocs: otherTotalDocs
-    };
-
-    // Filter semesters: only show semesters with matching subjects when filtering
-    return [...groupedSemesters, otherSemester].filter(sem => {
-      if (searchLower) {
-        return sem.subjects.length > 0;
-      }
-      return sem.semester_id !== "other" || sem.subjects.some(s => s.doc_count > 0);
-    });
-  }, [subjectsDocCounts, communitySearch]);
+  };
 
   const fetchCommunityTopics = async () => {
     setCommunityTopicsLoading(true);
@@ -931,6 +1073,7 @@ export default function Home() {
   };
 
   useEffect(() => {
+    fetchSemesters();
     fetchCommunityTopics();
     fetchSubjectsDocCounts();
   }, []);
@@ -1053,6 +1196,24 @@ export default function Home() {
     // Topic Subject filter
     if (selectedCommunitySubjectCode) {
       if (doc.subject_code !== selectedCommunitySubjectCode) return false;
+    }
+
+    // Semester filter
+    if (selectedCommunitySemesterId) {
+      const selectedSemester = dbSemesters.find(s => String(s.semester_id) === String(selectedCommunitySemesterId));
+      if (selectedSemester) {
+        const allowedSubjects = selectedSemester.subjects.map(s => s.subject_code);
+        if (!allowedSubjects.includes(doc.subject_code)) return false;
+      } else if (String(selectedCommunitySemesterId) === "other") {
+        // "Khác" logic: doc.subject_code must not be in any mapped subjects
+        let inAnyMapped = false;
+        dbSemesters.forEach(s => {
+          if (s.subjects.map(sub => sub.subject_code).includes(doc.subject_code)) {
+            inAnyMapped = true;
+          }
+        });
+        if (inAnyMapped) return false;
+      }
     }
 
     let matchesRole = true;
@@ -1233,11 +1394,16 @@ export default function Home() {
 
   // Real File Upload & Tag Editor States
   const [selectedFile, setSelectedFile] = useState(null);
+  const [selectedFiles, setSelectedFiles] = useState([]);
   const [documentTags, setDocumentTags] = useState([]);
   const [suggestedTags, setSuggestedTags] = useState([]);
   const [tagSearchInput, setTagSearchInput] = useState("");
   const [searchSuggestions, setSearchSuggestions] = useState([]);
   const [showTagSuggestions, setShowTagSuggestions] = useState(false);
+  const [selectedDocIds, setSelectedDocIds] = useState(new Set());
+  const [lastSelectedDocId, setLastSelectedDocId] = useState(null);
+  const [contextMenu, setContextMenu] = useState(null);
+  const [confirmAction, setConfirmAction] = useState({ isOpen: false, type: "", message: "", onConfirm: null });
   const [deleteConfirmDocId, setDeleteConfirmDocId] = useState(null);
   const [duplicateConfirmData, setDuplicateConfirmData] = useState(null);
 
@@ -2399,10 +2565,21 @@ export default function Home() {
   };
 
   const handleFileChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setSelectedFile(file);
-      setUploadTitle(file.name.replace(/\.[^/.]+$/, "")); // Also strip extension for cleaner title
+    const files = Array.from(e.target.files);
+    if (files.length > 0) {
+      setSelectedFiles(prev => {
+        const newFiles = [...prev, ...files.map(f => ({
+          file: f,
+          id: Math.random().toString(36).substring(7),
+          title: f.name.replace(/\.[^/.]+$/, ""),
+          status: "pending"
+        }))];
+        return newFiles;
+      });
+      if (!uploadTitle.trim()) {
+        setUploadTitle(files[0].name.replace(/\.[^/.]+$/, ""));
+      }
+      e.target.value = null;
     }
   };
 
@@ -2440,6 +2617,145 @@ export default function Home() {
 
     return () => clearTimeout(timeoutId);
   }, [uploadTitle, subjectsList, uploadSubject]);
+
+  // --- Bulk Selection & Context Menu Handlers ---
+  useEffect(() => {
+    const handleGlobalClick = () => {
+      if (contextMenu) setContextMenu(null);
+    };
+    window.addEventListener('click', handleGlobalClick);
+    return () => window.removeEventListener('click', handleGlobalClick);
+  }, [contextMenu]);
+
+  const handleDocClick = (e, docId) => {
+    // Prevent default to avoid side effects if needed
+    
+    if (e.shiftKey && lastSelectedDocId) {
+      // Create a temporary array of IDs based on docsToShow for correct order
+      const visibleIds = docsToShow.slice((docManagePage - 1) * 9, docManagePage * 9).map(d => d.document_id);
+      const startIdx = visibleIds.indexOf(lastSelectedDocId);
+      const endIdx = visibleIds.indexOf(docId);
+      
+      if (startIdx !== -1 && endIdx !== -1) {
+        const minIdx = Math.min(startIdx, endIdx);
+        const maxIdx = Math.max(startIdx, endIdx);
+        const newSelected = new Set(selectedDocIds);
+        for (let i = minIdx; i <= maxIdx; i++) {
+          newSelected.add(visibleIds[i]);
+        }
+        setSelectedDocIds(newSelected);
+      }
+    } else if (e.ctrlKey || e.metaKey) {
+      const newSelected = new Set(selectedDocIds);
+      if (newSelected.has(docId)) {
+        newSelected.delete(docId);
+      } else {
+        newSelected.add(docId);
+      }
+      setSelectedDocIds(newSelected);
+      setLastSelectedDocId(docId);
+    } else {
+      setSelectedDocIds(new Set([docId]));
+      setLastSelectedDocId(docId);
+    }
+  };
+
+  const handleContextMenu = (e, itemType, data) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (itemType === 'document') {
+      const docId = data.document_id;
+      if (!selectedDocIds.has(docId)) {
+        setSelectedDocIds(new Set([docId]));
+        setLastSelectedDocId(docId);
+      }
+    }
+    
+    setContextMenu({
+      type: itemType,
+      x: e.clientX,
+      y: e.clientY,
+      data
+    });
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedDocIds.size === 0) return;
+    
+    setConfirmAction({
+      isOpen: true,
+      type: 'delete',
+      message: `Bạn có chắc chắn muốn xóa ${selectedDocIds.size} tài liệu đã chọn?`,
+      onConfirm: async () => {
+        let successCount = 0;
+        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+        for (const docId of selectedDocIds) {
+          try {
+            const docToDelete = documents.find(d => d.document_id === docId);
+            if (docToDelete && docToDelete.file_url) {
+              try {
+                const urlParts = docToDelete.file_url.split("/AIStudyHub/");
+                if (urlParts.length > 1) {
+                  const filePath = decodeURIComponent(urlParts[1]);
+                  const storageResult = await deleteFileFromSupabase(filePath, "AIStudyHub");
+                  if (!storageResult.success) {
+                    console.warn("Could not delete from Supabase storage:", storageResult.error);
+                  }
+                }
+              } catch (storageErr) {
+                console.error("Storage deletion error:", storageErr);
+              }
+            }
+
+            await axios.delete(`${API_URL}/api/documents/${docId}?userId=${user.user_id}`, {
+              headers: { "Authorization": `Bearer ${token}` }
+            });
+            successCount++;
+          } catch (err) {
+            console.error('Lỗi xóa tài liệu:', err);
+            toast.error(err.response?.data?.error || `Lỗi xóa tài liệu ID ${docId}`);
+          }
+        }
+        
+        if (successCount > 0) {
+          toast.success(`Đã xóa ${successCount} tài liệu thành công!`);
+          setSelectedDocIds(new Set());
+          await fetchDashboard();
+        }
+      }
+    });
+  };
+
+  const handleBulkShare = async () => {
+    if (selectedDocIds.size === 0) return;
+    
+    setConfirmAction({
+      isOpen: true,
+      type: 'share',
+      message: `Bạn muốn chuyển ${selectedDocIds.size} tài liệu đã chọn sang chế độ Công cộng (Mọi người đều có thể xem)?`,
+      onConfirm: async () => {
+        let successCount = 0;
+        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+        for (const docId of selectedDocIds) {
+          try {
+            await axios.put(`${API_URL}/api/documents/${docId}/share`, {}, {
+              headers: { "Authorization": `Bearer ${token}` }
+            });
+            successCount++;
+          } catch (err) {
+            console.error('Lỗi chia sẻ tài liệu:', err);
+            toast.error(err.response?.data?.error || `Lỗi chia sẻ tài liệu ID ${docId}`);
+          }
+        }
+        
+        if (successCount > 0) {
+          toast.success(`Đã chia sẻ ${successCount} tài liệu thành công!`);
+          await fetchDashboard();
+        }
+      }
+    });
+  };
 
   const handleLogout = () => {
     localStorage.clear();
@@ -2497,35 +2813,44 @@ export default function Home() {
     if (e) e.preventDefault();
     if (isUploadingRef.current) return;
 
-    let fileToUpload = uploadParams?.fileToUpload || selectedFile;
-    let finalTitle = uploadParams?.finalTitle || uploadTitle.trim();
+    let filesToProcess = uploadParams?.fileToUpload 
+      ? [{ file: uploadParams.fileToUpload, title: uploadParams.finalTitle || uploadTitle.trim(), id: 'temp' }] 
+      : selectedFiles.filter(f => f.status === 'pending');
+
     let finalSubject = uploadParams?.subject !== undefined ? uploadParams.subject : uploadSubject;
     let finalTags = uploadParams?.tags !== undefined ? uploadParams.tags : documentTags;
 
-    if (!finalTitle) {
-      toast.warning("Vui lòng điền tiêu đề tài liệu!");
-      return;
-    }
-    if (!fileToUpload) {
+    if (filesToProcess.length === 0) {
       toast.warning("Vui lòng chọn một tệp để tải lên!");
       return;
     }
+    
+    if (filesToProcess.length === 1 && !filesToProcess[0].title) {
+       toast.warning("Vui lòng điền tiêu đề tài liệu!");
+       return;
+    }
 
-    if (!forceProceed) {
+    if (filesToProcess.length > 1 && filesToProcess.some(f => !f.title.trim())) {
+      toast.warning("Vui lòng không để trống tiêu đề của bất kỳ file nào!");
+      return;
+    }
+
+    if (!forceProceed && filesToProcess.length === 1) {
+      const singleFile = filesToProcess[0];
       const isDuplicateFile = documents.some(doc => {
         if (!doc.file_url) return false;
         const decodedUrl = decodeURIComponent(doc.file_url);
-        return decodedUrl.endsWith(`/${fileToUpload.name}`);
+        return decodedUrl.endsWith(`/${singleFile.file.name}`);
       });
 
-      const isDuplicateTitle = documents.some(doc => doc.title.toLowerCase() === finalTitle.toLowerCase());
+      const isDuplicateTitle = documents.some(doc => doc.title.toLowerCase() === singleFile.title.toLowerCase());
 
       if (isDuplicateFile || isDuplicateTitle) {
         setDuplicateConfirmData({
           isFileDuplicate: isDuplicateFile,
           isTitleDuplicate: isDuplicateTitle,
-          file: fileToUpload,
-          title: finalTitle,
+          file: singleFile.file,
+          title: singleFile.title,
           quickUploadSubject: uploadParams?.subject,
           quickUploadTags: uploadParams?.tags
         });
@@ -2537,7 +2862,6 @@ export default function Home() {
     setIsUploading(true);
     setUploadProgress(1);
 
-    // Simulate smooth progress up to 90%
     const progressInterval = setInterval(() => {
       setUploadProgress((prev) => {
         if (prev >= 90) return 90;
@@ -2546,69 +2870,72 @@ export default function Home() {
       });
     }, 300);
 
-    try {
-      // 1. Upload to Supabase Storage
-      const uploadResult = await uploadFileToSupabase(fileToUpload, "AIStudyHub", user.user_id);
+    let allSuccess = true;
+    let renamedCount = 0;
 
-      if (!uploadResult.success) {
-        throw new Error(uploadResult.error || "Lỗi khi tải tệp lên Supabase Storage.");
+    for (const fileItem of filesToProcess) {
+      try {
+        const uploadResult = await uploadFileToSupabase(fileItem.file, "AIStudyHub", user.user_id);
+
+        if (!uploadResult.success) {
+          throw new Error(uploadResult.error || "Lỗi khi tải tệp lên Supabase Storage.");
+        }
+
+        const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+        const response = await axios.post(`${API_URL}/api/documents/upload`, {
+          user_id: user.user_id,
+          subject: finalSubject || null,
+          title: filesToProcess.length === 1 && uploadTitle.trim() ? uploadTitle.trim() : fileItem.title,
+          description: finalSubject
+            ? `Tài liệu môn ${finalSubject} tự tải lên lưu trữ trên hệ thống`
+            : "Tài liệu tự do tự tải lên lưu trữ trên hệ thống",
+          file_url: uploadResult.fileUrl,
+          file_size: fileItem.file.size,
+          file_type: fileItem.file.name.split(".").pop().toUpperCase(),
+          visibility: user.role === "LECTURER" ? uploadVisibility : "PRIVATE",
+          tags: finalTags
+        }, {
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          }
+        });
+        
+        const savedData = response.data;
+        if (savedData.document.title !== (filesToProcess.length === 1 && uploadTitle.trim() ? uploadTitle.trim() : fileItem.title)) {
+           renamedCount++;
+        }
+      } catch (err) {
+        allSuccess = false;
+        console.error("Upload failed for file:", fileItem.file.name, err);
+        const errMsg = err.response?.data?.error || err.message || "Tải lên tệp không thành công.";
+        toast.error(`Lỗi tải lên "${fileItem.file.name}": ${errMsg}`);
       }
+    }
 
-      // 2. Save metadata to backend API
-      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-      const response = await axios.post(`${API_URL}/api/documents/upload`, {
-        user_id: user.user_id,
-        subject: finalSubject || null,
-        title: finalTitle,
-        description: finalSubject
-          ? `Tài liệu môn ${finalSubject} tự tải lên lưu trữ trên hệ thống`
-          : "Tài liệu tự do tự tải lên lưu trữ trên hệ thống",
-        file_url: uploadResult.fileUrl,
-        file_size: fileToUpload.size,
-        file_type: fileToUpload.name.split(".").pop().toUpperCase(),
-        visibility: user.role === "LECTURER" ? uploadVisibility : "PRIVATE",
-        tags: finalTags // Pass selected tags array!
-      }, {
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        }
-      });
+    clearInterval(progressInterval);
+    setUploadProgress(100);
 
-      clearInterval(progressInterval);
-      setUploadProgress(100);
-
-      const savedData = response.data;
-
-      setTimeout(async () => {
-        setIsUploading(false);
-        isUploadingRef.current = false;
-        setUploadProgress(0);
-        setUploadTitle("");
-        setSelectedFile(null);
-        setDocumentTags([]);
-        // Refresh list
-        await fetchDashboard();
-
-        const wasRenamed = savedData.document.title !== finalTitle;
-        if (wasRenamed) {
-          toast.success("Tải lên tài liệu thành công!");
-          toast.warning(`⚠️ Tên tài liệu tự động đổi thành: "${savedData.document.title}" do trùng lặp!`, {
-            duration: 6000
-          });
-        } else {
-          toast.success("Tải lên tài liệu thành công!");
-        }
-      }, 500); // 500ms delay before hiding to let user see 100%
-    } catch (err) {
-      clearInterval(progressInterval);
+    setTimeout(async () => {
       setIsUploading(false);
       isUploadingRef.current = false;
       setUploadProgress(0);
-      console.error("Upload failed with error details:", err);
-      const errMsg = err.response?.data?.error || err.message || "Tải lên tệp không thành công.";
-      toast.error(`Lỗi tải lên: ${errMsg}`);
-    }
+      
+      if (allSuccess) {
+        setUploadTitle("");
+        setSelectedFiles([]);
+        setDocumentTags([]);
+        if (renamedCount > 0) {
+          toast.success(`Tải lên thành công! ${renamedCount} file đã tự động đổi tên do trùng lặp.`);
+        } else {
+          toast.success("Tải lên tài liệu thành công!");
+        }
+      } else {
+        setSelectedFiles([]);
+      }
+      
+      await fetchDashboard();
+    }, 500);
   };
 
   const handleQuickUpload = async (e) => {
@@ -2620,7 +2947,12 @@ export default function Home() {
     }
     const finalTitle = file.name.replace(/\.[^/.]+$/, "");
 
-    setSelectedFile(file);
+    setSelectedFiles([{
+      file,
+      id: Math.random().toString(36).substring(7),
+      title: finalTitle,
+      status: "pending"
+    }]);
     setUploadTitle(finalTitle);
     setUploadSubject(personalSelectedFolder);
     setDocumentTags([]);
@@ -3740,7 +4072,7 @@ export default function Home() {
                     <div className="flex flex-col gap-2.5">
                       <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">{t("myDocs.file_label") || "Tệp tài liệu học tập *"}</label>
 
-                      {!selectedFile ? (
+                      {selectedFiles.length === 0 ? (
                         <div
                           onClick={() => document.getElementById("file-picker-input").click()}
                           className="border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-xl p-5 text-center cursor-pointer hover:border-purple-500 hover:bg-purple-500/5 transition-all duration-300 group"
@@ -3748,6 +4080,7 @@ export default function Home() {
                           <input
                             id="file-picker-input"
                             type="file"
+                            multiple
                             className="hidden"
                             onChange={handleFileChange}
                           />
@@ -3758,31 +4091,70 @@ export default function Home() {
                           </div>
                         </div>
                       ) : (
-                        <div className="flex items-center justify-between p-3.5 bg-slate-100/65 dark:bg-[#0c0d13]/65 border border-slate-200/50 dark:border-slate-800/80 rounded-xl">
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div className="w-9 h-9 rounded-lg bg-purple-100 dark:bg-purple-950/40 flex items-center justify-center font-bold text-purple-700 dark:text-purple-300 shrink-0">
-                              <FileText className="w-5 h-5" />
+                        <div className="flex flex-col gap-2 max-h-48 overflow-y-auto custom-scrollbar pr-1">
+                          {selectedFiles.map(fileItem => (
+                            <div key={fileItem.id} className="flex flex-col gap-2 p-3 bg-slate-100/65 dark:bg-[#0c0d13]/65 border border-slate-200/50 dark:border-slate-800/80 rounded-xl relative group">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3 min-w-0">
+                                  <div className="w-8 h-8 rounded-lg bg-purple-100 dark:bg-purple-950/40 flex items-center justify-center font-bold text-purple-700 dark:text-purple-300 shrink-0">
+                                    <FileText className="w-4 h-4" />
+                                  </div>
+                                  <div className="flex flex-col min-w-0">
+                                    <span className="text-xs font-bold text-slate-855 dark:text-slate-100 truncate">{fileItem.file.name}</span>
+                                    <span className="text-[10px] text-slate-400 font-bold">{formatFileSize(fileItem.file.size)}</span>
+                                  </div>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedFiles(prev => prev.filter(f => f.id !== fileItem.id));
+                                    if (selectedFiles.length === 1) setUploadTitle("");
+                                  }}
+                                  className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-850 rounded-lg text-slate-450 hover:text-red-500 transition-colors"
+                                >
+                                  <X className="w-4 h-4" />
+                                </button>
+                              </div>
+                              {selectedFiles.length > 1 && (
+                                <div className="mt-1">
+                                  <input
+                                    type="text"
+                                    value={fileItem.title}
+                                    onChange={(e) => setSelectedFiles(prev => prev.map(f => f.id === fileItem.id ? { ...f, title: e.target.value } : f))}
+                                    placeholder="Tiêu đề cho file này..."
+                                    className="w-full text-[11px] font-semibold text-slate-700 dark:text-slate-300 bg-transparent border-b border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-600 focus:border-purple-500 focus:outline-none transition-colors py-1"
+                                  />
+                                </div>
+                              )}
                             </div>
-                            <div className="flex flex-col min-w-0">
-                              <span className="text-xs font-bold text-slate-855 dark:text-slate-100 truncate">{selectedFile.name}</span>
-                              <span className="text-[10px] text-slate-400 font-bold">{formatFileSize(selectedFile.size)}</span>
-                            </div>
+                          ))}
+                          
+                          <div className="flex justify-end mt-1">
+                            <button
+                              type="button"
+                              onClick={() => document.getElementById("file-picker-input-add").click()}
+                              className="text-[10px] font-bold text-purple-600 hover:text-purple-700 dark:text-purple-400 flex items-center gap-1"
+                            >
+                              + Chọn thêm file
+                            </button>
+                            <input
+                              id="file-picker-input-add"
+                              type="file"
+                              multiple
+                              className="hidden"
+                              onChange={handleFileChange}
+                            />
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => { setSelectedFile(null); setUploadTitle(""); }}
-                            className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-850 rounded-lg text-slate-450 hover:text-red-500 transition-colors"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
                         </div>
                       )}
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       {/* Title input */}
-                      <div className="flex flex-col gap-1.5 md:col-span-2">
-                        <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">{t("myDocs.title_label") || "Tiêu đề học liệu *"}</label>
+                      <div className={`flex flex-col gap-1.5 md:col-span-2 ${selectedFiles.length > 1 ? "opacity-50 pointer-events-none" : ""}`}>
+                        <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                          {selectedFiles.length > 1 ? "Tiêu đề chung (Đã chuyển sang từng file)" : (t("myDocs.title_label") || "Tiêu đề học liệu *")}
+                        </label>
                         <Input
                           type="text"
                           placeholder={t("myDocs.title_placeholder") || "Ví dụ: Đề cương tự ôn thi cuối học kỳ"}
@@ -4490,6 +4862,7 @@ export default function Home() {
                             setDocManagePage(1);
                             window.history.pushState({ view: 'folder', subj }, "");
                           }}
+                          onContextMenu={(e) => handleContextMenu(e, 'folder', subj)}
                           className="cursor-pointer bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 hover:border-purple-500 hover:shadow-lg transition-all group flex flex-col justify-between"
                         >
                           <div className="flex items-center justify-between mb-4">
@@ -4514,6 +4887,21 @@ export default function Home() {
                       <table className="w-full text-left border-collapse text-xs select-none">
                         <thead>
                           <tr className="border-b border-slate-200/30 dark:border-white/5 bg-slate-100/30 dark:bg-white/5 text-slate-450 dark:text-slate-400 font-bold text-[9px] uppercase tracking-widest">
+                            <th className="px-5 py-3.5 w-12 text-center">
+                              <input 
+                                type="checkbox" 
+                                className="w-3.5 h-3.5 rounded border-slate-300 text-purple-600 focus:ring-purple-500 cursor-pointer"
+                                checked={docsToShow.length > 0 && selectedDocIds.size === docsToShow.slice((docManagePage - 1) * 9, docManagePage * 9).length}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    const allIds = docsToShow.slice((docManagePage - 1) * 9, docManagePage * 9).map(d => d.document_id);
+                                    setSelectedDocIds(new Set(allIds));
+                                  } else {
+                                    setSelectedDocIds(new Set());
+                                  }
+                                }}
+                              />
+                            </th>
                             <th className="px-5 py-3.5">{t("myDocs.col_title") || "Tiêu đề học liệu"}</th>
                             <th className="px-5 py-3.5">{t("myDocs.col_subject") || "Môn học"}</th>
                             <th className="px-5 py-3.5">{t("myDocs.col_author") || "Tác giả"}</th>
@@ -4526,6 +4914,7 @@ export default function Home() {
                           {loading ? (
                             Array(3).fill(0).map((_, idx) => (
                               <tr key={idx} className="animate-pulse">
+                                <td className="px-5 py-4"><div className="w-3.5 h-3.5 bg-slate-200 dark:bg-slate-800 rounded mx-auto" /></td>
                                 <td className="px-5 py-4"><div className="h-4 bg-slate-200 dark:bg-slate-800 rounded w-48" /></td>
                                 <td className="px-5 py-4"><div className="h-4 bg-slate-200 dark:bg-slate-800 rounded w-12" /></td>
                                 <td className="px-5 py-4"><div className="h-4 bg-slate-200 dark:bg-slate-800 rounded w-20" /></td>
@@ -4536,7 +4925,7 @@ export default function Home() {
                             ))
                           ) : docsToShow.length === 0 ? (
                             <tr>
-                              <td colSpan="6" className="px-5 py-0">
+                              <td colSpan="7" className="px-5 py-0">
                                 <div className="flex flex-col items-center justify-center py-16 gap-5 select-none">
                                   {/* Illustrated icon */}
                                   <div className="relative">
@@ -4582,8 +4971,30 @@ export default function Home() {
                               </td>
                             </tr>
                           ) : (
-                            docsToShow.slice((docManagePage - 1) * 9, docManagePage * 9).map((doc) => (
-                              <tr key={doc.document_id} onClick={() => handlePreviewClick(doc)} className="hover:bg-white/40 dark:hover:bg-white/5 transition-colors cursor-pointer group border-b border-slate-200/30 dark:border-white/5">
+                            docsToShow.slice((docManagePage - 1) * 9, docManagePage * 9).map((doc) => {
+                              const isSelected = selectedDocIds.has(doc.document_id);
+                              return (
+                              <tr 
+                                key={doc.document_id} 
+                                onClick={(e) => handleDocClick(e, doc.document_id)} 
+                                onDoubleClick={() => handlePreviewClick(doc)}
+                                onContextMenu={(e) => handleContextMenu(e, 'document', doc)}
+                                className={`transition-colors cursor-pointer group border-b border-slate-200/30 dark:border-white/5 ${isSelected ? 'bg-purple-50/50 dark:bg-purple-900/20' : 'hover:bg-white/40 dark:hover:bg-white/5'}`}
+                              >
+                                <td className="px-5 py-3.5 text-center">
+                                  <input 
+                                    type="checkbox"
+                                    className="w-3.5 h-3.5 rounded border-slate-300 text-purple-600 focus:ring-purple-500 cursor-pointer"
+                                    checked={isSelected}
+                                    onChange={(e) => {
+                                      const newSelected = new Set(selectedDocIds);
+                                      if (e.target.checked) newSelected.add(doc.document_id);
+                                      else newSelected.delete(doc.document_id);
+                                      setSelectedDocIds(newSelected);
+                                    }}
+                                    onClick={(e) => e.stopPropagation()}
+                                  />
+                                </td>
                                 <td className="px-5 py-3.5 flex items-center gap-2 text-slate-800 dark:text-slate-200 font-bold max-w-xs truncate">
                                   {getFileIcon(doc.file_type || getFileType(doc.file_url), "w-4 h-4 shrink-0")}
                                   <div className="flex flex-col min-w-0">
@@ -4803,7 +5214,8 @@ export default function Home() {
                                   )}
                                 </td>
                               </tr>
-                            ))
+                            );
+                            })
                           )}
                         </tbody>
                       </table>
@@ -5400,6 +5812,7 @@ export default function Home() {
                         doc={doc}
                         isPersonal={false}
                         isMyShared={true}
+                        onUnshare={() => { fetchCommunityDocs(); fetchDashboard(); }}
                       />
                     ))}
                   </div>
@@ -5633,6 +6046,7 @@ export default function Home() {
                   <button
                     onClick={() => {
                       setCommunityClassificationTab("SEMESTERS");
+                                setSelectedCommunitySemesterId(null);
                       setSelectedCommunitySubjectCode(null);
                       setCommunityPage(1);
                     }}
@@ -5662,26 +6076,19 @@ export default function Home() {
                   {/* Nếu đang tìm kiếm HOẶC đang chọn môn học cụ thể: Hiện lưới tài liệu */}
                   {(communitySearch || selectedCommunitySubjectCode || communityFilterMode === "MY_SHARED") ? (
                     <div className="w-full flex flex-col space-y-2">
-                      {!communitySearch && selectedCommunitySubjectCode && (
+                      {!communitySearch && (selectedCommunitySubjectCode) && (
                         <div className="flex flex-col gap-3">
-                          <button
-                            onClick={() => { setSelectedCommunitySubjectCode(null); setCommunityPage(1); }}
-                            className="self-start flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-purple-600 dark:hover:text-purple-400 transition-colors bg-white/40 dark:bg-[#0f111a]/45 backdrop-blur-xl border border-slate-200/30 dark:border-white/5 rounded-xl px-4 py-2 shadow-sm cursor-pointer"
-                          >
-                            <ChevronLeft className="w-3.5 h-3.5" />
-                            {communityClassificationTab === "SEMESTERS" ? "Quay lại học kỳ" : "Quay lại chủ đề"}
-                          </button>
                           <div className="flex flex-col gap-1 p-4 bg-purple-50/20 dark:bg-purple-950/5 border border-purple-100/30 rounded-2xl">
                             <div className="flex items-center gap-2">
                               <span className="text-[10px] font-extrabold text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/40 px-2 py-0.5 rounded border border-purple-500/10">
-                                MÔN HỌC
+                                {language === "vi" ? "MÔN HỌC" : "SUBJECT"}
                               </span>
                               <h2 className="text-base font-black text-slate-900 dark:text-white">
                                 {selectedCommunitySubjectCode}
                               </h2>
                             </div>
                             <span className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">
-                              Hiển thị tài liệu được chia sẻ cho môn học này.
+                              {language === "vi" ? "Hiển thị tài liệu được chia sẻ cho môn học này." : "Displaying documents shared for this subject."}
                             </span>
                           </div>
                         </div>
@@ -5698,7 +6105,7 @@ export default function Home() {
                               </div>
                               <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 xl:grid-cols-3 w-full">
                                 {pinnedCommunityDocs.map((doc) => (
-                                  <DocumentCard key={doc.document_id || doc.id} doc={doc} isPinned={doc.isPinned} onTogglePin={() => handleToggleCommunityPin(doc.id)} isPersonal={false} isMyShared={communityFilterMode === "MY_SHARED"} />
+                                  <DocumentCard key={doc.document_id || doc.id} doc={doc} isPinned={doc.isPinned} onTogglePin={() => handleToggleCommunityPin(doc.id)} isPersonal={false} isMyShared={communityFilterMode === "MY_SHARED"} onUnshare={() => { fetchCommunityDocs(); fetchDashboard(); }} />
                                 ))}
                               </div>
                             </div>
@@ -5712,7 +6119,7 @@ export default function Home() {
                             {regularCommunityDocs.length > 0 ? (
                               <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 xl:grid-cols-3 w-full">
                                 {regularCommunityDocs.map((doc) => (
-                                  <DocumentCard key={doc.document_id || doc.id} doc={doc} isPinned={doc.isPinned} onTogglePin={() => handleToggleCommunityPin(doc.id)} isPersonal={false} isMyShared={communityFilterMode === "MY_SHARED"} />
+                                  <DocumentCard key={doc.document_id || doc.id} doc={doc} isPinned={doc.isPinned} onTogglePin={() => handleToggleCommunityPin(doc.id)} isPersonal={false} isMyShared={communityFilterMode === "MY_SHARED"} onUnshare={() => { fetchCommunityDocs(); fetchDashboard(); }} />
                                 ))}
                               </div>
                             ) : (
@@ -5803,7 +6210,6 @@ export default function Home() {
                                                 setSelectedCommunitySubjectCode(s.subject_code);
                                                 setSelectedCommunityTopicId(topic.topic_id);
                                                 setCommunityPage(1);
-                                                if (mainContentRef.current) mainContentRef.current.scrollTo({ top: 0, behavior: 'smooth' });
                                               }}
                                               className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold cursor-pointer hover:opacity-80 hover:shadow-sm active:scale-95 transition-all"
                                               style={{ backgroundColor: `${topicColor}15`, color: topicColor }}
@@ -5836,64 +6242,97 @@ export default function Home() {
                       {/* TAB: HỌC KỲ                              */}
                       {/* ══════════════════════════════════════════ */}
                       {communityClassificationTab === "SEMESTERS" && (
-                        <div className="flex flex-col gap-2">
-                          {getSemestersData.length === 0 ? (
-                            <div className="text-center py-16 bg-white/40 dark:bg-white/5 rounded-2xl border border-dashed border-slate-200 dark:border-white/10">
-                              <Calendar size={32} className="mx-auto text-slate-300 mb-3" />
-                              <p className="text-sm font-bold text-slate-500">Chưa có học kỳ nào có tài liệu</p>
-                            </div>
-                          ) : (
-                            <div className="flex flex-col gap-1.5">
-                              {getSemestersData.map((sem) => (
-                                <div
-                                  key={sem.semester_id}
-                                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-slate-200/40 dark:border-white/5 bg-white/50 dark:bg-white/[0.03] hover:border-purple-400/30 transition-all duration-200"
-                                >
-                                  {/* Nhãn học kỳ */}
-                                  <div className="flex items-center gap-2 shrink-0 w-[88px]">
-                                    <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: sem.color }} />
-                                    <span className="text-[11px] font-black whitespace-nowrap" style={{ color: sem.color }}>
-                                      {sem.name}
-                                    </span>
+                        <div className="w-full">
+                          {!selectedCommunitySemesterId ? (
+                            getSemestersData.length === 0 ? (
+                              <div className="text-center py-16 bg-white/40 dark:bg-white/5 rounded-2xl border border-dashed border-slate-200 dark:border-white/10">
+                                <Calendar size={32} className="mx-auto text-slate-300 mb-3" />
+                                <p className="text-sm font-bold text-slate-500">{language === "vi" ? "Chưa có học kỳ nào có tài liệu" : "No semesters available"}</p>
+                              </div>
+                            ) : (
+                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {getSemestersData.map((sem) => (
+                                  <div
+                                    key={sem.semester_id}
+                                    className="bg-white dark:bg-white/5 rounded-2xl border border-slate-200 dark:border-white/10 p-5 hover:shadow-md hover:border-violet-300 transition-all group flex flex-col cursor-pointer"
+                                    onClick={() => {
+                                      setSelectedCommunitySemesterId(sem.semester_id);
+                                      setCommunityPage(1);
+                                    }}
+                                  >
+                                    <div className="flex justify-between items-start mb-4">
+                                      <div 
+                                        className="w-12 h-12 rounded-xl flex items-center justify-center shadow-sm border border-slate-100 group-hover:scale-105 transition-transform" 
+                                        style={{ backgroundColor: `${sem.color || '#6366f1'}15`, borderColor: `${sem.color || '#6366f1'}30` }}
+                                      >
+                                        <Folder className="w-6 h-6" style={{ color: sem.color || '#6366f1' }} />
+                                      </div>
+                                      <div className="px-3 py-1 rounded-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700">
+                                        <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300">{sem.totalDocs} {language === "vi" ? "tài liệu" : "documents"}</span>
+                                      </div>
+                                    </div>
+                                    <div>
+                                      <h3 className="text-[15px] font-bold mb-1" style={{ color: sem.color || '#6366f1' }}>{language === "en" && sem.name.startsWith("Học kỳ ") ? `Semester ${sem.name.replace("Học kỳ ", "")}` : sem.name}</h3>
+                                      <p className="text-xs text-slate-500 line-clamp-2">{sem.description || (language === "vi" ? "Chưa có mô tả." : "No description.")}</p>
+                                    </div>
                                   </div>
-
-                                  {/* Đường kẻ dọc */}
-                                  <div className="w-px h-5 bg-slate-200 dark:bg-white/10 shrink-0" />
-
-                                  {/* Chips môn học - hàng ngang */}
-                                  <div className="flex items-center gap-1.5 flex-wrap flex-1">
-                                    {sem.subjects.length > 0 ? sem.subjects.map((sub) => (
-                                      <button
+                                ))}
+                              </div>
+                            )
+                          ) : (
+                            <div className="flex flex-col gap-4">
+                              
+                              {(() => {
+                                const selectedSem = getSemestersData.find(s => s.semester_id === selectedCommunitySemesterId);
+                                if (!selectedSem || selectedSem.subjects.length === 0) {
+                                  return <div className="text-center py-10 text-slate-500 text-sm font-bold">{language === "vi" ? "Chưa có môn học nào" : "No subjects available"}</div>;
+                                }
+                                return (
+                                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                    {selectedSem.subjects.map((sub) => (
+                                      <div
                                         key={sub.subject_code}
                                         onClick={() => {
                                           setSelectedCommunitySubjectCode(sub.subject_code);
                                           setCommunityPage(1);
                                         }}
-                                        title={sub.subject_name || sub.subject_code}
-                                        className={`flex items-center gap-1.5 text-[10px] font-black px-2 py-0.5 rounded-md border transition-all duration-150 cursor-pointer shrink-0 ${
-                                          sub.doc_count > 0
-                                            ? "bg-purple-500/10 border-purple-500/20 text-purple-750 dark:text-purple-300 hover:bg-purple-500/20 hover:border-purple-500/40"
-                                            : "bg-slate-100/50 dark:bg-white/[0.02] border-slate-200/50 dark:border-white/5 text-slate-400 dark:text-slate-500 hover:bg-slate-150/50 dark:hover:bg-white/[0.04] hover:text-slate-600 dark:hover:text-slate-350"
+                                        className={`bg-white dark:bg-white/5 rounded-2xl border p-5 hover:shadow-md transition-all group flex flex-col cursor-pointer ${
+                                          sub.doc_count > 0 
+                                            ? 'border-purple-200 dark:border-purple-800 hover:border-purple-400' 
+                                            : 'border-slate-200 dark:border-white/10 hover:border-slate-300'
                                         }`}
                                       >
-                                        <span>{sub.subject_code}</span>
-                                        {sub.doc_count > 0 && (
-                                          <span className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse shrink-0" />
-                                        )}
-                                      </button>
-                                    )) : (
-                                      <span className="text-[10px] text-slate-400 italic">Chưa có học phần</span>
-                                    )}
+                                        <div className="flex justify-between items-start mb-4">
+                                          <div 
+                                            className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-sm border transition-transform group-hover:scale-105 ${
+                                              sub.doc_count > 0 
+                                                ? 'bg-purple-50 border-purple-100 text-purple-600 dark:bg-purple-900/30 dark:border-purple-800 dark:text-purple-400'
+                                                : 'bg-slate-50 border-slate-100 text-slate-400 dark:bg-slate-800 dark:border-slate-700'
+                                            }`} 
+                                          >
+                                            <Folder className="w-6 h-6" />
+                                          </div>
+                                          <div className={`px-3 py-1 rounded-full border ${
+                                            sub.doc_count > 0
+                                              ? 'bg-purple-50 dark:bg-purple-900/30 border-purple-100 dark:border-purple-800'
+                                              : 'bg-slate-50 dark:bg-slate-800 border-slate-100 dark:border-slate-700'
+                                          }`}>
+                                            <span className={`text-[11px] font-bold ${
+                                              sub.doc_count > 0 ? 'text-purple-600 dark:text-purple-400' : 'text-slate-500 dark:text-slate-400'
+                                            }`}>{sub.doc_count} {language === "vi" ? "tài liệu" : "documents"}</span>
+                                          </div>
+                                        </div>
+                                        <div>
+                                          <h3 className={`text-[15px] font-bold mb-1 ${
+                                            sub.doc_count > 0 ? 'text-purple-700 dark:text-purple-300' : 'text-slate-700 dark:text-slate-300'
+                                          }`}>{sub.subject_code}</h3>
+                                          <p className="text-xs text-slate-500 line-clamp-2">{sub.subject_name || (language === "vi" ? "Chưa có tên môn học." : "No subject name.")}</p>
+                                        </div>
+                                      </div>
+                                    ))}
                                   </div>
-
-                                  {/* Badge số tài liệu */}
-                                  {sem.totalDocs > 0 && (
-                                    <span className="ml-auto shrink-0 text-[9px] font-bold px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 whitespace-nowrap">
-                                      {sem.totalDocs} tài liệu
-                                    </span>
-                                  )}
-                                </div>
-                              ))}
+                                );
+                              })()}
                             </div>
                           )}
                         </div>
@@ -6815,6 +7254,91 @@ export default function Home() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+      {confirmAction.isOpen && (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl p-6 max-w-sm w-full border border-slate-200 dark:border-slate-800 animate-in fade-in zoom-in duration-200">
+            <div className="flex flex-col items-center text-center gap-4">
+              <div className={`w-12 h-12 rounded-full flex items-center justify-center ${confirmAction.type === 'delete' ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400' : 'bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400'}`}>
+                {confirmAction.type === 'delete' ? <Trash2 className="w-6 h-6" /> : <Share2 className="w-6 h-6" />}
+              </div>
+              <div className="space-y-2">
+                <h3 className="font-bold text-lg text-slate-800 dark:text-slate-100">Xác nhận</h3>
+                <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">{confirmAction.message}</p>
+              </div>
+              <div className="flex items-center gap-3 w-full mt-4">
+                <button
+                  onClick={() => setConfirmAction({ isOpen: false, type: "", message: "", onConfirm: null })}
+                  className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 font-bold text-sm hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                >
+                  Hủy
+                </button>
+                <button
+                  onClick={() => {
+                    if (confirmAction.onConfirm) confirmAction.onConfirm();
+                    setConfirmAction({ isOpen: false, type: "", message: "", onConfirm: null });
+                  }}
+                  className={`flex-1 px-4 py-2.5 rounded-xl text-white font-bold text-sm transition-colors ${confirmAction.type === 'delete' ? 'bg-red-600 hover:bg-red-700' : 'bg-purple-600 hover:bg-purple-700'}`}
+                >
+                  Đồng ý
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+
+
+      {contextMenu && (
+        <div 
+          className="fixed z-[9999] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl py-1.5 min-w-[180px] overflow-hidden"
+          style={{ 
+            top: `${Math.min(contextMenu.y, window.innerHeight - 150)}px`, 
+            left: `${Math.min(contextMenu.x, window.innerWidth - 180)}px` 
+          }}
+          onClick={(e) => e.stopPropagation()}
+          onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); }}
+        >
+          {contextMenu.type === 'document' ? (
+            <>
+              <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800 mb-1">
+                Đã chọn {selectedDocIds.size} tài liệu
+              </div>
+              <button 
+                onClick={() => { setContextMenu(null); handleBulkShare(); }}
+                className="w-full flex items-center gap-2 px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-purple-50 dark:hover:bg-purple-900/30 hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
+              >
+                <Share2 className="w-4 h-4" />
+                Chia sẻ cộng đồng
+              </button>
+              <button 
+                onClick={() => { setContextMenu(null); handleBulkDelete(); }}
+                className="w-full flex items-center gap-2 px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-red-50 dark:hover:bg-red-900/30 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+              >
+                <Trash2 className="w-4 h-4" />
+                Xóa tài liệu
+              </button>
+            </>
+          ) : (
+            <>
+              <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800 mb-1">
+                {contextMenu.data}
+              </div>
+              <button 
+                onClick={() => { 
+                  setContextMenu(null); 
+                  setUploadSubject(contextMenu.data); 
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                className="w-full flex items-center gap-2 px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-purple-50 dark:hover:bg-purple-900/30 hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
+              >
+                <UploadCloud className="w-4 h-4" />
+                Tải lên môn này
+              </button>
+            </>
+          )}
         </div>
       )}
 

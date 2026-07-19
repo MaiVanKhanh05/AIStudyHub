@@ -185,9 +185,9 @@ export const unlockUser = async (req, res) => {
         }
         const target = targetRows[0];
 
-        // Chỉ mở khóa nếu đang LOCKED
-        if (target.status !== "LOCKED") {
-            return res.status(400).json({ error: "Tài khoản này không ở trạng thái bị khóa" });
+        // Chỉ mở khóa hoặc duyệt nếu đang LOCKED hoặc PENDING
+        if (target.status !== "LOCKED" && target.status !== "PENDING") {
+            return res.status(400).json({ error: "Tài khoản này không ở trạng thái bị khóa hoặc chờ duyệt" });
         }
 
         await pool.query(

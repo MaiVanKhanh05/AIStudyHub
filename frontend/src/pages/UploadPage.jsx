@@ -1,4 +1,4 @@
-﻿import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { API_URL } from "@/config/api.js";
 import {
   Upload, X, CheckCircle, AlertCircle, Loader, Globe, Lock,
@@ -21,6 +21,7 @@ function getFileIcon(fileName) {
   if (ext === "pdf")  return { emoji: "📄", color: "bg-red-100 text-red-600" };
   if (["doc", "docx"].includes(ext)) return { emoji: "📝", color: "bg-blue-100 text-blue-600" };
   if (["xls", "xlsx"].includes(ext)) return { emoji: "📊", color: "bg-emerald-100 text-emerald-600" };
+  if (["ppt", "pptx"].includes(ext)) return { emoji: "📽️", color: "bg-orange-100 text-orange-600" };
   if (ext === "txt")  return { emoji: "📃", color: "bg-slate-100 text-slate-600" };
   return { emoji: "📦", color: "bg-violet-100 text-violet-600" };
 }
@@ -135,6 +136,8 @@ export default function UploadPage() {
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     "application/vnd.ms-excel",
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.ms-powerpoint",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
     "text/plain",
     "image/jpeg", "image/png", "image/webp",
   ];
@@ -150,7 +153,13 @@ export default function UploadPage() {
     if (valid.length > 0) {
       setFiles(prev => [
         ...prev,
-        ...valid.map(f => ({ file: f, id: Math.random().toString(36).substring(7), status: "pending", error: null }))
+        ...valid.map(f => ({ 
+          file: f, 
+          id: Math.random().toString(36).substring(7), 
+          status: "pending", 
+          error: null,
+          title: f.name.replace(/\.[^/.]+$/, "") 
+        }))
       ]);
       
       // Auto-fill title from first file if empty
@@ -179,7 +188,8 @@ export default function UploadPage() {
   const handleUpload = async () => {
     if (isUploadingRef.current) return;
     if (!files.length)            { toast.error("Vui lòng chọn file để tải lên"); return; }
-    if (!documentTitle.trim())    { toast.error("Vui lòng nhập tiêu đề tài liệu"); return; }
+    if (files.length === 1 && !documentTitle.trim()) { toast.error("Vui lòng nhập tiêu đề tài liệu"); return; }
+    if (files.length > 1 && files.some(f => !f.title.trim())) { toast.error("Vui lòng không để trống tiêu đề của bất kỳ file nào"); return; }
 
     const pending = files.filter(f => f.status === "pending");
     if (!pending.length) return;
@@ -205,7 +215,7 @@ export default function UploadPage() {
             method: "POST",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
             body: JSON.stringify({
-              title:       documentTitle,
+              title:       files.length === 1 ? documentTitle : fileItem.title,
               subject:     subjectCode || subjectName,
               description,
               tags,
@@ -302,9 +312,12 @@ export default function UploadPage() {
               ref={fileInputRef}
               type="file"
               multiple
-              onChange={e => addFiles(Array.from(e.target.files))}
+              onChange={e => {
+                addFiles(Array.from(e.target.files));
+                e.target.value = null;
+              }}
               className="hidden"
-              accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.jpg,.jpeg,.png,.webp"
+              accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.jpg,.jpeg,.png,.webp"
             />
             <div className="flex flex-col items-center gap-3">
               <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all ${dragActive ? "bg-violet-200 dark:bg-violet-800/60" : "bg-violet-100 dark:bg-violet-950/40"}`}>
@@ -314,10 +327,10 @@ export default function UploadPage() {
                 <p className="text-sm font-bold text-slate-700 dark:text-slate-200">
                   {dragActive ? "Thả file vào đây!" : "Kéo thả hoặc click để chọn file"}
                 </p>
-                <p className="text-xs text-slate-400 mt-1">PDF, DOCX, XLSX, TXT, ảnh • Tối đa 50MB/file</p>
+                <p className="text-xs text-slate-400 mt-1">PDF, DOCX, XLSX, PPTX, TXT, ảnh • Tối đa 50MB/file</p>
               </div>
               <div className="flex items-center gap-2 flex-wrap justify-center">
-                {["PDF", "DOCX", "XLSX", "TXT", "IMG"].map(fmt => (
+                {["PDF", "DOCX", "XLSX", "PPTX", "TXT", "IMG"].map(fmt => (
                   <span key={fmt} className="text-[9px] font-black px-1.5 py-0.5 rounded bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-slate-400">
                     {fmt}
                   </span>
@@ -330,7 +343,7 @@ export default function UploadPage() {
           <div className="px-5 pb-5 space-y-5">
 
             {/* Document Title */}
-            <div>
+            <div className={files.length > 1 ? "hidden" : "block"}>
               <label className="block text-xs font-black text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1.5">
                 Tiêu đề tài liệu <span className="text-red-500 normal-case font-bold">*</span>
               </label>
@@ -480,7 +493,18 @@ export default function UploadPage() {
                       {emoji}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold text-slate-700 dark:text-slate-300 truncate">{fileItem.file.name}</p>
+                      {files.length > 1 ? (
+                        <input
+                          type="text"
+                          value={fileItem.title}
+                          onChange={(e) => setFiles(prev => prev.map(f => f.id === fileItem.id ? { ...f, title: e.target.value } : f))}
+                          disabled={fileItem.status !== "pending"}
+                          className="w-full text-xs font-semibold text-slate-700 dark:text-slate-300 bg-transparent border-b border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:border-violet-500 focus:outline-none transition-colors mb-0.5"
+                          placeholder="Nhập tiêu đề cho file này..."
+                        />
+                      ) : (
+                        <p className="text-xs font-semibold text-slate-700 dark:text-slate-300 truncate">{fileItem.file.name}</p>
+                      )}
                       <p className="text-[10px] text-slate-400">{formatFileSize(fileItem.file.size)}</p>
                       {fileItem.error && (
                         <p className="text-[10px] text-red-500 truncate mt-0.5">{fileItem.error}</p>
@@ -510,7 +534,7 @@ export default function UploadPage() {
           <button
             type="button"
             onClick={handleUpload}
-            disabled={!files.length || uploading || !documentTitle.trim() || !selectedTopicId || !subjectCode}
+            disabled={!files.length || uploading || (files.length === 1 && !documentTitle.trim()) || (files.length > 1 && files.some(f => !f.title.trim())) || !selectedTopicId || !subjectCode}
             className="flex-1 flex items-center justify-center gap-2 h-11 rounded-xl bg-violet-600 hover:bg-violet-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-black transition-all duration-200 active:scale-[0.98] shadow-sm shadow-violet-300/20 cursor-pointer"
           >
             {uploading ? (
