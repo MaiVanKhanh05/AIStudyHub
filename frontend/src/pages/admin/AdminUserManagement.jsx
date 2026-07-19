@@ -28,6 +28,8 @@ export default function AdminUserManagement() {
   const [searchParams, setSearchParams] = useSearchParams();
   const roleFilter = searchParams.get("role") || "all";
   const [localRoleFilter, setLocalRoleFilter] = useState(roleFilter);
+  const statusFilter = searchParams.get("status") || "all";
+  const [localStatusFilter, setLocalStatusFilter] = useState(statusFilter);
   const [users, setUsers] = useState([]);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -39,12 +41,17 @@ export default function AdminUserManagement() {
   const [toast, setToast]     = useState(null);
 
   const [isRoleDropdownOpen, setIsRoleDropdownOpen] = useState(false);
+  const [isStatusDropdownOpen, setIsStatusDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
+  const statusDropdownRef = useRef(null);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
         setIsRoleDropdownOpen(false);
+      }
+      if (statusDropdownRef.current && !statusDropdownRef.current.contains(e.target)) {
+        setIsStatusDropdownOpen(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -53,6 +60,7 @@ export default function AdminUserManagement() {
 
   useEffect(() => {
     setLocalRoleFilter(searchParams.get("role") || "all");
+    setLocalStatusFilter(searchParams.get("status") || "all");
   }, [searchParams]);
 
   const ROLE_LABEL = { STUDENT: language === "vi" ? "Sinh viên" : "Student", LECTURER: language === "vi" ? "Giảng viên" : "Lecturer", ADMIN: "Admin" };
@@ -64,6 +72,14 @@ export default function AdminUserManagement() {
     { value: "ADMIN", label: "Admin" },
   ];
   const selectedRole = roleOptions.find(r => r.value === localRoleFilter) || roleOptions[0];
+
+  const statusOptions = [
+    { value: "all", label: language === "vi" ? "Tất cả trạng thái" : "All status" },
+    { value: "ACTIVE", label: language === "vi" ? "Hoạt động" : "Active" },
+    { value: "LOCKED", label: language === "vi" ? "Đã khóa" : "Locked" },
+    { value: "PENDING", label: language === "vi" ? "Chờ duyệt" : "Pending" },
+  ];
+  const selectedStatus = statusOptions.find(r => r.value === localStatusFilter) || statusOptions[0];
 
   const token = localStorage.getItem("token") || sessionStorage.getItem("token");
   const meStr = localStorage.getItem("user") || sessionStorage.getItem("user");
@@ -78,7 +94,7 @@ export default function AdminUserManagement() {
 
   useEffect(() => {
     setLoading(true);
-    fetch(`${API_URL}/api/admin/users?page=${page}&limit=${PAGE_SIZE}&role=${localRoleFilter}&search=${encodeURIComponent(debouncedSearch)}`, {
+    fetch(`${API_URL}/api/admin/users?page=${page}&limit=${PAGE_SIZE}&role=${localRoleFilter}&status=${localStatusFilter}&search=${encodeURIComponent(debouncedSearch)}`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then(r => r.json())
@@ -95,10 +111,10 @@ export default function AdminUserManagement() {
         setLoading(false); 
       })
       .catch(() => { setUsers([]); setLoading(false); });
-  }, [page, localRoleFilter, debouncedSearch, token]);
+  }, [page, localRoleFilter, localStatusFilter, debouncedSearch, token]);
 
   // Reset page khi đổi filter/search
-  useEffect(() => { setPage(1); }, [debouncedSearch, localRoleFilter]);
+  useEffect(() => { setPage(1); }, [debouncedSearch, localRoleFilter, localStatusFilter]);
 
   const showToast = (type, message) => {
     setToast({ type, message });
@@ -137,6 +153,25 @@ export default function AdminUserManagement() {
       }
       setUsers(p => p.map(u => u.id === user.id ? { ...u, status: "ACTIVE" } : u));
       showToast("success", `Đã mở khóa tài khoản ${user.email}`);
+    } catch (error) {
+      showToast("error", "Lỗi kết nối đến máy chủ");
+    }
+    setConfirm(null);
+  };
+
+  const handleApprove = async (user) => {
+    try {
+      const response = await fetch(`${API_URL}/api/admin/users/${user.id}/approve`, {
+        method: "POST", headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        showToast("error", data.error || "Không thể duyệt tài khoản");
+        setConfirm(null);
+        return;
+      }
+      setUsers(p => p.map(u => u.id === user.id ? { ...u, status: "ACTIVE" } : u));
+      showToast("success", `Đã duyệt tài khoản ${user.email}`);
     } catch (error) {
       showToast("error", "Lỗi kết nối đến máy chủ");
     }
@@ -185,7 +220,7 @@ export default function AdminUserManagement() {
                       key={opt.value}
                       onClick={() => {
                         setLocalRoleFilter(opt.value);
-                        setSearchParams({ role: opt.value });
+                        setSearchParams(prev => { prev.set("role", opt.value); return prev; });
                         setIsRoleDropdownOpen(false);
                       }}
                       className={`w-full text-left px-3.5 py-2 text-[12.5px] font-medium transition-colors cursor-pointer
@@ -197,6 +232,36 @@ export default function AdminUserManagement() {
                 </div>
               )}
             </div>
+
+            <div className="relative" ref={statusDropdownRef}>
+              <button
+                type="button"
+                onClick={() => setIsStatusDropdownOpen(!isStatusDropdownOpen)}
+                className="flex items-center justify-between gap-3 px-3.5 py-1.5 text-[12.5px] border border-gray-200 hover:border-purple-300 hover:bg-purple-50/50 rounded-lg bg-white outline-none focus:ring-2 focus:ring-purple-100 min-w-[150px] font-medium text-slate-700 transition-all shadow-sm cursor-pointer"
+              >
+                <span className="truncate">{selectedStatus.label}</span>
+                <ChevronDown size={13} className={`text-slate-400 transition-transform duration-200 ${isStatusDropdownOpen ? "rotate-180" : ""}`} />
+              </button>
+              {isStatusDropdownOpen && (
+                <div className="absolute z-10 top-full mt-1.5 w-full bg-white border border-gray-100 rounded-lg shadow-xl py-1 animate-in fade-in zoom-in-95 duration-100 origin-top overflow-hidden">
+                  {statusOptions.map((opt) => (
+                    <button
+                      key={opt.value}
+                      onClick={() => {
+                        setLocalStatusFilter(opt.value);
+                        setSearchParams(prev => { prev.set("status", opt.value); return prev; });
+                        setIsStatusDropdownOpen(false);
+                      }}
+                      className={`w-full text-left px-3.5 py-2 text-[12.5px] font-medium transition-colors cursor-pointer
+                        ${localStatusFilter === opt.value ? "bg-purple-50 text-purple-700 font-bold" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"}`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            
             <div className="relative">
               <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
@@ -363,7 +428,8 @@ export default function AdminUserManagement() {
                 id="adm-confirm-action-btn"
                 onClick={() => {
                   if (confirm.action === "lock") handleLock(confirm.user);
-                  if (confirm.action === "unlock" || confirm.action === "approve") handleUnlock(confirm.user);
+                  if (confirm.action === "unlock") handleUnlock(confirm.user);
+                  if (confirm.action === "approve") handleApprove(confirm.user);
                 }}
                 className={`px-4 py-2 rounded-lg text-[13px] font-bold text-white transition-opacity hover:opacity-90
                   ${confirm.action === "lock" ? "bg-red-600" : "bg-purple-600"}`}>

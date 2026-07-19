@@ -16,6 +16,7 @@ router.get("/storage-distribution", adminController.getStorageDistribution);
 router.get("/users", adminController.getAllUsers);
 router.post("/users/:id/lock", adminController.lockUser);
 router.post("/users/:id/unlock", adminController.unlockUser);
+router.post("/users/:id/approve", adminController.approveUser);
 
 // Documents — BR-AM-07
 router.get("/documents", adminController.getAllDocuments);

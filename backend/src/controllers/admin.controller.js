@@ -56,6 +56,7 @@ export const getAllUsers = async (req, res) => {
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 10;
         const role = req.query.role || "all";
+        const statusParam = req.query.status || "all";
         const search = req.query.search || "";
         const offset = (page - 1) * limit;
 
@@ -66,6 +67,12 @@ export const getAllUsers = async (req, res) => {
         if (role !== "all") {
             whereClauses.push(`u.role = $${paramIndex}`);
             queryParams.push(role);
+            paramIndex++;
+        }
+
+        if (statusParam !== "all") {
+            whereClauses.push(`u.status = $${paramIndex}`);
+            queryParams.push(statusParam);
             paramIndex++;
         }
 
@@ -190,6 +197,37 @@ export const unlockUser = async (req, res) => {
         res.json({ message: "Tài khoản đã được mở khóa", userId: id, status: "ACTIVE" });
     } catch (error) {
         console.error("Error unlocking user:", error);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+};
+
+// POST /api/admin/users/:id/approve — duyệt tài khoản (BR-AM-04)
+export const approveUser = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        // Kiểm tra target user tồn tại
+        const { rows: targetRows } = await pool.query(
+            "SELECT user_id, status, email FROM users WHERE user_id = $1",
+            [id]
+        );
+        if (targetRows.length === 0) {
+            return res.status(404).json({ error: "Người dùng không tồn tại" });
+        }
+        const target = targetRows[0];
+
+        // Chỉ duyệt nếu đang PENDING
+        if (target.status !== "PENDING") {
+            return res.status(400).json({ error: "Tài khoản này không ở trạng thái chờ duyệt" });
+        }
+
+        await pool.query(
+            "UPDATE users SET status = 'ACTIVE', updated_at = NOW() WHERE user_id = $1",
+            [id]
+        );
+        res.json({ message: "Tài khoản đã được duyệt", userId: id, status: "ACTIVE" });
+    } catch (error) {
+        console.error("Error approving user:", error);
         res.status(500).json({ error: "Internal Server Error" });
     }
 };
