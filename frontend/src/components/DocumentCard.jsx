@@ -27,7 +27,6 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import DocumentPreviewModal from "./DocumentPreviewModal";
-import { getSimulatedContent } from "../utils/documentUtils";
 import { deleteFileFromSupabase } from "../lib/supabase";
 
 // Hàm định dạng dung lượng file từ bytes sang chuỗi dễ đọc (KB, MB)
@@ -148,11 +147,7 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
   };
 
   const handlePreviewClick = () => {
-    const docWithContent = {
-      ...doc,
-      simulated_content: getSimulatedContent(doc.title || doc.document_name || "", doc.subject || "")
-    };
-    setPreviewDoc(docWithContent);
+    setPreviewDoc(doc);
   };
 
   const increaseDownload = async () => {
@@ -168,11 +163,7 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
   };
 
   const handleOpen = () => {
-    const docWithContent = {
-      ...doc,
-      simulated_content: getSimulatedContent(doc.title || doc.document_name || "", doc.subject || "")
-    };
-    setPreviewDoc(docWithContent);
+    setPreviewDoc(doc);
     if (!hasViewed) {
       setViewCount((prev) => prev + 1);
       increaseView();

@@ -209,9 +209,6 @@ async function callOpenAI(messages, systemInstruction) {
   return data.choices?.[0]?.message?.content || "Không có câu trả lời nào được phản hồi.";
 }
 
-import * as quizService from "../services/quiz.service.js";
-import * as flashcardService from "../services/flashcard.service.js";
-
 // Đường dẫn API: POST /api/chat
 
 // Hàm tìm kiếm tài liệu liên quan dựa theo từ khóa trong câu hỏi của người dùng
@@ -282,14 +279,16 @@ async function searchRelevantDocs(message, allDocs) {
 }
 
 export async function chatQuery(req, res) {
+  // Lấy dữ liệu từ Frontend gửi lên (câu hỏi, lịch sử, chế độ AI, danh sách file đính kèm...)
   const { message, history = [], aiMode = "General AI", documentId = null, documentIds = [] } = req.body;
   const userId = req.userId;
   let documentContext = req.body.documentContext || "";
 
-  // Try to retrieve documentContext from chat history if not provided in the current request
+  // Nếu Frontend không gửi trực tiếp file tạm thời, thử tìm trong lịch sử tin nhắn cũ xem có file đính kèm không
   if (!documentContext && history && Array.isArray(history)) {
     for (let i = history.length - 1; i >= 0; i--) {
       const msg = history[i];
+      // Nếu tin nhắn do user gửi và có chứa file, trích xuất nội dung file đó làm Context
       if (msg.sender === "user" && msg.files && Array.isArray(msg.files) && msg.files.length > 0) {
         const foundContext = msg.files
           .filter(file => file.content)
@@ -303,218 +302,74 @@ export async function chatQuery(req, res) {
     }
   }
 
+  // Báo lỗi nếu câu hỏi rỗng
   if (!message) {
     return res.status(400).json({ error: "Câu hỏi không được để trống." });
   }
 
   try {
-    // 1. Source Detection
+    // Bước 1: Nhận diện nguồn dữ liệu (Xác định xem AI sẽ tìm kiếm thông tin ở đâu: Toàn bộ thư viện, 1 file cụ thể, hay mạng Internet)
     const sourceData = detectSource(aiMode, documentId, documentIds);
     sourceData.sessionId = req.userId ? String(req.userId) : "anonymous_session";
 
+    // Bước 2: Hiểu ngữ cảnh (Đọc lại lịch sử tin nhắn để AI nhớ nội dung đang nói chuyện)
     const context = await extractContext(history, message);
     context.documentContextStr = documentContext;
+    
+    // Bước 3a: Phân tích Ý định (Hỏi bài, Nhờ tóm tắt, Nhờ dịch thuật...)
     const intentData = await detectIntent(context, message);
     context.intent = intentData.intent;
+    
+    // Bước 3b: Phân tích Thực thể (Trích xuất các từ khóa quan trọng như Tên môn học, mã số...)
     const entities = await recognizeEntities(context, message);
     
-    // Nếu intent là tạo bài tập, đẩy xuống logic Flashcard/Quiz cũ
-    if (!["GENERATE_FLASHCARD", "GENERATE_QUIZ"].includes(intentData.intent)) {
-        const rewritten = await rewriteQuery(context, message);
-        const retrievalData = await retrieveContext(rewritten, intentData.intent, entities, sourceData);
+    // Bước 4: Viết lại câu hỏi cho chuẩn mực hơn để máy tính dễ tìm kiếm
+    const rewritten = await rewriteQuery(context, message);
+    
+    // Bước 5: Lục lọi tài liệu (Truy xuất Vector DB để tìm các đoạn văn bản chứa câu trả lời)
+    const retrievalData = await retrieveContext(rewritten, intentData.intent, entities, sourceData);
 
-        // Error Handling: Không Fallback nếu SYSTEM / UPLOAD bị lỗi (Timeout / Empty)
-        if (retrievalData.fallbackUsed && (sourceData.sourceType === "UPLOADED_DOCUMENT" || sourceData.sourceType === "SYSTEM_DOCUMENT")) {
-            return res.json({ response: "Không thể truy xuất tài liệu hiện tại, vui lòng thử lại." });
-        }
-
-        const prompt = buildPrompt(context, retrievalData, message, sourceData);
-        
-        const queryMessages = history.map(h => ({
-          role: h.sender === "ai" ? "assistant" : "user",
-          content: h.text || ""
-        }));
-        queryMessages.push({ role: "user", content: rewritten });
-        
-        let responseText = "";
-        if (process.env.GEMINI_API_KEY) {
-          responseText = await callGemini(queryMessages, prompt);
-        } else {
-          responseText = await callOpenAI(queryMessages, prompt);
-        }
-        
-        const finalResponse = planResponse(responseText, context, retrievalData, sourceData);
-        
-        let finalResponseText = finalResponse.text;
-        if (finalResponse.suggestedDocs && finalResponse.suggestedDocs.length > 0) {
-          finalResponseText += "\n\n";
-          // Nối link document để frontend render UI thẻ tài liệu
-          finalResponse.suggestedDocs.forEach(d => {
-            finalResponseText += `http://localhost:3000/preview/${d.document_id}\n`;
-          });
-        }
-        
-        return res.json({ response: finalResponseText });
+    // Chặn lỗi: Nếu đang chat trên file cụ thể mà hệ thống không tìm thấy file, báo lỗi luôn thay vì bịa ra câu trả lời (Ảo giác AI)
+    if (retrievalData.fallbackUsed && (sourceData.sourceType === "UPLOADED_DOCUMENT" || sourceData.sourceType === "SYSTEM_DOCUMENT")) {
+        return res.json({ response: "Không thể truy xuất tài liệu hiện tại, vui lòng thử lại." });
     }
+
+    // Bước 6: Xây dựng kịch bản (Ghép Câu hỏi + Tài liệu tìm được + Hướng dẫn đóng vai thành 1 lệnh Prompt hoàn chỉnh)
+    const prompt = buildPrompt(context, retrievalData, message, sourceData);
+    
+    // Gom toàn bộ lịch sử thành định dạng mà AI (Gemini/OpenAI) hiểu được
+    const queryMessages = history.map(h => ({
+      role: h.sender === "ai" ? "assistant" : "user",
+      content: h.text || ""
+    }));
+    queryMessages.push({ role: "user", content: rewritten });
+    
+    let responseText = "";
+    // Bước 7: Gọi API của Google Gemini (Ưu tiên) hoặc OpenAI ChatGPT để sinh câu trả lời
+    if (process.env.GEMINI_API_KEY) {
+      responseText = await callGemini(queryMessages, prompt);
+    } else {
+      responseText = await callOpenAI(queryMessages, prompt);
+    }
+    
+    // Bước 8: Gọt giũa và gợi ý (Tạo link tài liệu tham khảo đính kèm dưới câu trả lời nếu có trích dẫn)
+    const finalResponse = planResponse(responseText, context, retrievalData, sourceData);
+    
+    let finalResponseText = finalResponse.text;
+    if (finalResponse.suggestedDocs && finalResponse.suggestedDocs.length > 0) {
+      finalResponseText += "\n\n";
+      // Nối link document để frontend render UI thẻ tài liệu
+      finalResponse.suggestedDocs.forEach(d => {
+        finalResponseText += `http://localhost:3000/preview/${d.document_id}\n`;
+      });
+    }
+    
+    // Trả kết quả về cho Frontend
+    return res.json({ response: finalResponseText });
   } catch (err) {
     console.error("[NEW PIPELINE ERROR]", err);
     return res.status(500).json({ error: "Đã xảy ra lỗi trong quá trình xử lý Context-Aware RAG." });
   }
-
-
-  // Intercept flashcard creation requests
-  const messageLower = message.toLowerCase();
-  const hasFlashcardKeyword = messageLower.includes("flashcard") ||
-    messageLower.includes("flash card") ||
-    messageLower.includes("flashard") || // common typo
-    messageLower.includes("flash ard") || // common typo
-    messageLower.includes("thẻ ghi nhớ") ||
-    messageLower.includes("thẻ ôn tập") ||
-    messageLower.includes("study card") ||
-    messageLower.includes("revision card");
-
-  const hasCreateIntent = messageLower.includes("tạo") ||
-    messageLower.includes("taoj") || // telex typo
-    messageLower.includes("tao") || // unmarked
-    messageLower.includes("làm") ||
-    messageLower.includes("lam") ||
-    messageLower.includes("sinh") ||
-    messageLower.includes("học") ||
-    messageLower.includes("hoc") ||
-    messageLower.includes("ôn") ||
-    messageLower.includes("on") ||
-    messageLower.includes("create") ||
-    messageLower.includes("generate") ||
-    messageLower.includes("make") ||
-    messageLower.includes("study") ||
-    messageLower.includes("practice") ||
-    messageLower.includes("review") ||
-    messageLower.includes("revision") ||
-    messageLower.includes("giúp tôi ôn tập");
-
-  const isFlashcardRequest = messageLower.includes("giúp tôi ôn tập tài liệu này") ||
-    (hasFlashcardKeyword && hasCreateIntent);
-
-  if (isFlashcardRequest) {
-    try {
-      console.log("[Chat Query] Flashcard generation intent detected!");
-
-      if (!userId) {
-        return res.status(401).json({ error: "Bạn cần đăng nhập để tạo thẻ ghi nhớ." });
-      }
-
-      if (!documentId && !documentContext) {
-        return res.json({
-          response: "Vui lòng mở xem trước tài liệu hoặc gửi tệp đính kèm trong chat để tôi có thể tạo bộ thẻ ghi nhớ Flashcard ôn tập dựa trên nội dung đó nhé."
-        });
-      }
-
-      // Parse target card count if explicitly specified by user (e.g. "tạo 30 thẻ", "tạo 15 flashcard")
-      let targetCardCount = null;
-      const countMatch = message.match(/(\d+)\s*(thẻ ghi nhớ|thẻ|câu|flashcard|flash card|cards|card)/i);
-      if (countMatch) {
-        targetCardCount = parseInt(countMatch[1], 10);
-      }
-
-      const flashcardResult = await flashcardService.generateFlashcardSet(
-        documentId ? Number(documentId) : null,
-        message, // Pass raw prompt message as customPrompt/focusPrompt
-        userId,
-        documentContext,
-        targetCardCount
-      );
-
-      // Fetch flashcards from database to display in chat
-      const flashcardsRes = await pool.query(`SELECT front, back FROM flashcards WHERE set_id = $1`, [flashcardResult.setId]);
-      let mdText = `✅ **Đã tạo thành công bộ Flashcard: ${flashcardResult.title}** gồm ${flashcardResult.count} thẻ.\n*(Tính năng giao diện Flashcard đang được hoàn thiện, dưới đây là bộ thẻ của bạn)*\n\n`;
-      flashcardsRes.rows.forEach((card, i) => {
-        mdText += `**Thẻ ${i + 1}:**\n- **Mặt trước (Câu hỏi/Thuật ngữ):** ${card.front}\n- **Mặt sau (Đáp án/Giải nghĩa):** ${card.back}\n\n`;
-      });
-
-      return res.json({
-        response: mdText,
-        messageType: "flashcard_set",
-        data: {
-          setId: flashcardResult.setId,
-          title: flashcardResult.title,
-          count: flashcardResult.count,
-          topics: flashcardResult.topics
-        }
-      });
-    } catch (error) {
-      console.error("[Chat Query] Failed to auto-generate flashcards in chat:", error);
-      return res.status(200).json({
-        response: `❌ **Lỗi sinh bộ thẻ ghi nhớ:** ${error.message || "Lỗi không xác định."}`
-      });
-    }
-  }
-
-  // Intercept quiz creation requests
-  const hasQuizKeyword = messageLower.includes("quiz") ||
-    messageLower.includes("quizz") ||
-    messageLower.includes("trắc nghiệm") ||
-    messageLower.includes("test my knowledge") ||
-    messageLower.includes("kiểm tra kiến thức");
-
-  const isExplanationQuery = (messageLower.includes("giải thích") || messageLower.includes("tại sao") || messageLower.includes("vì sao") || messageLower.includes("sửa") || messageLower.includes("chữa")) &&
-    (messageLower.includes("câu") || messageLower.includes("question") || messageLower.includes("đáp án"));
-
-  const isQuizRequest = hasQuizKeyword && !isExplanationQuery;
-
-  if (isQuizRequest) {
-    try {
-      console.log("[Chat Query] Quiz generation intent detected!");
-
-      // Parse question count
-      let count = 10;
-      const countMatch = message.match(/(\d+)\s*(câu hỏi|câu|questions|question|q)/i);
-      if (countMatch) {
-        count = parseInt(countMatch[1], 10);
-      }
-
-      // We need either a documentContext or documentId
-      if (!documentContext && !documentId) {
-        return res.json({
-          response: "Vui lòng mở xem trước tài liệu hoặc gửi tệp đính kèm trong chat để tôi có thể tạo Quiz ôn tập dựa trên nội dung đó nhé."
-        });
-      }
-
-      const quizResult = await quizService.generateQuizFromText(
-        documentContext,
-        count,
-        userId || null,
-        documentId ? Number(documentId) : null,
-        "CHAT_PROMPT",
-        message // Pass raw prompt message as customInstructions
-      );
-
-      // Return event string as the main response text so it is stored in chat logs,
-      // along with helper metadata for immediate rendering
-      // Fetch quiz questions from database to display in chat
-      const questionsRes = await pool.query(`SELECT question_text, options, correct_answer, explanation FROM quiz_questions WHERE quiz_id = $1`, [quizResult.quizId]);
-      let mdText = `✅ **Đã tạo thành công bài Quiz: ${quizResult.title}** gồm ${quizResult.count} câu hỏi.\n*(Tính năng giao diện Quiz đang được hoàn thiện, dưới đây là bài tập của bạn)*\n\n`;
-      questionsRes.rows.forEach((q, i) => {
-        mdText += `**Câu ${i + 1}:** ${q.question_text}\n`;
-        const opts = typeof q.options === 'string' ? JSON.parse(q.options) : q.options;
-        opts.forEach(opt => {
-          mdText += `- ${opt}\n`;
-        });
-        mdText += `\n**Đáp án đúng:** ${q.correct_answer}\n**Giải thích:** ${q.explanation}\n\n---\n\n`;
-      });
-
-      return res.json({
-        response: mdText,
-        messageType: "quiz_card",
-        data: quizResult
-      });
-    } catch (error) {
-      console.error("[Chat Query] Failed to auto-generate quiz in chat:", error);
-      return res.status(200).json({
-        response: `❌ **Lỗi sinh câu hỏi ôn tập:** ${error.message || "Lỗi không xác định."}`
-      });
-    }
-  }
-
 }
 
 // Đường dẫn API: GET /api/chat/history

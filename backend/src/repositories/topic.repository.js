@@ -47,50 +47,7 @@ export const getLastGeneratedAt = async () => {
     return rows[0]?.last_at || null;
 };
 
-/**
- * Atomically clear all existing topics and insert new ones
- * @param {Array} topicsData - [{name, description, icon, color, subjects: [subjectCode, ...]}]
- */
-export const clearAndRebuildTopics = async (topicsData) => {
-    const client = await pool.connect();
-    try {
-        await client.query("BEGIN");
 
-        // Delete old topics (cascade will clean topic_subject too)
-        await client.query("DELETE FROM topic");
-
-        for (const topic of topicsData) {
-            const { rows } = await client.query(
-                `INSERT INTO topic (name, description, icon, color, generated_at)
-                 VALUES ($1, $2, $3, $4, NOW())
-                 RETURNING topic_id`,
-                [topic.name, topic.description || null, topic.icon || null, topic.color || null]
-            );
-            const topicId = rows[0].topic_id;
-
-            for (const subjectCode of (topic.subjects || [])) {
-                // Only insert if the subject_code actually exists
-                const exists = await client.query(
-                    "SELECT 1 FROM subject WHERE subject_code = $1",
-                    [subjectCode.trim().toUpperCase()]
-                );
-                if (exists.rows.length > 0) {
-                    await client.query(
-                        "INSERT INTO topic_subject (topic_id, subject_code) VALUES ($1, $2) ON CONFLICT DO NOTHING",
-                        [topicId, subjectCode.trim().toUpperCase()]
-                    );
-                }
-            }
-        }
-
-        await client.query("COMMIT");
-    } catch (err) {
-        await client.query("ROLLBACK");
-        throw err;
-    } finally {
-        client.release();
-    }
-};
 
 export const createTopic = async (topic) => {
   const { rows } = await pool.query(

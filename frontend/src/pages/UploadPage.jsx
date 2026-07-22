@@ -556,7 +556,7 @@ export default function UploadPage() {
         {/* ── Tips ──────────────────────────────────────────────────────── */}
         <div className="p-4 bg-violet-50/60 dark:bg-violet-950/20 border border-violet-200/50 dark:border-violet-500/15 rounded-2xl">
           <p className="text-xs text-violet-700 dark:text-violet-300 font-semibold leading-relaxed">
-            💡 <strong>Mẹo tổ chức tài liệu:</strong> Đặt đúng <strong>Danh mục</strong> giúp tài liệu được nhóm vào folder tương ứng khi xem trong thư viện. Thêm <strong>Tags</strong> như #kinh-tế, #bài-tập để tìm kiếm chéo giữa các môn học dễ hơn.
+            <strong>Mẹo tổ chức tài liệu:</strong> Đặt đúng <strong>Danh mục</strong> giúp tài liệu được nhóm vào folder tương ứng khi xem trong thư viện. Thêm <strong>Tags</strong> như #kinh-tế, #bài-tập để tìm kiếm chéo giữa các môn học dễ hơn.
           </p>
         </div>
 

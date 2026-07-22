@@ -14,14 +14,7 @@
 export async function detectIntent(context, message) {
     const lowerMsg = message.toLowerCase();
     
-    // 1. Nhận diện các lệnh Generate
-    if (lowerMsg.includes("flashcard") || lowerMsg.includes("thẻ ghi nhớ")) {
-        return { intent: "GENERATE_FLASHCARD", confidence: 0.95 };
-    }
-    if (lowerMsg.includes("quiz") || lowerMsg.includes("trắc nghiệm") || lowerMsg.includes("bài tập")) {
-        return { intent: "GENERATE_QUIZ", confidence: 0.95 };
-    }
-
+    
     // 1.5. Nhận diện lệnh tóm tắt
     if (lowerMsg.includes("tóm tắt") || lowerMsg.includes("summarize") || lowerMsg.includes("rút gọn")) {
         return { intent: "SUMMARIZE_DOCUMENT", confidence: 0.90 };

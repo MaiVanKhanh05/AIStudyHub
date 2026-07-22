@@ -80,7 +80,6 @@ import axios from "axios";
 import { toast } from "sonner";
 import DocumentPreviewModal from "./DocumentPreviewModal";
 import DocumentCard from "./DocumentCard";
-import { getSimulatedContent } from "../utils/documentUtils";
 import SearchBar from "./SearchBar";
 import Pagination from "./Pagination";
 import ShareDocumentModal from "./ShareDocumentModal";
@@ -1351,11 +1350,7 @@ export default function Home() {
           if (res.ok) {
             const data = await res.json();
             const doc = data.document || data;
-            const docWithContent = {
-              ...doc,
-              simulated_content: getSimulatedContent(doc.title || doc.document_name || "", doc.subject || "")
-            };
-            setPreviewDoc(docWithContent);
+            setPreviewDoc(doc);
           }
         } catch (err) {
           console.error("Failed to auto-open document preview modal:", err);
@@ -2280,11 +2275,7 @@ export default function Home() {
 
   // Handle preview document with simulated content
   const handlePreviewClick = (doc) => {
-    const docWithContent = {
-      ...doc,
-      simulated_content: getSimulatedContent(doc.title || doc.document_name || "", doc.subject || "")
-    };
-    setPreviewDoc(docWithContent);
+    setPreviewDoc(doc);
   };
 
   useEffect(() => {
@@ -3305,13 +3296,13 @@ export default function Home() {
 
   // Get prompt chips based on file attachment
   const getPromptChips = () => {
-    if (attachedFiles.length === 0) {
-      return [
-        { text: "Giải thích về môn học Thiết kế Web (WED202c)", label: "Cấu trúc WED202c" },
-        { text: "Tóm tắt thuật toán Dijkstra tìm đường đi ngắn nhất", label: "Giải thuật Dijkstra" },
-        { text: "Tầm quan trọng của Đại số tuyến tính trong học máy", label: "Đại số tuyến tính & AI" }
-      ];
-    }
+    // if (attachedFiles.length === 0) {
+    //   return [
+    //     { text: "Giải thích về môn học Thiết kế Web (WED202c)", label: "Cấu trúc WED202c" },
+    //     { text: "Tóm tắt thuật toán Dijkstra tìm đường đi ngắn nhất", label: "Giải thuật Dijkstra" },
+    //     { text: "Tầm quan trọng của Đại số tuyến tính trong học máy", label: "Đại số tuyến tính & AI" }
+    //   ];
+    // }
 
     const hasZip = attachedFiles.some(file => file.type === "ZIP");
     if (hasZip) {
