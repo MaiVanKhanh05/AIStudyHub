@@ -143,58 +143,6 @@ function renderMiniIcon(fileType = "") {
   return (
     <div className="w-8 h-8 rounded-lg bg-slate-600 text-white flex items-center justify-center font-extrabold text-[9px] select-none shadow-sm">
       FILE
-
-      {contextMenu && (
-        <div 
-          className="fixed z-[9999] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl py-1.5 min-w-[180px] overflow-hidden"
-          style={{ 
-            top: `${Math.min(contextMenu.y, window.innerHeight - 150)}px`, 
-            left: `${Math.min(contextMenu.x, window.innerWidth - 180)}px` 
-          }}
-          onClick={(e) => e.stopPropagation()}
-          onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); }}
-        >
-          {contextMenu.type === 'document' ? (
-            <>
-              <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800 mb-1">
-                Đã chọn {selectedDocIds.size} tài liệu
-              </div>
-              <button 
-                onClick={() => { setContextMenu(null); handleBulkShare(); }}
-                className="w-full flex items-center gap-2 px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-purple-50 dark:hover:bg-purple-900/30 hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
-              >
-                <Share2 className="w-4 h-4" />
-                Chia sẻ cộng đồng
-              </button>
-              <button 
-                onClick={() => { setContextMenu(null); handleBulkDelete(); }}
-                className="w-full flex items-center gap-2 px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-red-50 dark:hover:bg-red-900/30 hover:text-red-600 dark:hover:text-red-400 transition-colors"
-              >
-                <Trash2 className="w-4 h-4" />
-                Xóa tài liệu
-              </button>
-            </>
-          ) : (
-            <>
-              <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800 mb-1">
-                {contextMenu.data}
-              </div>
-              <button 
-                onClick={() => { 
-                  setContextMenu(null); 
-                  setUploadSubject(contextMenu.data); 
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                }}
-                className="w-full flex items-center gap-2 px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-purple-50 dark:hover:bg-purple-900/30 hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
-              >
-                <UploadCloud className="w-4 h-4" />
-                Tải lên môn này
-              </button>
-            </>
-          )}
-        </div>
-      )}
-
     </div>
   );
 }
@@ -212,58 +160,6 @@ function renderMiniBadge(fileType = "") {
   return (
     <div className={`w-10 h-10 rounded-xl ${bgClass} flex items-center justify-center shadow-sm shrink-0`}>
       <FileText className="w-5 h-5 text-white" />
-
-      {contextMenu && (
-        <div 
-          className="fixed z-[9999] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl py-1.5 min-w-[180px] overflow-hidden"
-          style={{ 
-            top: `${Math.min(contextMenu.y, window.innerHeight - 150)}px`, 
-            left: `${Math.min(contextMenu.x, window.innerWidth - 180)}px` 
-          }}
-          onClick={(e) => e.stopPropagation()}
-          onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); }}
-        >
-          {contextMenu.type === 'document' ? (
-            <>
-              <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800 mb-1">
-                Đã chọn {selectedDocIds.size} tài liệu
-              </div>
-              <button 
-                onClick={() => { setContextMenu(null); handleBulkShare(); }}
-                className="w-full flex items-center gap-2 px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-purple-50 dark:hover:bg-purple-900/30 hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
-              >
-                <Share2 className="w-4 h-4" />
-                Chia sẻ cộng đồng
-              </button>
-              <button 
-                onClick={() => { setContextMenu(null); handleBulkDelete(); }}
-                className="w-full flex items-center gap-2 px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-red-50 dark:hover:bg-red-900/30 hover:text-red-600 dark:hover:text-red-400 transition-colors"
-              >
-                <Trash2 className="w-4 h-4" />
-                Xóa tài liệu
-              </button>
-            </>
-          ) : (
-            <>
-              <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800 mb-1">
-                {contextMenu.data}
-              </div>
-              <button 
-                onClick={() => { 
-                  setContextMenu(null); 
-                  setUploadSubject(contextMenu.data); 
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                }}
-                className="w-full flex items-center gap-2 px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-purple-50 dark:hover:bg-purple-900/30 hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
-              >
-                <UploadCloud className="w-4 h-4" />
-                Tải lên môn này
-              </button>
-            </>
-          )}
-        </div>
-      )}
-
     </div>
   );
 }
@@ -438,58 +334,6 @@ function InlinedDocumentCard({ docId, onPreview }) {
           )}
         </div>
       </div>
-
-      {contextMenu && (
-        <div 
-          className="fixed z-[9999] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl py-1.5 min-w-[180px] overflow-hidden"
-          style={{ 
-            top: `${Math.min(contextMenu.y, window.innerHeight - 150)}px`, 
-            left: `${Math.min(contextMenu.x, window.innerWidth - 180)}px` 
-          }}
-          onClick={(e) => e.stopPropagation()}
-          onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); }}
-        >
-          {contextMenu.type === 'document' ? (
-            <>
-              <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800 mb-1">
-                Đã chọn {selectedDocIds.size} tài liệu
-              </div>
-              <button 
-                onClick={() => { setContextMenu(null); handleBulkShare(); }}
-                className="w-full flex items-center gap-2 px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-purple-50 dark:hover:bg-purple-900/30 hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
-              >
-                <Share2 className="w-4 h-4" />
-                Chia sẻ cộng đồng
-              </button>
-              <button 
-                onClick={() => { setContextMenu(null); handleBulkDelete(); }}
-                className="w-full flex items-center gap-2 px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-red-50 dark:hover:bg-red-900/30 hover:text-red-600 dark:hover:text-red-400 transition-colors"
-              >
-                <Trash2 className="w-4 h-4" />
-                Xóa tài liệu
-              </button>
-            </>
-          ) : (
-            <>
-              <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800 mb-1">
-                {contextMenu.data}
-              </div>
-              <button 
-                onClick={() => { 
-                  setContextMenu(null); 
-                  setUploadSubject(contextMenu.data); 
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                }}
-                className="w-full flex items-center gap-2 px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-purple-50 dark:hover:bg-purple-900/30 hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
-              >
-                <UploadCloud className="w-4 h-4" />
-                Tải lên môn này
-              </button>
-            </>
-          )}
-        </div>
-      )}
-
     </div>
   );
 }

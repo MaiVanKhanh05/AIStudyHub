@@ -14,4 +14,10 @@ router.get("/", authenticateToken, subjectController.getSubjects);
 import { requireAdmin } from "../middlewares/validation.middleware.js";
 router.post("/", authenticateToken, requireAdmin, subjectController.createSubject);
 
+// PUT /api/subjects/:code - Update a subject (Admin only)
+router.put("/:code", authenticateToken, requireAdmin, subjectController.updateSubject);
+
+// DELETE /api/subjects/:code - Delete a subject (Admin only)
+router.delete("/:code", authenticateToken, requireAdmin, subjectController.deleteSubject);
+
 export default router;

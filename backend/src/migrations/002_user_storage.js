@@ -25,13 +25,13 @@ async function migrate() {
             ) d
             WHERE u.user_id = d.user_id;
         `);
-        console.log("✅ Synced existing storage sizes from document table to users table");
+        console.log("Synced existing storage sizes from document table to users table");
 
         await client.query("COMMIT");
-        console.log("\n🎉 Migration 002 completed successfully!");
+        console.log("\nMigration 002 completed successfully!");
     } catch (err) {
         await client.query("ROLLBACK");
-        console.error("❌ Migration failed:", err.message);
+        console.error("Migration failed:", err.message);
         process.exit(1);
     } finally {
         client.release();

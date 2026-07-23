@@ -83,3 +83,55 @@ export const getOrCreateSubject = async (subjectCode, subjectName = "") => {
         throw error;
     }
 };
+
+// Update subject name
+export const updateSubject = async (subjectCode, newSubjectName) => {
+    try {
+        if (!subjectCode || !newSubjectName) return null;
+        const code = subjectCode.trim().toUpperCase();
+        const name = newSubjectName.trim();
+
+        const { rows } = await pool.query(
+            "UPDATE subject SET subject_name = $1 WHERE subject_code = $2 RETURNING subject_code, subject_name",
+            [name, code]
+        );
+        return rows[0] || null;
+    } catch (error) {
+        console.error("Error in updateSubject:", error);
+        throw error;
+    }
+};
+
+// Delete a subject
+export const deleteSubject = async (subjectCode) => {
+    try {
+        if (!subjectCode) return false;
+        const code = subjectCode.trim().toUpperCase();
+        
+        // First check if it's being used by any documents
+        const docCheck = await pool.query(
+            "SELECT COUNT(*) FROM document WHERE subject_code = $1",
+            [code]
+        );
+        
+        if (parseInt(docCheck.rows[0].count) > 0) {
+            throw new Error(`Môn học đang được gán cho ${docCheck.rows[0].count} tài liệu, không thể xóa.`);
+        }
+
+        // Also check if it's in topic_subjects or semester_subjects
+        const tsCheck = await pool.query("SELECT COUNT(*) FROM topic_subjects WHERE subject_code = $1", [code]);
+        if (parseInt(tsCheck.rows[0].count) > 0) throw new Error(`Môn học đang nằm trong ${tsCheck.rows[0].count} chủ đề, không thể xóa.`);
+
+        const ssCheck = await pool.query("SELECT COUNT(*) FROM semester_subjects WHERE subject_code = $1", [code]);
+        if (parseInt(ssCheck.rows[0].count) > 0) throw new Error(`Môn học đang nằm trong ${ssCheck.rows[0].count} học kỳ, không thể xóa.`);
+
+        const { rowCount } = await pool.query(
+            "DELETE FROM subject WHERE subject_code = $1",
+            [code]
+        );
+        return rowCount > 0;
+    } catch (error) {
+        console.error("Error in deleteSubject:", error);
+        throw error;
+    }
+};
