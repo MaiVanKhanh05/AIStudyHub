@@ -24,7 +24,7 @@ const upload = multer({
 
 router.post("/find-by-email", userController.getUserByEmail);
 router.post("/avatar", upload.single("avatar"), userController.uploadAvatar);
-router.put("/profile", userController.updateProfile);
+router.put("/profile", authenticateToken, userController.updateProfile);
 router.get("/search", authenticateToken, userController.searchUsers);
 
 export default router;

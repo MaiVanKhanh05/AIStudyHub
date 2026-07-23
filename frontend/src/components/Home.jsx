@@ -689,9 +689,21 @@ export default function Home() {
   const personalCalendarRef = useRef(null);
 
   // Load authenticated user session
-  const userStr = localStorage.getItem("user") || sessionStorage.getItem("user");
-  const user = useMemo(() => userStr ? JSON.parse(userStr) : null, [userStr]);
+  const [user, setUser] = useState(() => {
+    const str = localStorage.getItem("user") || sessionStorage.getItem("user");
+    return str ? JSON.parse(str) : null;
+  });
   const fullName = user?.first_name ? `${user.last_name} ${user.first_name}`.trim() : (user?.email || "Học Viên AIStudyHub");
+
+  // Helper: persist updated user to storage and React state (no page reload needed)
+  const applyUserUpdate = (updatedUser) => {
+    if (localStorage.getItem("user")) {
+      localStorage.setItem("user", JSON.stringify(updatedUser));
+    } else if (sessionStorage.getItem("user")) {
+      sessionStorage.setItem("user", JSON.stringify(updatedUser));
+    }
+    setUser(updatedUser);
+  };
 
   // Extract first name or display name
   const nameParts = fullName.trim().split(" ");
@@ -1971,17 +1983,10 @@ export default function Home() {
 
       if (res.ok) {
         const updatedUser = await res.json();
-
-        if (localStorage.getItem("user")) {
-          localStorage.setItem("user", JSON.stringify(updatedUser));
-        } else if (sessionStorage.getItem("user")) {
-          sessionStorage.setItem("user", JSON.stringify(updatedUser));
-        }
-
+        applyUserUpdate(updatedUser);
         toast.success("Cập nhật ảnh đại diện thành công!");
         setAvatarFile(null);
         setAvatarPreview(null);
-        window.location.reload();
       } else {
         toast.error("Lỗi khi tải ảnh lên. Vui lòng thử lại.");
       }
@@ -2052,16 +2057,9 @@ export default function Home() {
 
       if (res.ok) {
         const updatedUser = await res.json();
-
-        if (localStorage.getItem("user")) {
-          localStorage.setItem("user", JSON.stringify(updatedUser));
-        } else if (sessionStorage.getItem("user")) {
-          sessionStorage.getItem("user", JSON.stringify(updatedUser));
-        }
-
+        applyUserUpdate(updatedUser);
         setIsEditingProfile(false);
         toast.success("Cập nhật thông tin thành công!");
-        window.location.reload();
       } else {
         let errMsg = "Lỗi khi lưu hồ sơ";
         try {

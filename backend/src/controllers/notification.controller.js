@@ -1,5 +1,5 @@
 import * as notificationService from "../services/notification.service.js";
-
+// tra ve tbao dang json
 export const getNotifications = async (req, res) => {
     try {
         const userId = req.userId;
@@ -13,7 +13,7 @@ export const getNotifications = async (req, res) => {
         return res.status(500).json({ error: error.message || "Không thể lấy danh sách thông báo." });
     }
 };
-
+// tiep nhan yeu cau truy cap qua id tai lieu
 export const requestAccess = async (req, res) => {
     try {
         const documentId = Number(req.params.id);
@@ -31,7 +31,7 @@ export const requestAccess = async (req, res) => {
         return res.status(500).json({ error: error.message || "Gửi yêu cầu truy cập thất bại." });
     }
 };
-
+// tu choi / duyet 
 export const approveAccess = async (req, res) => {
     try {
         const notificationId = Number(req.params.id);
@@ -67,7 +67,7 @@ export const denyAccess = async (req, res) => {
         return res.status(500).json({ error: error.message || "Từ chối yêu cầu thất bại." });
     }
 };
-
+// xu ly tbao danh dau da doc
 export const markAsRead = async (req, res) => {
     try {
         const notificationId = Number(req.params.id);

@@ -1,6 +1,5 @@
 import * as userService from "../services/user.service.js";
 import pool from "../../DB/db.js";
-import jwt from "jsonwebtoken";
 
 export const getUserByEmail = async (req, res) => {
     try {
@@ -58,20 +57,11 @@ export const uploadAvatar = async (req, res) => {
 
 export const updateProfile = async (req, res) => {
     try {
-        const authHeader = req.headers.authorization;
-        if (!authHeader || !authHeader.startsWith("Bearer ")) {
-            return res.status(401).json({ error: "Không tìm thấy token xác thực." });
+        const userId = req.userId;
+        if (!userId) {
+            return res.status(401).json({ error: "Không tìm thấy thông tin xác thực." });
         }
-        const token = authHeader.split(" ")[1];
-        
-        let decoded;
-        try {
-            decoded = jwt.verify(token, process.env.JWT_SECRET);
-        } catch (err) {
-            return res.status(401).json({ error: "Token không hợp lệ hoặc đã hết hạn." });
-        }
-        
-        const userId = decoded.userId;
+
         const { phone, dob, gender, major, avatar_url } = req.body;
 
         // Fetch current profile to keep avatar_url if not provided in request body
@@ -81,7 +71,7 @@ export const updateProfile = async (req, res) => {
 
         await pool.query(
             "UPDATE users SET phone = $1, dob = $2, gender = $3, major = $4, avatar_url = $5, updated_at = NOW() WHERE user_id = $6",
-            [phone, dob ? dob : null, gender, major, finalAvatarUrl, userId]
+            [phone || null, dob ? dob : null, gender || null, major || null, finalAvatarUrl, userId]
         );
 
         // Fetch updated user to return
