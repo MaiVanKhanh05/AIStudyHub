@@ -2772,17 +2772,17 @@ export default function Home() {
       isUploadingRef.current = false;
       setUploadProgress(0);
 
+      setUploadTitle("");
+      setUploadSubject("OTHER");
+      setDocumentTags([]);
+      setSelectedFiles([]);
+
       if (allSuccess) {
-        setUploadTitle("");
-        setSelectedFiles([]);
-        setDocumentTags([]);
         if (renamedCount > 0) {
           toast.success(`Tải lên thành công! ${renamedCount} file đã tự động đổi tên do trùng lặp.`);
         } else {
           toast.success("Tải lên tài liệu thành công!");
         }
-      } else {
-        setSelectedFiles([]);
       }
 
       await fetchDashboard();
