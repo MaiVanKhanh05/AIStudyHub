@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { API_URL } from "@/config/api.js";
-import { Folder, Plus, Edit2, Trash2, BookOpen, AlertCircle, Loader, X, Check, Search, CalendarDays } from "lucide-react";
+import { Folder, Plus, Edit2, Trash2, BookOpen, AlertCircle, Loader, X, Check, Search, CalendarDays, AlertTriangle } from "lucide-react";
 import { useLanguage } from "../../context/LanguageContext";
 
 export default function AdminTopicManagement() {
@@ -14,6 +14,7 @@ export default function AdminTopicManagement() {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState(null);
   const [mainSearch, setMainSearch] = useState("");
   const [subjectSearch, setSubjectSearch] = useState("");
   const [isSubjectModalOpen, setIsSubjectModalOpen] = useState(false);
@@ -231,8 +232,9 @@ export default function AdminTopicManagement() {
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm(language === "vi" ? "Bạn có chắc chắn muốn xóa?" : "Are you sure you want to delete?")) return;
+  const handleDeleteConfirmed = async () => {
+    if (!deleteConfirmId) return;
+    const id = deleteConfirmId;
     try {
       const token = localStorage.getItem("token") || sessionStorage.getItem("token");
       let url = "";
@@ -259,6 +261,8 @@ export default function AdminTopicManagement() {
       }
     } catch (err) {
       showToast(err.message, "error");
+    } finally {
+      setDeleteConfirmId(null);
     }
   };
 
@@ -277,7 +281,16 @@ export default function AdminTopicManagement() {
     listToRender = listToRender.filter(item => {
        const n = (item.name || item.subject_name || "").toLowerCase();
        const d = (item.description || item.subject_code || "").toLowerCase();
-       return n.includes(q) || d.includes(q);
+       
+       let subjectMatch = false;
+       if (activeTab !== "subjects" && item.subjects && Array.isArray(item.subjects)) {
+           subjectMatch = item.subjects.some(sub => 
+               (sub.subject_code || "").toLowerCase().includes(q) || 
+               (sub.subject_name || "").toLowerCase().includes(q)
+           );
+       }
+
+       return n.includes(q) || d.includes(q) || subjectMatch;
     });
   }
 
@@ -372,7 +385,7 @@ export default function AdminTopicManagement() {
                 </div>
                 <div className="flex gap-2">
                   <button onClick={(e) => { e.stopPropagation(); activeTab === "subjects" ? handleOpenSubjectModal(item) : handleOpenModal(item); }} className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-md transition-colors"><Edit2 size={16} /></button>
-                  <button onClick={(e) => { e.stopPropagation(); handleDelete(item.topic_id || item.semester_id || item.subject_code); }} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors"><Trash2 size={16} /></button>
+                  <button onClick={(e) => { e.stopPropagation(); setDeleteConfirmId(item.topic_id || item.semester_id || item.subject_code); }} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors"><Trash2 size={16} /></button>
                 </div>
               </div>
               <h3 className="text-lg font-bold text-slate-800 mb-1">{item.name || item.subject_name}</h3>
@@ -569,6 +582,39 @@ export default function AdminTopicManagement() {
               <button type="button" onClick={() => setIsSubjectModalOpen(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-200 rounded-lg font-medium text-sm transition-colors">{language === "vi" ? "Hủy" : "Cancel"}</button>
               <button type="submit" form="subject-form" disabled={isAddingSubject} className="px-6 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-sm shadow-sm transition-all active:scale-95 disabled:opacity-50">
                 {isAddingSubject ? (language === "vi" ? "Đang xử lý..." : "Processing...") : (editingSubject ? (language === "vi" ? "Cập nhật" : "Update") : (language === "vi" ? "Lưu môn học" : "Save subject"))}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+    {/* Premium Centered Delete Confirmation Modal */}
+      {deleteConfirmId && (
+        <div className="fixed inset-0 bg-slate-900/60 dark:bg-black/70 backdrop-blur-md flex items-center justify-center z-[9999] animate-in fade-in duration-200">
+          <div className="w-full max-w-sm p-6 bg-white/95 dark:bg-[#0f111a]/95 border border-slate-200/50 dark:border-white/10 rounded-2xl shadow-2xl flex flex-col gap-4 text-center animate-in zoom-in-95 duration-200">
+            <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-950/40 text-red-650 dark:text-red-400 flex items-center justify-center mx-auto mb-1 border border-red-500/10">
+              <AlertTriangle className="w-6 h-6 text-red-555 animate-pulse" />
+            </div>
+            <div className="flex flex-col gap-1">
+              <h3 className="text-sm font-black uppercase tracking-wider text-slate-900 dark:text-slate-100">{language === "vi" ? "Xác nhận xóa" : "Confirm Delete"}</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed font-medium">
+                {language === "vi" ? "Bạn có chắc chắn muốn xóa mục này không? Hành động này không thể hoàn tác." : "Are you sure you want to delete this item? This action cannot be undone."}
+              </p>
+            </div>
+            <div className="flex gap-3 mt-2">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmId(null)}
+                className="flex-1 px-4 py-2.5 rounded-lg border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-350 hover:bg-slate-50 dark:hover:bg-slate-850 font-bold text-xs cursor-pointer select-none transition-colors"
+              >
+                {language === "vi" ? "Hủy bỏ" : "Cancel"}
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteConfirmed}
+                className="flex-1 px-4 py-2.5 rounded-lg bg-red-50 dark:bg-red-950/30 text-red-650 dark:text-red-400 border border-red-200/60 dark:border-red-900/30 hover:bg-red-600 dark:hover:bg-red-600 hover:text-white dark:hover:text-white hover:border-transparent font-bold text-xs cursor-pointer select-none shadow-sm transition-all duration-300"
+              >
+                {language === "vi" ? "Xác nhận xóa" : "Confirm Delete"}
               </button>
             </div>
           </div>

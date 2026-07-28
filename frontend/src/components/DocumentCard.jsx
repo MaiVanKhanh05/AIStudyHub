@@ -87,7 +87,21 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
     try {
       const d = new Date(doc.upload_date);
       if (isNaN(d.getTime())) return doc.upload_date;
-      return d.toLocaleDateString(language === "vi" ? "vi-VN" : "en-US", { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+      
+      const pad = (n) => String(n).padStart(2, '0');
+      const hours = pad(d.getHours());
+      const mins = pad(d.getMinutes());
+      const day = d.getDate();
+      const year = d.getFullYear();
+      
+      if (language === "vi") {
+        const month = `thg ${d.getMonth() + 1}`;
+        return `${hours}:${mins} ${day} ${month}, ${year}`;
+      } else {
+        const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        const month = monthNames[d.getMonth()];
+        return `${hours}:${mins} ${month} ${day}, ${year}`;
+      }
     } catch {
       return doc.upload_date;
     }
@@ -464,10 +478,7 @@ export default function DocumentCard({ doc, isPinned, onTogglePin, isPersonal, o
               {language === "vi" ? "Bởi" : "By"} {doc?.author || doc?.uploader_name || "An Nguyen"}
             </p>
 
-            {/* Ngày cập nhật */}
-            <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500">
-              {language === "vi" ? "Cập nhật:" : "Updated:"} {formattedUploadDate}
-            </p>
+
           </div>
 
           {/* VÙNG FOOTER */}

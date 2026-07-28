@@ -118,17 +118,18 @@ export const deleteSubject = async (subjectCode) => {
             throw new Error(`Môn học đang được gán cho ${docCheck.rows[0].count} tài liệu, không thể xóa.`);
         }
 
-        // Also check if it's in topic_subjects or semester_subjects
-        const tsCheck = await pool.query("SELECT COUNT(*) FROM topic_subjects WHERE subject_code = $1", [code]);
+        // Also check if it's in topic_subject or semester_subject
+        const tsCheck = await pool.query("SELECT COUNT(*) FROM topic_subject WHERE subject_code = $1", [code]);
         if (parseInt(tsCheck.rows[0].count) > 0) throw new Error(`Môn học đang nằm trong ${tsCheck.rows[0].count} chủ đề, không thể xóa.`);
 
-        const ssCheck = await pool.query("SELECT COUNT(*) FROM semester_subjects WHERE subject_code = $1", [code]);
+        const ssCheck = await pool.query("SELECT COUNT(*) FROM semester_subject WHERE subject_code = $1", [code]);
         if (parseInt(ssCheck.rows[0].count) > 0) throw new Error(`Môn học đang nằm trong ${ssCheck.rows[0].count} học kỳ, không thể xóa.`);
 
         const { rowCount } = await pool.query(
             "DELETE FROM subject WHERE subject_code = $1",
             [code]
         );
+
         return rowCount > 0;
     } catch (error) {
         console.error("Error in deleteSubject:", error);

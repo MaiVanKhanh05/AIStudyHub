@@ -153,7 +153,7 @@ export const translations = {
             unread: "Chưa đọc",
             recent_community: "Cộng đồng chia sẻ gần đây",
             recent_viewed: "Tài liệu đã xem gần đây",
-            no_community_docs: "Không có tài liệu nào được chia sẻ trong 3 ngày qua.",
+            no_community_docs: "Chưa có tài liệu nào được chia sẻ gần đây.",
             no_views_yet: "Bạn chưa xem tài liệu nào gần đây",
             contact_support: "Liên hệ hỗ trợ",
             yours: "của bạn"
@@ -166,7 +166,7 @@ export const translations = {
             // Upload form
             file_label: "Tệp tài liệu học tập *",
             file_drag: "Kéo thả tệp hoặc nhấp để chọn tệp tài liệu",
-            file_formats: "Hỗ trợ mọi định dạng tệp (Tối đa 10MB)",
+            file_formats: "Hỗ trợ mọi định dạng tệp (Tối đa 50MB)",
             title_label: "Tiêu đề học liệu *",
             title_placeholder: "Ví dụ: Đề cương tự ôn thi cuối học kỳ",
             subject_label: "Chọn học phần",
@@ -194,7 +194,7 @@ export const translations = {
             tags_suggest_for: "Gợi ý cho môn",
             tags_select: "+ Chọn",
             // Upload button
-            upload_info: "Hỗ trợ định dạng PDF, PowerPoint, Word. Dung lượng khuyến nghị < 10MB",
+            upload_info: "Hỗ trợ định dạng PDF, PowerPoint, Word. Dung lượng khuyến nghị < 50MB",
             upload_btn: "Lưu vào máy chủ",
             uploading: "Đang xử lý lưu trữ...",
             upload_progress: "Đang mã hóa & ghi nhận vào cơ sở dữ liệu học thuật...",
@@ -640,7 +640,7 @@ export const translations = {
             // Upload form
             file_label: "Academic Document File *",
             file_drag: "Drag & drop files here or click to browse",
-            file_formats: "Supports all formats (Max 10MB)",
+            file_formats: "Supports all formats (Max 50MB)",
             title_label: "Document Title *",
             title_placeholder: "e.g., Final Exam Revision Outline",
             subject_label: "Select Subject",
@@ -668,7 +668,7 @@ export const translations = {
             tags_suggest_for: "Suggestions for",
             tags_select: "+ Select",
             // Upload button
-            upload_info: "Supports PDF, PowerPoint, Word. Recommended size < 10MB",
+            upload_info: "Supports PDF, PowerPoint, Word. Recommended size < 50MB",
             upload_btn: "Save to Vault",
             uploading: "Processing storage...",
             upload_progress: "Encrypting & saving to academic database...",

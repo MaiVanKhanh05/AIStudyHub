@@ -1,4 +1,4 @@
-﻿import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { API_URL } from "@/config/api.js";
 import axios from "axios";
 import DocumentCard from "../components/DocumentCard";
@@ -120,7 +120,7 @@ export default function DocumentList() {
     setLoading(true);
     try {
       const token = getToken();
-      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const headers = (token && token !== "null") ? { Authorization: `Bearer ${token}` } : {};
       const [docsRes, cloudRes] = await Promise.all([
         axios.get(`${API_BASE}/api/documents/community`, { headers }),
         axios.get(`${API_BASE}/api/documents/tag-cloud`).catch(() => ({ data: [] })),

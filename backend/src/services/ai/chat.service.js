@@ -23,13 +23,15 @@ export const searchVectorDB = async (queryEmbedding, topK = 5, documentId = null
         let query = `
             SELECT document_id, chunk_text, 1 - (embedding <=> $1::vector) AS similarity
             FROM document_chunks
-            WHERE 1 - (embedding <=> $1::vector) > 0.35
+            WHERE 1=1
         `;
         const queryParams = [embeddingString, topK];
 
         if (documentId !== null && documentId !== undefined) {
             query += ` AND document_id = $3`;
             queryParams.push(documentId);
+        } else {
+            query += ` AND 1 - (embedding <=> $1::vector) > 0.35`;
         }
 
         query += ` ORDER BY embedding <=> $1::vector LIMIT $2;`;

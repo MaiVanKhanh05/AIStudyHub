@@ -96,6 +96,10 @@ export default function SearchBar({
   // ── Sync with parent ──────────────────────────────────────────────────────
   useEffect(() => { if (!search) setInputValue(""); }, [search]);
 
+  useEffect(() => {
+    setSearch(debouncedInput);
+  }, [debouncedInput, setSearch]);
+
   // ── Auth token ────────────────────────────────────────────────────────────
   const getToken = () => localStorage.getItem("token") || sessionStorage.getItem("token") || "";
 
@@ -249,7 +253,6 @@ export default function SearchBar({
   const onChange = (e) => {
     const val = e.target.value;
     setInputValue(val);
-    setSearch(val);
     setShowHistory(val.length === 0 && history.length > 0);
     if (val.length > 0) setShowSuggest(false);
   };

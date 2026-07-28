@@ -1,6 +1,6 @@
 import dotenv from "dotenv";
 dotenv.config({ override: true });
-import pool from "../../DB/db.js";
+import pool from "../../../DB/db.js";
 
 async function check() {
     try {

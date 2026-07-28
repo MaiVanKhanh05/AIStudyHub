@@ -1,4 +1,4 @@
-﻿import { Copy, Download, ExternalLink, X, Send, Sparkles, Share2 } from "lucide-react";
+import { Copy, Download, ExternalLink, X, Send, Sparkles, Share2 } from "lucide-react";
 import { API_URL } from "@/config/api.js";
 import { useMemo, useState } from "react";
 import { useLanguage } from "../context/LanguageContext";
@@ -330,7 +330,7 @@ export default function DocumentPreviewModal({ doc, onClose, currentUserId, onSh
                     <span className="text-[8px] font-extrabold uppercase tracking-widest opacity-60 mb-1.5 block">
                       {msg.sender === "ai" ? "🤖 AI ACADEMIC CORE" : (language === "vi" ? "👤 BẠN" : "👤 YOU")}
                     </span>
-                    <p className="font-bold whitespace-pre-line leading-relaxed">{msg.text}</p>
+                    <p className="font-bold whitespace-pre-line leading-relaxed">{msg.text.replace(/\*\*/g, "")}</p>
                   </div>
                 ))}
                 {isTyping && (

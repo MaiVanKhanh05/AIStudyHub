@@ -40,7 +40,7 @@ export function planResponse(llmResponse, context, retrievalData, sourceData) {
 
     // 3. Clarification & Fallback Logic
     // Nếu context quá kém và LLM trả lời không tìm thấy
-    if (llmResponse.includes("không có thông tin") || llmResponse.includes("Không tìm thấy") || llmResponse.includes("không tìm thấy")) {
+    if (llmResponse.includes("Không tìm thấy thông tin này trong tài liệu hiện tại")) {
         finalResponse.action = "CLARIFY";
         finalResponse.confidence = 0.4;
 

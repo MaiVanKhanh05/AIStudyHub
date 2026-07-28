@@ -804,20 +804,24 @@ export default function Home() {
   const selectedCommunitySemesterId = selectedCommunitySemesterIdStr ? (isNaN(Number(selectedCommunitySemesterIdStr)) ? selectedCommunitySemesterIdStr : Number(selectedCommunitySemesterIdStr)) : null;
 
   const setSelectedCommunitySemesterId = (id) => {
-    const newParams = new URLSearchParams(searchParams);
-    if (id !== null && id !== undefined) {
-      newParams.set("semester", id);
-    } else {
-      newParams.delete("semester");
-    }
-    setSearchParams(newParams);
+    setSearchParams(prevParams => {
+      const newParams = new URLSearchParams(prevParams);
+      if (id !== null && id !== undefined) {
+        newParams.set("semester", id);
+      } else {
+        newParams.delete("semester");
+      }
+      return newParams;
+    });
   };
   const selectedCommunitySubjectCode = searchParams.get("subject") || null;
   const setSelectedCommunitySubjectCode = (subject) => {
-    const newParams = new URLSearchParams(searchParams);
-    if (subject) newParams.set("subject", subject);
-    else newParams.delete("subject");
-    setSearchParams(newParams);
+    setSearchParams(prevParams => {
+      const newParams = new URLSearchParams(prevParams);
+      if (subject) newParams.set("subject", subject);
+      else newParams.delete("subject");
+      return newParams;
+    });
   };
   const [communityClassificationTab, setCommunityClassificationTab] = useState(searchParams.get("semester") ? "SEMESTERS" : "ALL"); // "ALL" | "SEMESTERS"
   // Map of subject_code -> { subject_code, subject_name, doc_count } for subjects with public docs
@@ -825,7 +829,7 @@ export default function Home() {
 
   const getSemestersData = useMemo(() => {
     const searchLower = communitySearch.trim().toLowerCase();
-    
+
     // Create map for fast lookup of doc counts from activeSubjectsMap
     const activeSubjectsMap = new Map();
     subjectsDocCounts.forEach(sub => {
@@ -837,7 +841,7 @@ export default function Home() {
     });
 
     const colors = ["#3b82f6", "#10b981", "#8b5cf6", "#f59e0b", "#ec4899", "#06b6d4", "#f43f5e", "#14b8a6", "#6366f1", "#64748b"];
-    
+
     return dbSemesters.map((sem, idx) => {
       const semSubjects = (sem.subjects || []).map(sub => {
         // Overwrite doc_count if activeSubjectsMap has it
@@ -873,7 +877,7 @@ export default function Home() {
       };
     }).filter(sem => {
       if (communitySearch) {
-         return sem.subjects.length > 0;
+        return sem.subjects.length > 0;
       }
       return true; // Show all semesters when not searching
     });
@@ -966,9 +970,11 @@ export default function Home() {
     setCommunityLoading(true);
     try {
       const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-      const res = await fetch(`${API_URL}/api/documents/community`, {
-        headers: { "Authorization": `Bearer ${token}` }
-      });
+      const headers = {};
+      if (token && token !== "null") {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+      const res = await fetch(`${API_URL}/api/documents/community`, { headers });
       if (res.ok) {
         const data = await res.json();
         setCommunityDocs(data);
@@ -1328,6 +1334,7 @@ export default function Home() {
   const [editingText, setEditingText] = useState("");
   const editInputRef = useRef(null);
   const messagesContainerRef = useRef(null);
+  const clickTimeoutRef = useRef(null);
 
   useEffect(() => {
     if (chatInputRef.current) {
@@ -1860,7 +1867,6 @@ export default function Home() {
             disabled={isAiTyping}
             rows={1}
             className="flex-grow bg-transparent border-none outline-none text-xs placeholder:text-slate-400 text-slate-855 dark:text-slate-100 py-1.5 px-1.5 resize-none max-h-40 custom-scrollbar leading-relaxed"
-            style={{ height: "auto" }}
           />
 
           {/* Hidden file input */}
@@ -2451,42 +2457,63 @@ export default function Home() {
   }, [contextMenu]);
 
   const handleDocClick = (e, docId) => {
-    // Prevent default to avoid side effects if needed
-    
-    if (e.shiftKey && lastSelectedDocId) {
-      // Create a temporary array of IDs based on docsToShow for correct order
-      const visibleIds = docsToShow.slice((docManagePage - 1) * 9, docManagePage * 9).map(d => d.document_id);
-      const startIdx = visibleIds.indexOf(lastSelectedDocId);
-      const endIdx = visibleIds.indexOf(docId);
-      
-      if (startIdx !== -1 && endIdx !== -1) {
-        const minIdx = Math.min(startIdx, endIdx);
-        const maxIdx = Math.max(startIdx, endIdx);
+    // Ngăn nổi bọt sự kiện
+    e.preventDefault();
+
+    // Nếu đang có timeout (tức là đã click 1 lần và đang chờ xem có click lần 2 không)
+    if (clickTimeoutRef.current) {
+      clearTimeout(clickTimeoutRef.current);
+      clickTimeoutRef.current = null;
+      return; // Bỏ qua xử lý click đơn vì đây là double click
+    }
+
+    const shiftKey = e.shiftKey;
+    const ctrlKey = e.ctrlKey || e.metaKey;
+
+    // Đặt timeout chờ xem có phải double click không (khoảng 250ms)
+    clickTimeoutRef.current = setTimeout(() => {
+      clickTimeoutRef.current = null;
+
+      if (shiftKey && lastSelectedDocId) {
+        // Create a temporary array of IDs based on docsToShow for correct order
+        const visibleIds = docsToShow.slice((docManagePage - 1) * 9, docManagePage * 9).map(d => d.document_id);
+        const startIdx = visibleIds.indexOf(lastSelectedDocId);
+        const endIdx = visibleIds.indexOf(docId);
+
+        if (startIdx !== -1 && endIdx !== -1) {
+          const minIdx = Math.min(startIdx, endIdx);
+          const maxIdx = Math.max(startIdx, endIdx);
+          const newSelected = new Set(selectedDocIds);
+          for (let i = minIdx; i <= maxIdx; i++) {
+            newSelected.add(visibleIds[i]);
+          }
+          setSelectedDocIds(newSelected);
+        }
+      } else if (ctrlKey) {
         const newSelected = new Set(selectedDocIds);
-        for (let i = minIdx; i <= maxIdx; i++) {
-          newSelected.add(visibleIds[i]);
+        if (newSelected.has(docId)) {
+          newSelected.delete(docId);
+        } else {
+          newSelected.add(docId);
         }
         setSelectedDocIds(newSelected);
-      }
-    } else if (e.ctrlKey || e.metaKey) {
-      const newSelected = new Set(selectedDocIds);
-      if (newSelected.has(docId)) {
-        newSelected.delete(docId);
+        setLastSelectedDocId(docId);
       } else {
-        newSelected.add(docId);
+        // Fix: Toggle on single click if it's the only one selected
+        if (selectedDocIds.has(docId) && selectedDocIds.size === 1) {
+          setSelectedDocIds(new Set());
+        } else {
+          setSelectedDocIds(new Set([docId]));
+        }
+        setLastSelectedDocId(docId);
       }
-      setSelectedDocIds(newSelected);
-      setLastSelectedDocId(docId);
-    } else {
-      setSelectedDocIds(new Set([docId]));
-      setLastSelectedDocId(docId);
-    }
+    }, 70);
   };
 
   const handleContextMenu = (e, itemType, data) => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     if (itemType === 'document') {
       const docId = data.document_id;
       if (!selectedDocIds.has(docId)) {
@@ -2494,7 +2521,7 @@ export default function Home() {
         setLastSelectedDocId(docId);
       }
     }
-    
+
     setContextMenu({
       type: itemType,
       x: e.clientX,
@@ -2505,7 +2532,7 @@ export default function Home() {
 
   const handleBulkDelete = async () => {
     if (selectedDocIds.size === 0) return;
-    
+
     setConfirmAction({
       isOpen: true,
       type: 'delete',
@@ -2540,7 +2567,7 @@ export default function Home() {
             toast.error(err.response?.data?.error || `Lỗi xóa tài liệu ID ${docId}`);
           }
         }
-        
+
         if (successCount > 0) {
           toast.success(`Đã xóa ${successCount} tài liệu thành công!`);
           setSelectedDocIds(new Set());
@@ -2552,7 +2579,7 @@ export default function Home() {
 
   const handleBulkShare = async () => {
     if (selectedDocIds.size === 0) return;
-    
+
     setConfirmAction({
       isOpen: true,
       type: 'share',
@@ -2571,9 +2598,10 @@ export default function Home() {
             toast.error(err.response?.data?.error || `Lỗi chia sẻ tài liệu ID ${docId}`);
           }
         }
-        
+
         if (successCount > 0) {
           toast.success(`Đã chia sẻ ${successCount} tài liệu thành công!`);
+          setSelectedDocIds(new Set()); // Bỏ tick sau khi chia sẻ thành công
           await fetchDashboard();
         }
       }
@@ -2636,8 +2664,8 @@ export default function Home() {
     if (e) e.preventDefault();
     if (isUploadingRef.current) return;
 
-    let filesToProcess = uploadParams?.fileToUpload 
-      ? [{ file: uploadParams.fileToUpload, title: uploadParams.finalTitle || uploadTitle.trim(), id: 'temp' }] 
+    let filesToProcess = uploadParams?.fileToUpload
+      ? [{ file: uploadParams.fileToUpload, title: uploadParams.finalTitle || uploadTitle.trim(), id: 'temp' }]
       : selectedFiles.filter(f => f.status === 'pending');
 
     let finalSubject = uploadParams?.subject !== undefined ? uploadParams.subject : uploadSubject;
@@ -2647,10 +2675,10 @@ export default function Home() {
       toast.warning("Vui lòng chọn một tệp để tải lên!");
       return;
     }
-    
+
     if (filesToProcess.length === 1 && !filesToProcess[0].title) {
-       toast.warning("Vui lòng điền tiêu đề tài liệu!");
-       return;
+      toast.warning("Vui lòng điền tiêu đề tài liệu!");
+      return;
     }
 
     if (filesToProcess.length > 1 && filesToProcess.some(f => !f.title.trim())) {
@@ -2723,10 +2751,10 @@ export default function Home() {
             "Authorization": `Bearer ${token}`
           }
         });
-        
+
         const savedData = response.data;
         if (savedData.document.title !== (filesToProcess.length === 1 && uploadTitle.trim() ? uploadTitle.trim() : fileItem.title)) {
-           renamedCount++;
+          renamedCount++;
         }
       } catch (err) {
         allSuccess = false;
@@ -2743,7 +2771,7 @@ export default function Home() {
       setIsUploading(false);
       isUploadingRef.current = false;
       setUploadProgress(0);
-      
+
       if (allSuccess) {
         setUploadTitle("");
         setSelectedFiles([]);
@@ -2756,7 +2784,7 @@ export default function Home() {
       } else {
         setSelectedFiles([]);
       }
-      
+
       await fetchDashboard();
     }, 500);
   };
@@ -3756,7 +3784,7 @@ export default function Home() {
 
 
 
-                  <div className="relative flex justify-center w-full" ref={settingsDropdownRef}>
+          <div className="relative flex justify-center w-full" ref={settingsDropdownRef}>
             <button
               onClick={() => setShowSettingsDropdown(!showSettingsDropdown)}
               title={isSidebarCollapsed ? (t("dashboard.tabs.settings") || "Cài đặt & Bảo mật") : undefined}
@@ -3772,7 +3800,7 @@ export default function Home() {
                 : "opacity-100 w-3.5 h-3.5 scale-100 ml-auto"
                 } ${showSettingsDropdown ? "rotate-180" : ""}`} />
             </button>
-            
+
             {showSettingsDropdown && (
               <div className={`absolute p-1 bg-white/85 dark:bg-[#0f111a]/90 backdrop-blur-lg border border-slate-200/40 dark:border-white/10 rounded-xl shadow-lg z-50 animate-in fade-in-50 slide-in-from-bottom-2 duration-150 ${isSidebarCollapsed ? "bottom-12 left-12 w-48" : "bottom-full left-0 right-0 mb-1.5"
                 }`}>
@@ -3910,7 +3938,7 @@ export default function Home() {
                           <div className="flex flex-col items-center gap-1.5">
                             <UploadCloud className="w-8 h-8 text-slate-400 group-hover:text-purple-500 transition-colors" />
                             <span className="text-xs font-bold text-slate-700 dark:text-slate-200">{t("myDocs.file_drag") || "Kéo thả tệp hoặc nhấp để chọn tệp tài liệu"}</span>
-                            <span className="text-[10px] text-slate-400">{t("myDocs.file_formats") || "Hỗ trợ mọi định dạng tệp (Tối đa 10MB)"}</span>
+                            <span className="text-[10px] text-slate-400">{t("myDocs.file_formats") || "Hỗ trợ mọi định dạng tệp (Tối đa 50MB)"}</span>
                           </div>
                         </div>
                       ) : (
@@ -3951,7 +3979,7 @@ export default function Home() {
                               )}
                             </div>
                           ))}
-                          
+
                           <div className="flex justify-end mt-1">
                             <button
                               type="button"
@@ -4265,7 +4293,7 @@ export default function Home() {
                     <div className="flex items-center justify-between border-t border-slate-100 dark:border-slate-800/50 pt-4 flex-wrap gap-4 mt-auto">
                       <div className="flex items-center gap-1.5 text-xs text-slate-400 font-bold">
                         <Info className="w-4 h-4 text-purple-500 shrink-0" />
-                        <span>{t("myDocs.upload_info") || "Hỗ trợ định dạng PDF, PowerPoint, Word. Dung lượng khuyến nghị < 10MB"}</span>
+                        <span>{t("myDocs.upload_info") || "Hỗ trợ định dạng PDF, PowerPoint, Word. Dung lượng khuyến nghị < 50MB"}</span>
                       </div>
 
                       <Button
@@ -4710,8 +4738,8 @@ export default function Home() {
                         <thead>
                           <tr className="border-b border-slate-200/30 dark:border-white/5 bg-slate-100/30 dark:bg-white/5 text-slate-450 dark:text-slate-400 font-bold text-[9px] uppercase tracking-widest">
                             <th className="px-5 py-3.5 w-12 text-center">
-                              <input 
-                                type="checkbox" 
+                              <input
+                                type="checkbox"
                                 className="w-3.5 h-3.5 rounded border-slate-300 text-purple-600 focus:ring-purple-500 cursor-pointer"
                                 checked={docsToShow.length > 0 && selectedDocIds.size === docsToShow.slice((docManagePage - 1) * 9, docManagePage * 9).length}
                                 onChange={(e) => {
@@ -4796,210 +4824,210 @@ export default function Home() {
                             docsToShow.slice((docManagePage - 1) * 9, docManagePage * 9).map((doc) => {
                               const isSelected = selectedDocIds.has(doc.document_id);
                               return (
-                              <tr 
-                                key={doc.document_id} 
-                                onClick={(e) => handleDocClick(e, doc.document_id)} 
-                                onDoubleClick={() => handlePreviewClick(doc)}
-                                onContextMenu={(e) => handleContextMenu(e, 'document', doc)}
-                                className={`transition-colors cursor-pointer group border-b border-slate-200/30 dark:border-white/5 ${isSelected ? 'bg-purple-50/50 dark:bg-purple-900/20' : 'hover:bg-white/40 dark:hover:bg-white/5'}`}
-                              >
-                                <td className="px-5 py-3.5 text-center">
-                                  <input 
-                                    type="checkbox"
-                                    className="w-3.5 h-3.5 rounded border-slate-300 text-purple-600 focus:ring-purple-500 cursor-pointer"
-                                    checked={isSelected}
-                                    onChange={(e) => {
-                                      const newSelected = new Set(selectedDocIds);
-                                      if (e.target.checked) newSelected.add(doc.document_id);
-                                      else newSelected.delete(doc.document_id);
-                                      setSelectedDocIds(newSelected);
-                                    }}
-                                    onClick={(e) => e.stopPropagation()}
-                                  />
-                                </td>
-                                <td className="px-5 py-3.5 flex items-center gap-2 text-slate-800 dark:text-slate-200 font-bold max-w-xs truncate">
-                                  {getFileIcon(doc.file_type || getFileType(doc.file_url), "w-4 h-4 shrink-0")}
-                                  <div className="flex flex-col min-w-0">
-                                    <span className="truncate group-hover:text-purple-600 transition-colors">{doc.title}</span>
-                                    {doc.tags && Array.isArray(doc.tags) && doc.tags.length > 0 && (
-                                      <div className="flex flex-wrap gap-1 mt-1">
-                                        {doc.tags.map(t => (
-                                          <span key={t.tag_id || t.tag_name} className="px-1.5 py-0.5 rounded bg-purple-100/60 dark:bg-purple-950/40 text-[9px] font-bold text-purple-700 dark:text-purple-300 border border-purple-500/10">
-                                            {t.tag_name}
-                                          </span>
-                                        ))}
-                                      </div>
-                                    )}
-                                  </div>
-                                </td>
-                                <td className="px-5 py-3.5 text-[10px] font-extrabold text-purple-600 dark:text-purple-400">
-                                  {doc.subject_code}
-                                </td>
-                                <td className="px-5 py-3.5 text-xs text-slate-500 dark:text-slate-400">
-                                  <div className="flex items-center gap-1.5">
-                                    <span className="w-4 h-4 rounded bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 flex items-center justify-center font-bold text-[9px] shrink-0">
-                                      {fullName.charAt(0)}
-                                    </span>
-                                    <span>{fullName}</span>
-                                  </div>
-                                </td>
-                                <td className="px-5 py-3.5 font-bold">
-                                  {new Date(doc.upload_date).toLocaleDateString("vi-VN", {
-                                    month: "short",
-                                    day: "numeric",
-                                    year: "numeric"
-                                  })}
-                                </td>
-                                <td className="px-5 py-3.5 font-bold text-slate-500 dark:text-slate-400">{formatFileSize(doc.file_size)}</td>
-
-                                <td className="px-5 py-3.5 text-right relative">
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setOpenMenuId(openMenuId === doc.document_id ? null : doc.document_id);
-                                    }}
-                                    className="w-7 h-7 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-purple-600 flex items-center justify-center transition-colors font-bold ml-auto relative"
-                                  >
-                                    ⋯
-                                  </button>
-
-                                  {openMenuId === doc.document_id && (
-                                    <div
-                                      ref={(el) => {
-                                        if (!el) return;
-                                        const rect = el.getBoundingClientRect();
-                                        const viewportH = window.innerHeight;
-                                        if (rect.bottom > viewportH - 10) {
-                                          el.style.top = "auto";
-                                          el.style.bottom = "2.5rem";
-                                        }
+                                <tr
+                                  key={doc.document_id}
+                                  onClick={(e) => handleDocClick(e, doc.document_id)}
+                                  onDoubleClick={() => handlePreviewClick(doc)}
+                                  onContextMenu={(e) => handleContextMenu(e, 'document', doc)}
+                                  className={`transition-colors cursor-pointer group border-b border-slate-200/30 dark:border-white/5 ${isSelected ? 'bg-purple-50/50 dark:bg-purple-900/20' : 'hover:bg-white/40 dark:hover:bg-white/5'}`}
+                                >
+                                  <td className="px-5 py-3.5 text-center">
+                                    <input
+                                      type="checkbox"
+                                      className="w-3.5 h-3.5 rounded border-slate-300 text-purple-600 focus:ring-purple-500 cursor-pointer"
+                                      checked={isSelected}
+                                      onChange={(e) => {
+                                        const newSelected = new Set(selectedDocIds);
+                                        if (e.target.checked) newSelected.add(doc.document_id);
+                                        else newSelected.delete(doc.document_id);
+                                        setSelectedDocIds(newSelected);
                                       }}
                                       onClick={(e) => e.stopPropagation()}
-                                      className="absolute right-5 top-10 w-48 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.08)] z-30 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150 p-1 text-left"
+                                    />
+                                  </td>
+                                  <td className="px-5 py-3.5 flex items-center gap-2 text-slate-800 dark:text-slate-200 font-bold max-w-xs truncate">
+                                    {getFileIcon(doc.file_type || getFileType(doc.file_url), "w-4 h-4 shrink-0")}
+                                    <div className="flex flex-col min-w-0">
+                                      <span className="truncate group-hover:text-purple-600 transition-colors">{doc.title}</span>
+                                      {doc.tags && Array.isArray(doc.tags) && doc.tags.length > 0 && (
+                                        <div className="flex flex-wrap gap-1 mt-1">
+                                          {doc.tags.map(t => (
+                                            <span key={t.tag_id || t.tag_name} className="px-1.5 py-0.5 rounded bg-purple-100/60 dark:bg-purple-950/40 text-[9px] font-bold text-purple-700 dark:text-purple-300 border border-purple-500/10">
+                                              {t.tag_name}
+                                            </span>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </td>
+                                  <td className="px-5 py-3.5 text-[10px] font-extrabold text-purple-600 dark:text-purple-400">
+                                    {doc.subject_code}
+                                  </td>
+                                  <td className="px-5 py-3.5 text-xs text-slate-500 dark:text-slate-400">
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="w-4 h-4 rounded bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 flex items-center justify-center font-bold text-[9px] shrink-0">
+                                        {fullName.charAt(0)}
+                                      </span>
+                                      <span>{fullName}</span>
+                                    </div>
+                                  </td>
+                                  <td className="px-5 py-3.5 font-bold">
+                                    {new Date(doc.upload_date).toLocaleDateString("vi-VN", {
+                                      month: "short",
+                                      day: "numeric",
+                                      year: "numeric"
+                                    })}
+                                  </td>
+                                  <td className="px-5 py-3.5 font-bold text-slate-500 dark:text-slate-400">{formatFileSize(doc.file_size)}</td>
+
+                                  <td className="px-5 py-3.5 text-right relative">
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setOpenMenuId(openMenuId === doc.document_id ? null : doc.document_id);
+                                      }}
+                                      className="w-7 h-7 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-purple-600 flex items-center justify-center transition-colors font-bold ml-auto relative"
                                     >
+                                      ⋯
+                                    </button>
 
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setOpenMenuId(null);
-                                          if (doc.file_url) {
-                                            (async () => {
-                                              try {
-                                                const response = await fetch(doc.file_url);
-                                                if (!response.ok) throw new Error("Network response was not ok");
-                                                const blob = await response.blob();
-                                                const blobUrl = URL.createObjectURL(blob);
-
-                                                const link = document.createElement("a");
-                                                link.href = blobUrl;
-                                                const urlExt = doc.file_url.split('.').pop().split('?')[0] || "pdf";
-                                                const cleanTitle = (doc.title || "download").endsWith("." + urlExt)
-                                                  ? (doc.title || "download")
-                                                  : `${doc.title || "download"}.${urlExt}`;
-                                                link.download = cleanTitle;
-                                                document.body.appendChild(link);
-                                                link.click();
-                                                document.body.removeChild(link);
-                                                URL.revokeObjectURL(blobUrl);
-                                              } catch (error) {
-                                                console.error("Direct download failed, falling back to new tab:", error);
-                                                window.open(doc.file_url, "_blank");
-                                              }
-                                            })();
-                                          } else {
-                                            toast.error(t("myDocs.toast_download_fail") || "Không tìm thấy đường dẫn tải xuống!");
+                                    {openMenuId === doc.document_id && (
+                                      <div
+                                        ref={(el) => {
+                                          if (!el) return;
+                                          const rect = el.getBoundingClientRect();
+                                          const viewportH = window.innerHeight;
+                                          if (rect.bottom > viewportH - 10) {
+                                            el.style.top = "auto";
+                                            el.style.bottom = "2.5rem";
                                           }
                                         }}
-                                        className="w-full flex items-center gap-2 text-left px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60 rounded-md transition-colors"
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="absolute right-5 top-10 w-48 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.08)] z-30 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150 p-1 text-left"
                                       >
-                                        <Download className="w-4 h-4 text-slate-400" />
-                                        {t("myDocs.download") || "Tải xuống"}
-                                      </button>
 
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setOpenMenuId(null);
-                                          setShareModalDoc(doc);
-                                          setShareDescription(doc.description || "");
-                                        }}
-                                        className="w-full flex items-center gap-2 text-left px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60 rounded-md transition-colors"
-                                      >
-                                        <Share2 className="w-4 h-4 text-slate-400" />
-                                        {t("myDocs.share") || "Chia sẻ"}
-                                      </button>
-
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setOpenMenuId(null);
-                                          setEditModalDoc(doc);
-                                          setEditTitle(doc.title || doc.document_name || "");
-                                          setEditSubject(doc.subject_code || "");
-                                          setEditSubjectSearch(doc.subject_code || "");
-                                          const docTagNames = Array.isArray(doc.tags)
-                                            ? doc.tags.map(t => typeof t === "string" ? t : t.tag_name)
-                                            : [];
-                                          setEditTags(docTagNames);
-                                          setEditTagInput("");
-                                          setEditTagSuggestions([]);
-                                        }}
-                                        className="w-full flex items-center gap-2 text-left px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60 rounded-md transition-colors"
-                                      >
-                                        <Pencil className="w-4 h-4 text-slate-400" />
-                                        {t("myDocs.edit") || "Chỉnh sửa"}
-                                      </button>
-
-                                      {doc.is_community ? (
                                         <button
-                                          onClick={async (e) => {
+                                          onClick={(e) => {
                                             e.stopPropagation();
                                             setOpenMenuId(null);
-                                            setProcessingDocId(doc.document_id || doc.id);
-                                            try {
-                                              const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-                                              await axios.put(`${API_URL}/api/documents/${doc.document_id || doc.id}/unshare`, {}, {
-                                                headers: { Authorization: `Bearer ${token}` }
-                                              });
-                                              toast.success(t("myDocs.toast_unpost_success") || "Đã hủy đăng tài liệu khỏi cộng đồng!");
-                                              setDocuments(prev => prev.map(d => ((d.document_id && d.document_id === doc.document_id) || (d.id && d.id === doc.id)) ? { ...d, is_community: false } : d));
-                                            } catch (err) {
-                                              toast.error(t("myDocs.toast_unpost_fail") || "Không thể hủy đăng tài liệu khỏi cộng đồng.");
-                                            } finally {
-                                              setProcessingDocId(null);
+                                            if (doc.file_url) {
+                                              (async () => {
+                                                try {
+                                                  const response = await fetch(doc.file_url);
+                                                  if (!response.ok) throw new Error("Network response was not ok");
+                                                  const blob = await response.blob();
+                                                  const blobUrl = URL.createObjectURL(blob);
+
+                                                  const link = document.createElement("a");
+                                                  link.href = blobUrl;
+                                                  const urlExt = doc.file_url.split('.').pop().split('?')[0] || "pdf";
+                                                  const cleanTitle = (doc.title || "download").endsWith("." + urlExt)
+                                                    ? (doc.title || "download")
+                                                    : `${doc.title || "download"}.${urlExt}`;
+                                                  link.download = cleanTitle;
+                                                  document.body.appendChild(link);
+                                                  link.click();
+                                                  document.body.removeChild(link);
+                                                  URL.revokeObjectURL(blobUrl);
+                                                } catch (error) {
+                                                  console.error("Direct download failed, falling back to new tab:", error);
+                                                  window.open(doc.file_url, "_blank");
+                                                }
+                                              })();
+                                            } else {
+                                              toast.error(t("myDocs.toast_download_fail") || "Không tìm thấy đường dẫn tải xuống!");
                                             }
                                           }}
-                                          className="w-full flex items-center gap-2 text-left px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-md transition-colors"
+                                          className="w-full flex items-center gap-2 text-left px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60 rounded-md transition-colors"
                                         >
-                                          <Globe className="w-4 h-4 text-red-500" />
-                                          {t("myDocs.unpost") || "Hủy đăng cộng đồng"}
+                                          <Download className="w-4 h-4 text-slate-400" />
+                                          {t("myDocs.download") || "Tải xuống"}
                                         </button>
-                                      ) : (
+
                                         <button
-                                          onClick={async (e) => {
+                                          onClick={(e) => {
                                             e.stopPropagation();
                                             setOpenMenuId(null);
-                                            setProcessingDocId(doc.document_id || doc.id);
-                                            try {
-                                              const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-                                              await axios.put(`${API_URL}/api/documents/${doc.document_id || doc.id}/share`, {}, {
-                                                headers: { Authorization: `Bearer ${token}` }
-                                              });
-                                              toast.success(t("myDocs.toast_post_success") || "Đã đăng tài liệu lên cộng đồng thành công!");
-                                              setDocuments(prev => prev.map(d => ((d.document_id && d.document_id === doc.document_id) || (d.id && d.id === doc.id)) ? { ...d, is_community: true } : d));
-                                            } catch (err) {
-                                              toast.error(t("myDocs.toast_post_fail") || "Không thể đăng tài liệu lên cộng đồng.");
-                                            } finally {
-                                              setProcessingDocId(null);
-                                            }
+                                            setShareModalDoc(doc);
+                                            setShareDescription(doc.description || "");
                                           }}
-                                          className="w-full flex items-center gap-2 text-left px-3 py-2 text-xs font-medium text-purple-650 hover:bg-purple-50 dark:hover:bg-purple-950/20 rounded-md transition-colors"
+                                          className="w-full flex items-center gap-2 text-left px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60 rounded-md transition-colors"
                                         >
-                                          <Globe className="w-4 h-4 text-purple-500" />
-                                          {t("myDocs.post_community") || "Đăng lên cộng đồng"}
+                                          <Share2 className="w-4 h-4 text-slate-400" />
+                                          {t("myDocs.share") || "Chia sẻ"}
                                         </button>
-                                      )}
-                                      {/* <button
+
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setOpenMenuId(null);
+                                            setEditModalDoc(doc);
+                                            setEditTitle(doc.title || doc.document_name || "");
+                                            setEditSubject(doc.subject_code || "");
+                                            setEditSubjectSearch(doc.subject_code || "");
+                                            const docTagNames = Array.isArray(doc.tags)
+                                              ? doc.tags.map(t => typeof t === "string" ? t : t.tag_name)
+                                              : [];
+                                            setEditTags(docTagNames);
+                                            setEditTagInput("");
+                                            setEditTagSuggestions([]);
+                                          }}
+                                          className="w-full flex items-center gap-2 text-left px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60 rounded-md transition-colors"
+                                        >
+                                          <Pencil className="w-4 h-4 text-slate-400" />
+                                          {t("myDocs.edit") || "Chỉnh sửa"}
+                                        </button>
+
+                                        {doc.is_community ? (
+                                          <button
+                                            onClick={async (e) => {
+                                              e.stopPropagation();
+                                              setOpenMenuId(null);
+                                              setProcessingDocId(doc.document_id || doc.id);
+                                              try {
+                                                const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+                                                await axios.put(`${API_URL}/api/documents/${doc.document_id || doc.id}/unshare`, {}, {
+                                                  headers: { Authorization: `Bearer ${token}` }
+                                                });
+                                                toast.success(t("myDocs.toast_unpost_success") || "Đã hủy đăng tài liệu khỏi cộng đồng!");
+                                                setDocuments(prev => prev.map(d => ((d.document_id && d.document_id === doc.document_id) || (d.id && d.id === doc.id)) ? { ...d, is_community: false } : d));
+                                              } catch (err) {
+                                                toast.error(t("myDocs.toast_unpost_fail") || "Không thể hủy đăng tài liệu khỏi cộng đồng.");
+                                              } finally {
+                                                setProcessingDocId(null);
+                                              }
+                                            }}
+                                            className="w-full flex items-center gap-2 text-left px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-md transition-colors"
+                                          >
+                                            <Globe className="w-4 h-4 text-red-500" />
+                                            {t("myDocs.unpost") || "Hủy đăng cộng đồng"}
+                                          </button>
+                                        ) : (
+                                          <button
+                                            onClick={async (e) => {
+                                              e.stopPropagation();
+                                              setOpenMenuId(null);
+                                              setProcessingDocId(doc.document_id || doc.id);
+                                              try {
+                                                const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+                                                await axios.put(`${API_URL}/api/documents/${doc.document_id || doc.id}/share`, {}, {
+                                                  headers: { Authorization: `Bearer ${token}` }
+                                                });
+                                                toast.success(t("myDocs.toast_post_success") || "Đã đăng tài liệu lên cộng đồng thành công!");
+                                                setDocuments(prev => prev.map(d => ((d.document_id && d.document_id === doc.document_id) || (d.id && d.id === doc.id)) ? { ...d, is_community: true } : d));
+                                              } catch (err) {
+                                                toast.error(t("myDocs.toast_post_fail") || "Không thể đăng tài liệu lên cộng đồng.");
+                                              } finally {
+                                                setProcessingDocId(null);
+                                              }
+                                            }}
+                                            className="w-full flex items-center gap-2 text-left px-3 py-2 text-xs font-medium text-purple-650 hover:bg-purple-50 dark:hover:bg-purple-950/20 rounded-md transition-colors"
+                                          >
+                                            <Globe className="w-4 h-4 text-purple-500" />
+                                            {t("myDocs.post_community") || "Đăng lên cộng đồng"}
+                                          </button>
+                                        )}
+                                        {/* <button
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     setOpenMenuId(null);
@@ -5020,23 +5048,23 @@ export default function Home() {
                                   Chỉnh sửa
                                 </button> */}
 
-                                      <div className="h-px bg-slate-100 dark:bg-slate-800/60 my-1" />
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setOpenMenuId(null);
-                                          handleDeleteDocument(doc.document_id, e);
-                                        }}
-                                        className="w-full flex items-center gap-2 text-left px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-md transition-colors"
-                                      >
-                                        <Trash2 className="w-4 h-4" />
-                                        {t("myDocs.remove") || "Gỡ bỏ"}
-                                      </button>
-                                    </div>
-                                  )}
-                                </td>
-                              </tr>
-                            );
+                                        <div className="h-px bg-slate-100 dark:bg-slate-800/60 my-1" />
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setOpenMenuId(null);
+                                            handleDeleteDocument(doc.document_id, e);
+                                          }}
+                                          className="w-full flex items-center gap-2 text-left px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-md transition-colors"
+                                        >
+                                          <Trash2 className="w-4 h-4" />
+                                          {t("myDocs.remove") || "Gỡ bỏ"}
+                                        </button>
+                                      </div>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
                             })
                           )}
                         </tbody>
@@ -5658,231 +5686,238 @@ export default function Home() {
 
               {/* Search and Date Filter Section - hidden in MY_SHARED mode */}
               {communityFilterMode !== "MY_SHARED" && (
-              <div ref={communitySearchSectionRef} className="relative z-30 w-full max-w-2xl mx-auto flex items-center gap-3 mt-2">
-                <div className="flex-1">
-                  <SearchBar
-                    search={communitySearch}
-                    setSearch={setCommunitySearch}
-                    userId={user?.user_id || null}
-                    onSearch={(keyword) => {
-                      setCommunitySearch(keyword);
-                      setCommunityPage(1);
-                    }}
-                    placeholder={t("community.search_placeholder") || "Tìm kiếm tài liệu cộng đồng, môn học, tác giả..."}
-                    resultCount={communitySearch ? filteredCommunityDocs.length : null}
-                    className="w-full"
-                  />
-                </div>
+                <div ref={communitySearchSectionRef} className="relative z-30 w-full max-w-2xl mx-auto flex items-center gap-3 mt-2">
+                  <div className="flex-1">
+                    <SearchBar
+                      search={communitySearch}
+                      setSearch={setCommunitySearch}
+                      userId={user?.user_id || null}
+                      onSearch={(keyword) => {
+                        setCommunitySearch(keyword);
+                        setCommunityPage(1);
+                      }}
+                      placeholder={t("community.search_placeholder") || "Tìm kiếm tài liệu cộng đồng, môn học, tác giả..."}
+                      resultCount={communitySearch ? filteredCommunityDocs.length : null}
+                      className="w-full"
+                    />
+                  </div>
 
-                {/* Date Filter Toggle Button and Popover */}
-                <div className="relative flex items-center gap-2" ref={calendarPopoverRef}>
-                  <button
-                    onClick={() => setShowCalendarPopover(!showCalendarPopover)}
-                    className={`
+                  {/* Date Filter Toggle Button and Popover */}
+                  <div className="relative flex items-center gap-2" ref={calendarPopoverRef}>
+                    <button
+                      onClick={() => setShowCalendarPopover(!showCalendarPopover)}
+                      className={`
                       flex items-center gap-2 px-4 py-3 rounded-xl border text-xs font-bold transition-all duration-300 shadow-sm h-[46px] select-none cursor-pointer
                       ${showCalendarPopover || rangeStart
-                        ? "bg-purple-600 border-purple-600 text-white shadow-purple-500/10"
-                        : "bg-white/40 dark:bg-[#0f111a]/45 backdrop-blur-xl border-slate-200/30 dark:border-white/5 text-slate-700 dark:text-slate-300 hover:bg-white/60 dark:hover:bg-[#0f111a]/60 hover:text-purple-600 dark:hover:text-purple-400"
-                      }
+                          ? "bg-purple-600 border-purple-600 text-white shadow-purple-500/10"
+                          : "bg-white/40 dark:bg-[#0f111a]/45 backdrop-blur-xl border-slate-200/30 dark:border-white/5 text-slate-700 dark:text-slate-300 hover:bg-white/60 dark:hover:bg-[#0f111a]/60 hover:text-purple-600 dark:hover:text-purple-400"
+                        }
                     `}
-                  >
-                    <Calendar className="w-4 h-4 shrink-0" />
-                    <span className="hidden sm:inline">
-                      {rangeStart ? (
-                        rangeEnd && rangeStart.toDateString() !== rangeEnd.toDateString() ? (
-                          `${rangeStart.toLocaleDateString(language === "vi" ? "vi-VN" : "en-US", { day: "numeric", month: "numeric" })} - ${rangeEnd.toLocaleDateString(language === "vi" ? "vi-VN" : "en-US", { day: "numeric", month: "numeric" })}`
-                        ) : (
-                          rangeStart.toLocaleDateString(language === "vi" ? "vi-VN" : "en-US", { day: "numeric", month: "numeric" })
-                        )
-                      ) : (
-                        t("community.filter_date") || "Lọc ngày"
-                      )}
-                    </span>
-                  </button>
-
-                  {rangeStart && (
-                    <button
-                      onClick={() => {
-                        setRangeStart(null);
-                        setRangeEnd(null);
-                      }}
-                      title={language === "vi" ? "Xóa bộ lọc ngày" : "Clear date filter"}
-                      className="h-[46px] w-[46px] flex items-center justify-center rounded-xl bg-red-50 hover:bg-red-100 text-red-500 dark:bg-red-950/20 dark:hover:bg-red-950/40 border border-red-200/20 dark:border-red-900/30 transition-all select-none cursor-pointer"
                     >
-                      <X className="w-4 h-4" />
+                      <Calendar className="w-4 h-4 shrink-0" />
+                      <span className="hidden sm:inline">
+                        {rangeStart ? (
+                          rangeEnd && rangeStart.toDateString() !== rangeEnd.toDateString() ? (
+                            `${rangeStart.toLocaleDateString(language === "vi" ? "vi-VN" : "en-US", { day: "numeric", month: "numeric" })} - ${rangeEnd.toLocaleDateString(language === "vi" ? "vi-VN" : "en-US", { day: "numeric", month: "numeric" })}`
+                          ) : (
+                            rangeStart.toLocaleDateString(language === "vi" ? "vi-VN" : "en-US", { day: "numeric", month: "numeric" })
+                          )
+                        ) : (
+                          t("community.filter_date") || "Lọc ngày"
+                        )}
+                      </span>
                     </button>
-                  )}
 
-                  {/* Calendar Popover */}
-                  {showCalendarPopover && (
-                    <div className="absolute right-0 top-[52px] w-[320px] p-4 bg-white dark:bg-[#0f111a] border border-slate-200/85 dark:border-white/10 rounded-2xl shadow-xl z-[9999] animate-in fade-in slide-in-from-top-2 duration-200 text-left">
-                      {/* Month Navigation */}
-                      <div className="flex items-center justify-between mb-4">
-                        <button
-                          onClick={handlePrevMonth}
-                          className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors cursor-pointer"
-                        >
-                          <ChevronLeft className="w-4 h-4" />
-                        </button>
-                        <span className="text-xs font-bold text-slate-800 dark:text-slate-100">
-                          {language === "vi" ? monthNamesVi[calMonth] : new Date(calYear, calMonth).toLocaleDateString("en-US", { month: "long" })}, {calYear}
-                        </span>
-                        <button
-                          onClick={handleNextMonth}
-                          className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors cursor-pointer"
-                        >
-                          <ChevronRight className="w-4 h-4" />
-                        </button>
-                      </div>
+                    {rangeStart && (
+                      <button
+                        onClick={() => {
+                          setRangeStart(null);
+                          setRangeEnd(null);
+                        }}
+                        title={language === "vi" ? "Xóa bộ lọc ngày" : "Clear date filter"}
+                        className="h-[46px] w-[46px] flex items-center justify-center rounded-xl bg-red-50 hover:bg-red-100 text-red-500 dark:bg-red-950/20 dark:hover:bg-red-950/40 border border-red-200/20 dark:border-red-900/30 transition-all select-none cursor-pointer"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
 
-                      {/* Day Names */}
-                      <div className="grid grid-cols-7 gap-1 text-center mb-1 text-[10px] font-bold text-slate-400 dark:text-slate-500">
-                        {(Array.isArray(t("calendar.weekdays")) ? t("calendar.weekdays") : weekdaysVi).map(day => (
-                          <span key={day}>{day}</span>
-                        ))}
-                      </div>
+                    {/* Calendar Popover */}
+                    {showCalendarPopover && (
+                      <div className="absolute right-0 top-[52px] w-[320px] p-4 bg-white dark:bg-[#0f111a] border border-slate-200/85 dark:border-white/10 rounded-2xl shadow-xl z-[9999] animate-in fade-in slide-in-from-top-2 duration-200 text-left">
+                        {/* Month Navigation */}
+                        <div className="flex items-center justify-between mb-4">
+                          <button
+                            onClick={handlePrevMonth}
+                            className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors cursor-pointer"
+                          >
+                            <ChevronLeft className="w-4 h-4" />
+                          </button>
+                          <span className="text-xs font-bold text-slate-800 dark:text-slate-100">
+                            {language === "vi" ? monthNamesVi[calMonth] : new Date(calYear, calMonth).toLocaleDateString("en-US", { month: "long" })}, {calYear}
+                          </span>
+                          <button
+                            onClick={handleNextMonth}
+                            className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors cursor-pointer"
+                          >
+                            <ChevronRight className="w-4 h-4" />
+                          </button>
+                        </div>
 
-                      {/* Calendar Days */}
-                      <div className="grid grid-cols-7 gap-1">
-                        {cells.map((cellDate, idx) => {
-                          if (!cellDate) {
-                            return <div key={`empty-${idx}`} className="h-8" />;
-                          }
+                        {/* Day Names */}
+                        <div className="grid grid-cols-7 gap-1 text-center mb-1 text-[10px] font-bold text-slate-400 dark:text-slate-500">
+                          {(Array.isArray(t("calendar.weekdays")) ? t("calendar.weekdays") : weekdaysVi).map(day => (
+                            <span key={day}>{day}</span>
+                          ))}
+                        </div>
 
-                          const cellDay = cellDate.getDate();
-
-                          // Drag Selection Highlights
-                          const selected = rangeStart && (
-                            (() => {
-                              const dTime = new Date(cellDate.getFullYear(), cellDate.getMonth(), cellDate.getDate()).getTime();
-                              const startTime = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), rangeStart.getDate()).getTime();
-                              if (!rangeEnd) return dTime === startTime;
-                              const endTime = new Date(rangeEnd.getFullYear(), rangeEnd.getMonth(), rangeEnd.getDate()).getTime();
-                              const minTime = Math.min(startTime, endTime);
-                              const maxTime = Math.max(startTime, endTime);
-                              return dTime >= minTime && dTime <= maxTime;
-                            })()
-                          );
-
-                          const boundary = rangeStart && (
-                            (() => {
-                              const dTime = new Date(cellDate.getFullYear(), cellDate.getMonth(), cellDate.getDate()).getTime();
-                              const startTime = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), rangeStart.getDate()).getTime();
-                              if (!rangeEnd) return dTime === startTime;
-                              const endTime = new Date(rangeEnd.getFullYear(), rangeEnd.getMonth(), rangeEnd.getDate()).getTime();
-                              return dTime === startTime || dTime === endTime;
-                            })()
-                          );
-
-                          // Mouse handlers for range selection
-                          const handleMouseDown = (e) => {
-                            e.preventDefault();
-                            setRangeStart(cellDate);
-                            setRangeEnd(null);
-                            setIsCalDragging(true);
-                          };
-
-                          const handleMouseEnter = () => {
-                            if (isCalDragging) {
-                              setRangeEnd(cellDate);
+                        {/* Calendar Days */}
+                        <div className="grid grid-cols-7 gap-1">
+                          {cells.map((cellDate, idx) => {
+                            if (!cellDate) {
+                              return <div key={`empty-${idx}`} className="h-8" />;
                             }
-                          };
 
-                          const handleMouseUp = () => {
-                            if (isCalDragging) {
-                              setIsCalDragging(false);
-                              if (rangeStart) {
-                                if (rangeStart.getTime() > cellDate.getTime()) {
-                                  setRangeStart(cellDate);
-                                  setRangeEnd(rangeStart);
-                                } else {
-                                  setRangeEnd(cellDate);
+                            const cellDay = cellDate.getDate();
+
+                            // Drag Selection Highlights
+                            const selected = rangeStart && (
+                              (() => {
+                                const dTime = new Date(cellDate.getFullYear(), cellDate.getMonth(), cellDate.getDate()).getTime();
+                                const startTime = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), rangeStart.getDate()).getTime();
+                                if (!rangeEnd) return dTime === startTime;
+                                const endTime = new Date(rangeEnd.getFullYear(), rangeEnd.getMonth(), rangeEnd.getDate()).getTime();
+                                const minTime = Math.min(startTime, endTime);
+                                const maxTime = Math.max(startTime, endTime);
+                                return dTime >= minTime && dTime <= maxTime;
+                              })()
+                            );
+
+                            const boundary = rangeStart && (
+                              (() => {
+                                const dTime = new Date(cellDate.getFullYear(), cellDate.getMonth(), cellDate.getDate()).getTime();
+                                const startTime = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), rangeStart.getDate()).getTime();
+                                if (!rangeEnd) return dTime === startTime;
+                                const endTime = new Date(rangeEnd.getFullYear(), rangeEnd.getMonth(), rangeEnd.getDate()).getTime();
+                                return dTime === startTime || dTime === endTime;
+                              })()
+                            );
+
+                            // Mouse handlers for range selection
+                            const handleMouseDown = (e) => {
+                              e.preventDefault();
+                              setRangeStart(cellDate);
+                              setRangeEnd(null);
+                              setIsCalDragging(true);
+                            };
+
+                            const handleMouseEnter = () => {
+                              if (isCalDragging) {
+                                setRangeEnd(cellDate);
+                              }
+                            };
+
+                            const handleMouseUp = () => {
+                              if (isCalDragging) {
+                                setIsCalDragging(false);
+                                if (rangeStart) {
+                                  if (rangeStart.getTime() > cellDate.getTime()) {
+                                    setRangeStart(cellDate);
+                                    setRangeEnd(rangeStart);
+                                  } else {
+                                    setRangeEnd(cellDate);
+                                  }
                                 }
                               }
-                            }
-                          };
+                            };
 
-                          return (
-                            <button
-                              key={`day-${cellDay}`}
-                              onMouseDown={handleMouseDown}
-                              onMouseEnter={handleMouseEnter}
-                              onMouseUp={handleMouseUp}
-                              className={`
+                            return (
+                              <button
+                                key={`day-${cellDay}`}
+                                onMouseDown={handleMouseDown}
+                                onMouseEnter={handleMouseEnter}
+                                onMouseUp={handleMouseUp}
+                                className={`
                                 h-8 text-xs font-semibold rounded-lg flex items-center justify-center transition-all select-none cursor-pointer
                                 ${boundary
-                                  ? "bg-purple-600 text-white shadow-md shadow-purple-500/20 hover:bg-purple-700"
-                                  : selected
-                                    ? "bg-purple-100 dark:bg-purple-900/35 text-purple-700 dark:text-purple-300 font-bold hover:bg-purple-200 dark:hover:bg-purple-900/50"
-                                    : "text-slate-700 dark:text-slate-350 hover:bg-slate-100 dark:hover:bg-slate-800"
-                                }
+                                    ? "bg-purple-600 text-white shadow-md shadow-purple-500/20 hover:bg-purple-700"
+                                    : selected
+                                      ? "bg-purple-100 dark:bg-purple-900/35 text-purple-700 dark:text-purple-300 font-bold hover:bg-purple-200 dark:hover:bg-purple-900/50"
+                                      : "text-slate-700 dark:text-slate-350 hover:bg-slate-100 dark:hover:bg-slate-800"
+                                  }
                               `}
-                            >
-                              {cellDay}
-                            </button>
-                          );
-                        })}
-                      </div>
+                              >
+                                {cellDay}
+                              </button>
+                            );
+                          })}
+                        </div>
 
-                      {/* Footer */}
-                      <div className="mt-4 pt-3 border-t border-slate-150 dark:border-slate-800 flex items-center justify-between">
-                        <span className="text-[9px] text-slate-450 dark:text-slate-500 font-medium italic">
-                          Kéo chuột để chọn nhiều ngày
-                        </span>
-                        <button
-                          onClick={() => {
-                            setRangeStart(null);
-                            setRangeEnd(null);
-                          }}
-                          className="text-[10px] font-bold text-red-500 hover:underline cursor-pointer"
-                        >
-                          Đặt lại
-                        </button>
+                        {/* Footer */}
+                        <div className="mt-4 pt-3 border-t border-slate-150 dark:border-slate-800 flex items-center justify-between">
+                          <span className="text-[9px] text-slate-450 dark:text-slate-500 font-medium italic">
+                            Kéo chuột để chọn nhiều ngày
+                          </span>
+                          <button
+                            onClick={() => {
+                              setRangeStart(null);
+                              setRangeEnd(null);
+                            }}
+                            className="text-[10px] font-bold text-red-500 hover:underline cursor-pointer"
+                          >
+                            Đặt lại
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
-              </div>
               )}
 
 
               {/* ── TAB SWITCHER: Chủ đề | Học kỳ ── (hidden in MY_SHARED mode) */}
               {communityFilterMode !== "MY_SHARED" && (
-              <div className="flex justify-center mb-0">
-                <div className="inline-flex p-1 bg-white/40 dark:bg-[#0f111a]/45 backdrop-blur-xl border border-slate-200/30 dark:border-white/5 rounded-xl shadow-sm">
-                  <button
-                    onClick={() => {
-                      setCommunityClassificationTab("ALL");
-                      setSelectedCommunitySubjectCode(null);
-                      setCommunityPage(1);
-                    }}
-                    className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-lg transition-all duration-300 ${
-                      communityClassificationTab === "ALL"
+                <div className="flex justify-center mb-0">
+                  <div className="inline-flex p-1 bg-white/40 dark:bg-[#0f111a]/45 backdrop-blur-xl border border-slate-200/30 dark:border-white/5 rounded-xl shadow-sm">
+                    <button
+                      onClick={() => {
+                        setCommunityClassificationTab("ALL");
+                        setSearchParams(prevParams => {
+                          const newParams = new URLSearchParams(prevParams);
+                          newParams.delete("subject");
+                          newParams.delete("semester");
+                          return newParams;
+                        });
+                        setCommunityPage(1);
+                      }}
+                      className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-lg transition-all duration-300 ${communityClassificationTab === "ALL"
                         ? "bg-purple-600/10 dark:bg-purple-500/25 text-purple-900 dark:text-purple-200 border border-purple-500/20 shadow-sm"
                         : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 border border-transparent"
-                    }`}
-                  >
-                    <Layers className="w-3.5 h-3.5" />
-                    Chủ đề
-                  </button>
-                  <button
-                    onClick={() => {
-                      setCommunityClassificationTab("SEMESTERS");
-                                setSelectedCommunitySemesterId(null);
-                      setSelectedCommunitySubjectCode(null);
-                      setCommunityPage(1);
-                    }}
-                    className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-lg transition-all duration-300 ${
-                      communityClassificationTab === "SEMESTERS"
+                        }`}
+                    >
+                      <Layers className="w-3.5 h-3.5" />
+                      Chủ đề
+                    </button>
+                    <button
+                      onClick={() => {
+                        setCommunityClassificationTab("SEMESTERS");
+                        setSearchParams(prevParams => {
+                          const newParams = new URLSearchParams(prevParams);
+                          newParams.delete("semester");
+                          newParams.delete("subject");
+                          return newParams;
+                        });
+                        setCommunityPage(1);
+                      }}
+                      className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-lg transition-all duration-300 ${communityClassificationTab === "SEMESTERS"
                         ? "bg-purple-600/10 dark:bg-purple-500/25 text-purple-900 dark:text-purple-200 border border-purple-500/20 shadow-sm"
                         : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 border border-transparent"
-                    }`}
-                  >
-                    <Calendar className="w-3.5 h-3.5" />
-                    Học kỳ
-                  </button>
+                        }`}
+                    >
+                      <Calendar className="w-3.5 h-3.5" />
+                      Học kỳ
+                    </button>
+                  </div>
                 </div>
-              </div>
               )}
 
               {/* Loading */}
@@ -6083,8 +6118,8 @@ export default function Home() {
                                     }}
                                   >
                                     <div className="flex justify-between items-start mb-4">
-                                      <div 
-                                        className="w-12 h-12 rounded-xl flex items-center justify-center shadow-sm border border-slate-100 group-hover:scale-105 transition-transform" 
+                                      <div
+                                        className="w-12 h-12 rounded-xl flex items-center justify-center shadow-sm border border-slate-100 group-hover:scale-105 transition-transform"
                                         style={{ backgroundColor: `${sem.color || '#6366f1'}15`, borderColor: `${sem.color || '#6366f1'}30` }}
                                       >
                                         <Folder className="w-6 h-6" style={{ color: sem.color || '#6366f1' }} />
@@ -6103,7 +6138,7 @@ export default function Home() {
                             )
                           ) : (
                             <div className="flex flex-col gap-4">
-                              
+
                               {(() => {
                                 const selectedSem = getSemestersData.find(s => s.semester_id === selectedCommunitySemesterId);
                                 if (!selectedSem || selectedSem.subjects.length === 0) {
@@ -6118,36 +6153,31 @@ export default function Home() {
                                           setSelectedCommunitySubjectCode(sub.subject_code);
                                           setCommunityPage(1);
                                         }}
-                                        className={`bg-white dark:bg-white/5 rounded-2xl border p-5 hover:shadow-md transition-all group flex flex-col cursor-pointer ${
-                                          sub.doc_count > 0 
-                                            ? 'border-purple-200 dark:border-purple-800 hover:border-purple-400' 
-                                            : 'border-slate-200 dark:border-white/10 hover:border-slate-300'
-                                        }`}
+                                        className={`bg-white dark:bg-white/5 rounded-2xl border p-5 hover:shadow-md transition-all group flex flex-col cursor-pointer ${sub.doc_count > 0
+                                          ? 'border-purple-200 dark:border-purple-800 hover:border-purple-400'
+                                          : 'border-slate-200 dark:border-white/10 hover:border-slate-300'
+                                          }`}
                                       >
                                         <div className="flex justify-between items-start mb-4">
-                                          <div 
-                                            className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-sm border transition-transform group-hover:scale-105 ${
-                                              sub.doc_count > 0 
-                                                ? 'bg-purple-50 border-purple-100 text-purple-600 dark:bg-purple-900/30 dark:border-purple-800 dark:text-purple-400'
-                                                : 'bg-slate-50 border-slate-100 text-slate-400 dark:bg-slate-800 dark:border-slate-700'
-                                            }`} 
+                                          <div
+                                            className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-sm border transition-transform group-hover:scale-105 ${sub.doc_count > 0
+                                              ? 'bg-purple-50 border-purple-100 text-purple-600 dark:bg-purple-900/30 dark:border-purple-800 dark:text-purple-400'
+                                              : 'bg-slate-50 border-slate-100 text-slate-400 dark:bg-slate-800 dark:border-slate-700'
+                                              }`}
                                           >
                                             <Folder className="w-6 h-6" />
                                           </div>
-                                          <div className={`px-3 py-1 rounded-full border ${
-                                            sub.doc_count > 0
-                                              ? 'bg-purple-50 dark:bg-purple-900/30 border-purple-100 dark:border-purple-800'
-                                              : 'bg-slate-50 dark:bg-slate-800 border-slate-100 dark:border-slate-700'
-                                          }`}>
-                                            <span className={`text-[11px] font-bold ${
-                                              sub.doc_count > 0 ? 'text-purple-600 dark:text-purple-400' : 'text-slate-500 dark:text-slate-400'
-                                            }`}>{sub.doc_count} {language === "vi" ? "tài liệu" : "documents"}</span>
+                                          <div className={`px-3 py-1 rounded-full border ${sub.doc_count > 0
+                                            ? 'bg-purple-50 dark:bg-purple-900/30 border-purple-100 dark:border-purple-800'
+                                            : 'bg-slate-50 dark:bg-slate-800 border-slate-100 dark:border-slate-700'
+                                            }`}>
+                                            <span className={`text-[11px] font-bold ${sub.doc_count > 0 ? 'text-purple-600 dark:text-purple-400' : 'text-slate-500 dark:text-slate-400'
+                                              }`}>{sub.doc_count} {language === "vi" ? "tài liệu" : "documents"}</span>
                                           </div>
                                         </div>
                                         <div>
-                                          <h3 className={`text-[15px] font-bold mb-1 ${
-                                            sub.doc_count > 0 ? 'text-purple-700 dark:text-purple-300' : 'text-slate-700 dark:text-slate-300'
-                                          }`}>{sub.subject_code}</h3>
+                                          <h3 className={`text-[15px] font-bold mb-1 ${sub.doc_count > 0 ? 'text-purple-700 dark:text-purple-300' : 'text-slate-700 dark:text-slate-300'
+                                            }`}>{sub.subject_code}</h3>
                                           <p className="text-xs text-slate-500 line-clamp-2">{sub.subject_name || (language === "vi" ? "Chưa có tên môn học." : "No subject name.")}</p>
                                         </div>
                                       </div>
@@ -7058,8 +7088,8 @@ export default function Home() {
                       })
                     });
                     if (!res.ok) throw new Error("Failed");
-                    toast.success(language === "vi" ? "Đã chia sẻ tài liệu lên cộng đồng thành công!" : "Document shared to community successfully!");
-                    setShareModalDoc(null);
+                    toast.success(language === "vi" ? "Cập nhật thông tin tài liệu thành công!" : "Document updated successfully!");
+                    setEditModalDoc(null);
                     fetchDashboard();
                   } catch (err) {
                     toast.error(`Lỗi: ${err.message}`);
@@ -7114,11 +7144,11 @@ export default function Home() {
 
 
       {contextMenu && (
-        <div 
+        <div
           className="fixed z-[9999] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl py-1.5 min-w-[180px] overflow-hidden"
-          style={{ 
-            top: `${Math.min(contextMenu.y, window.innerHeight - 150)}px`, 
-            left: `${Math.min(contextMenu.x, window.innerWidth - 180)}px` 
+          style={{
+            top: `${Math.min(contextMenu.y, window.innerHeight - 150)}px`,
+            left: `${Math.min(contextMenu.x, window.innerWidth - 180)}px`
           }}
           onClick={(e) => e.stopPropagation()}
           onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); }}
@@ -7128,14 +7158,14 @@ export default function Home() {
               <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800 mb-1">
                 Đã chọn {selectedDocIds.size} tài liệu
               </div>
-              <button 
+              <button
                 onClick={() => { setContextMenu(null); handleBulkShare(); }}
                 className="w-full flex items-center gap-2 px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-purple-50 dark:hover:bg-purple-900/30 hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
               >
                 <Share2 className="w-4 h-4" />
                 Chia sẻ cộng đồng
               </button>
-              <button 
+              <button
                 onClick={() => { setContextMenu(null); handleBulkDelete(); }}
                 className="w-full flex items-center gap-2 px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-red-50 dark:hover:bg-red-900/30 hover:text-red-600 dark:hover:text-red-400 transition-colors"
               >
@@ -7148,10 +7178,10 @@ export default function Home() {
               <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800 mb-1">
                 {contextMenu.data}
               </div>
-              <button 
-                onClick={() => { 
-                  setContextMenu(null); 
-                  setUploadSubject(contextMenu.data); 
+              <button
+                onClick={() => {
+                  setContextMenu(null);
+                  setUploadSubject(contextMenu.data);
                   window.scrollTo({ top: 0, behavior: 'smooth' });
                 }}
                 className="w-full flex items-center gap-2 px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-purple-50 dark:hover:bg-purple-900/30 hover:text-purple-600 dark:hover:text-purple-400 transition-colors"

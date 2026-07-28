@@ -120,7 +120,6 @@ class UploadedStrategy {
 
             // Lọc và lấy top 6
             vectorChunks = allScoredChunks
-                .filter(c => c.similarity > 0.35)
                 .sort((a, b) => b.similarity - a.similarity)
                 .slice(0, 6);
         }

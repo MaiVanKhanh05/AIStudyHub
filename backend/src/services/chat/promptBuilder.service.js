@@ -61,8 +61,8 @@ Bạn phải tuân thủ nghiêm ngặt các quy tắc sau:
     prompt += `[QUY TẮC ĐẦU RA (STRICT OUTPUT RULES)]\n`;
     
     if (sourceData?.sourceType === "UPLOADED_DOCUMENT" || sourceData?.sourceType === "SYSTEM_DOCUMENT") {
-        prompt += `- CHỈ ĐƯỢC PHÉP trả lời dựa trên [NGỮ CẢNH CHÍNH] và [NGỮ CẢNH BỔ SUNG]. KHÔNG ĐƯỢC sử dụng kiến thức bên ngoài.\n`;
-        prompt += `- NẾU trong cả [NGỮ CẢNH CHÍNH] và [NGỮ CẢNH BỔ SUNG] đều KHÔNG có thông tin để trả lời câu hỏi, hãy nói rõ: "Không tìm thấy thông tin này trong tài liệu hiện tại." TUYỆT ĐỐI KHÔNG tự động suy luận (No fallback to general knowledge).\n`;
+        prompt += `- ĐỐI VỚI CÂU HỎI TÌM KIẾM THÔNG TIN: CHỈ ĐƯỢC PHÉP trả lời dựa trên [NGỮ CẢNH CHÍNH] và [NGỮ CẢNH BỔ SUNG]. NẾU KHÔNG CÓ thông tin để trả lời, hãy nói rõ: "Không tìm thấy thông tin này trong tài liệu hiện tại." TUYỆT ĐỐI KHÔNG sử dụng kiến thức bên ngoài.\n`;
+        prompt += `- ĐỐI VỚI YÊU CẦU THỰC HIỆN TÁC VỤ (tóm tắt, tạo quiz/câu hỏi, dịch thuật, phân tích...): BẠN PHẢI THỰC HIỆN dựa trên [NGỮ CẢNH CHÍNH] và [NGỮ CẢNH BỔ SUNG]. Không được từ chối với lý do không tìm thấy thông tin nếu đó là yêu cầu tạo mới từ nội dung tài liệu.\n`;
     } else {
         // GLOBAL_CHAT
         prompt += `- NẾU [NGỮ CẢNH CHÍNH] chứa đủ thông tin để trả lời, BẠN ƯU TIÊN dùng thông tin đó.\n`;

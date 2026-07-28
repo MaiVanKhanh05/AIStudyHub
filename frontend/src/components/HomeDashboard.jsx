@@ -84,18 +84,15 @@ export default function HomeDashboard({
     const fetchLatestCommunityDoc = async () => {
       try {
         const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-        const res = await fetch(`${API_URL}/api/documents/community`, {
-          headers: { "Authorization": `Bearer ${token}` }
-        });
+        const headers = {};
+        if (token && token !== "null") {
+          headers["Authorization"] = `Bearer ${token}`;
+        }
+        const res = await fetch(`${API_URL}/api/documents/community`, { headers });
         const data = await res.json();
         if (data && data.length > 0) {
-          const threeDaysAgo = new Date();
-          threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
-          const filtered = data.filter(d => {
-            const docDate = new Date(d.upload_date || d.created_at);
-            return docDate >= threeDaysAgo;
-          });
-          setRecentCommunityDocs(filtered);
+          // Lấy 10 tài liệu mới nhất trên cộng đồng thay vì filter cứng 3 ngày
+          setRecentCommunityDocs(data.slice(0, 10));
         }
       } catch (err) {
         console.error("Error fetching latest community doc:", err);

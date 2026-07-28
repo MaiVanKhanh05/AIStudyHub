@@ -10,7 +10,7 @@ const router = Router();
 router.get("/dashboard", authenticateToken, documentController.getDashboard);
 
 // GET /api/documents/community
-router.get("/community", authenticateToken, documentController.getCommunityDocs);
+router.get("/community", optionalAuthenticateToken, documentController.getCommunityDocs);
 
 // GET /api/documents/bookmarks
 router.get("/bookmarks", authenticateToken, documentController.getBookmarks);

@@ -451,21 +451,27 @@ export const getApiUsage = async (req, res) => {
             fetch(`https://api.openai.com/v1/organization/usage/completions?start_time=${startTime}&end_time=${endTime}&limit=31`, { headers })
         ]);
 
-        if (!costRes.ok || !usageRes.ok) {
-            const errBody = await costRes.json().catch(() => ({}));
-            const errMsg = (errBody.error?.message || '').toLowerCase();
-            console.error("OpenAI Admin API Error:", errBody);
-            if (costRes.status === 403 || costRes.status === 401 || errMsg.includes("permission") || errMsg.includes("scope") || errMsg.includes("session")) {
-                return res.status(403).json({ 
-                    error: "PERMISSION_DENIED", 
-                    message: "API Key thiếu quyền truy cập Organization/Admin APIs."
-                });
-            }
-            throw new Error(`OpenAI API Error: Costs=${costRes.status}, Usage=${usageRes.status}`);
-        }
+        let costData = { data: [] };
+        let usageData = { data: [] };
 
-        const costData = await costRes.json();
-        const usageData = await usageRes.json();
+        if (!costRes.ok || !usageRes.ok) {
+            let errBody = {};
+            let status = 400;
+            if (!costRes.ok) {
+                errBody = await costRes.json().catch(() => ({}));
+                status = costRes.status;
+            } else if (!usageRes.ok) {
+                errBody = await usageRes.json().catch(() => ({}));
+                status = usageRes.status;
+            }
+            
+            // Log lỗi để admin kiểm tra trong terminal, nhưng không báo lỗi về frontend
+            // để tránh hiện thông báo lỗi đỏ trên giao diện, giữ trải nghiệm mượt mà.
+            console.error(`[Admin API] OpenAI usage fetch failed (${status}):`, errBody.error?.message || "Unknown error");
+        } else {
+            costData = await costRes.json();
+            usageData = await usageRes.json();
+        }
 
         const dailyCostsMap = new Map();
         if (costData.data) {
