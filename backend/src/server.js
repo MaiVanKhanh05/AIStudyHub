@@ -20,9 +20,10 @@ import { connectDB } from "../DB/db.js";
 
 const app = express();
 
-// Cho phép cả localhost (dev) và Vercel (production)
+// Cho phép cả localhost (dev) và Vercel (production + preview)
 const allowedOrigins = [
     "https://aistudyhub.site",
+    "https://www.aistudyhub.site",
     ...(process.env.FRONTEND_URL
         ? process.env.FRONTEND_URL.split(",").map((u) => u.trim())
         : []),
@@ -36,6 +37,11 @@ app.use(
 
             // Cho phép tất cả localhost trong môi trường dev
             if (origin.startsWith("http://localhost:") || origin.startsWith("http://127.0.0.1:")) {
+                return callback(null, true);
+            }
+
+            // Cho phép các domain Vercel (production & preview deployments)
+            if (origin.startsWith("https://") && origin.endsWith(".vercel.app")) {
                 return callback(null, true);
             }
 
