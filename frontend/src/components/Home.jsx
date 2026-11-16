@@ -7,6 +7,7 @@ import {
   Home as HomeIcon,
   FolderOpen,
   Bot,
+  GraduationCap,
   Share2,
   Bell,
   User as UserIcon,
@@ -85,6 +86,9 @@ import Pagination from "./Pagination";
 import ShareDocumentModal from "./ShareDocumentModal";
 import HomeDashboard from "./HomeDashboard";
 import HistoryPage from "./HistoryPage";
+import InlineQuizWidget from "./InlineQuizWidget";
+import InlineFlashcardWidget from "./InlineFlashcardWidget";
+import PracticeHub from "./PracticeHub";
 function getFileIcon(fileType = "", className = "w-5 h-5") {
   const type = fileType.toLowerCase();
   if (type === "pdf") return <FileText className={`${className} text-red-500 dark:text-red-400`} />;
@@ -720,6 +724,7 @@ export default function Home() {
       case "/my-documents": return "Document Management";
       case "/bookmarks": return "Bookmarks";
       case "/ai-assistant": return "AI Assistant";
+      case "/practice": return "Practice";
       case "/community": return "Community";
       case "/history": return "History";
       case "/notifications": return "Notifications";
@@ -736,6 +741,7 @@ export default function Home() {
       case "Document Management": navigate("/my-documents"); break;
       case "Bookmarks": navigate("/bookmarks"); break;
       case "AI Assistant": navigate("/ai-assistant"); break;
+      case "Practice": navigate("/practice"); break;
       case "Community": navigate("/community"); break;
       case "History": navigate("/history"); break;
       case "Notifications": navigate("/notifications"); break;
@@ -1322,6 +1328,7 @@ export default function Home() {
   const [chatInput, setChatInput] = useState("");
   const [isAiTyping, setIsAiTyping] = useState(false);
   const [aiMode, setAiMode] = useState("Scholar");
+  const [practiceResetKey, setPracticeResetKey] = useState(0);
   const [useWeb, setUseWeb] = useState(false);
   const [useScholar, setUseScholar] = useState(false);
   const [deepResearch, setDeepResearch] = useState(false);
@@ -1771,13 +1778,11 @@ export default function Home() {
                 onClick={() => {
                   if (file.isExceededLimit) {
                     toast.error("Không thể tải lên. Tổng số tệp tối đa được hỗ trợ là 10 tệp.");
-                  } else {
-                    setPreviewDoc({ ...file, hideChat: true });
                   }
                 }}
-                className={`w-[240px] h-[58px] border rounded-2xl flex items-center justify-between px-3 py-2 gap-3 relative shadow-sm cursor-pointer transition-all duration-200 shrink-0 ${file.isExceededLimit
-                  ? "opacity-50 blur-[0.3px] border-red-300 dark:border-red-950/80 bg-red-50/10 dark:bg-red-950/10 hover:bg-red-50/20"
-                  : "bg-slate-50/50 dark:bg-slate-900/40 border-purple-300 dark:border-purple-800/50 hover:bg-slate-100/60 dark:hover:bg-slate-800/60"
+                className={`w-[240px] h-[58px] border rounded-2xl flex items-center justify-between px-3 py-2 gap-3 relative shadow-sm cursor-default transition-all duration-200 shrink-0 ${file.isExceededLimit
+                  ? "opacity-50 blur-[0.3px] border-red-300 dark:border-red-950/80 bg-red-50/10 dark:bg-red-950/10 cursor-pointer hover:bg-red-50/20"
+                  : "bg-slate-50/50 dark:bg-slate-900/40 border-purple-300 dark:border-purple-800/50"
                   }`}
               >
                 {/* Left Mini Icon Badge */}
@@ -2887,7 +2892,10 @@ export default function Home() {
         id: String(Date.now() + 1),
         sender: "ai",
         text: res.data.response || "Không nhận được phản hồi từ AI.",
-        suggestedDocs: res.data.suggestedDocs || []
+        suggestedDocs: res.data.suggestedDocs || [],
+        messageType: res.data.messageType || null,
+        quizData: res.data.quizData || null,
+        flashcardData: res.data.flashcardData || null
       };
 
       setAiMessages((prev) => {
@@ -2954,7 +2962,10 @@ export default function Home() {
       const aiMsg = {
         id: String(Date.now() + 1),
         sender: "ai",
-        text: res.data.response || "Không nhận được phản hồi từ AI."
+        text: res.data.response || "Không nhận được phản hồi từ AI.",
+        messageType: res.data.messageType || null,
+        quizData: res.data.quizData || null,
+        flashcardData: res.data.flashcardData || null
       };
 
       setAiMessages((prev) => {
@@ -3031,7 +3042,10 @@ export default function Home() {
         id: String(Date.now() + 1),
         sender: "ai",
         text: res.data.response || "Không nhận được phản hồi từ AI.",
-        suggestedDocs: res.data.suggestedDocs || []
+        suggestedDocs: res.data.suggestedDocs || [],
+        messageType: res.data.messageType || null,
+        quizData: res.data.quizData || null,
+        flashcardData: res.data.flashcardData || null
       };
 
       setAiMessages((prev) => {
@@ -3187,9 +3201,10 @@ export default function Home() {
 
     return [
       { text: "Hãy tóm tắt nội dung chính của tài liệu này.", label: "Tóm tắt nội dung" },
+      { text: "Tạo 10 câu quiz trắc nghiệm từ tài liệu này.", label: "Tạo Quiz trắc nghiệm" },
+      { text: "Tạo 10 flashcard ôn tập từ tài liệu này.", label: "Tạo Flashcard" },
       { text: "Hãy giải thích nội dung chi tiết từng chương của tài liệu này.", label: "Giải thích từng chương" },
-      { text: "Hãy trích xuất toàn bộ các công thức quan trọng, định lý từ tài liệu.", label: "Trích công thức" },
-      { text: "Hãy tạo danh sách các câu hỏi tự luận để ôn tập kiến thức từ tài liệu này.", label: "Tạo câu hỏi ôn tập" }
+      { text: "Hãy trích xuất toàn bộ các công thức quan trọng, định lý từ tài liệu.", label: "Trích công thức" }
     ];
   };
 
@@ -3477,6 +3492,7 @@ export default function Home() {
     { name: "Document Management", icon: FolderOpen, label: t("dashboard.tabs.my_documents") || "Kho học liệu cá nhân" },
     { name: "Bookmarks", icon: Heart, label: t("dashboard.tabs.bookmarks") || "Tài liệu Yêu thích" },
     { name: "AI Assistant", icon: Bot, label: t("dashboard.ai_assistant") || "Trợ lý Nghiên cứu AI" },
+    { name: "Practice", icon: GraduationCap, label: language === "vi" ? "Luyện tập" : "Practice" },
     { name: "Community", icon: Users, label: t("dashboard.tabs.community") || "Cộng đồng" }
   ];
 
@@ -3729,6 +3745,8 @@ export default function Home() {
                       setShowChatSidebar(false);
                       setSidebarWidth(230);
                       setChatSearchQuery("");
+                    } else if (item.name === "Practice") {
+                      setPracticeResetKey((k) => k + 1);
                     }
                   }}
                   title={isSidebarCollapsed ? item.label : undefined}
@@ -3898,6 +3916,11 @@ export default function Home() {
             user={user}
             onPreview={handlePreviewClick}
           />
+        )}
+
+        {/* 🔹 SCREEN: PRACTICE HUB 🔹 */}
+        {activeTab === "Practice" && (
+          <PracticeHub user={user} resetKey={practiceResetKey} />
         )}
 
         {/* ── SCREEN 2: DOCUMENT MANAGEMENT (Real On-Storage Upload) ── */}
@@ -5376,10 +5399,16 @@ export default function Home() {
                         const { cleanText, sources } = extractSources(msg.text);
                         return (
                           <div key={msg.id} id={`chat-message-${msg.id}`} className="flex flex-col gap-2.5 self-start w-full text-left transition-all duration-500 rounded-lg p-1.5">
-                            {/* Message Content (Clean text, no container) */}
-                            <div className="text-xs text-slate-855 dark:text-slate-200 leading-relaxed font-medium">
-                              {renderMessageText(cleanText)}
-                            </div>
+                            {/* Message Content (Interactive Quiz / Flashcard or Clean Markdown text) */}
+                            {msg.quizData ? (
+                              <InlineQuizWidget quizData={msg.quizData} />
+                            ) : msg.flashcardData ? (
+                              <InlineFlashcardWidget flashcardData={msg.flashcardData} />
+                            ) : (
+                              <div className="text-xs text-slate-855 dark:text-slate-200 leading-relaxed font-medium">
+                                {renderMessageText(cleanText)}
+                              </div>
+                            )}
 
                             {/* Sources Section */}
                             {sources.length > 0 && (

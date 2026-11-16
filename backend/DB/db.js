@@ -165,6 +165,26 @@ export const connectDB = async () => {
             )
         `);
         console.log("Database semester tables verified successfully.");
+
+        // Create practice_folders table for Practice Hub (Folders -> Sections -> Lessons with Flashcard & Quiz)
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS practice_folders (
+                id VARCHAR(80) PRIMARY KEY,
+                user_id VARCHAR(50) REFERENCES users(user_id) ON DELETE CASCADE,
+                folder_title VARCHAR(255) NOT NULL,
+                description TEXT DEFAULT '',
+                is_vocabulary_doc BOOLEAN DEFAULT FALSE,
+                document_id VARCHAR(100),
+                document_context TEXT DEFAULT '',
+                sections JSONB NOT NULL DEFAULT '[]'::jsonb,
+                created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        await pool.query(`
+            CREATE INDEX IF NOT EXISTS idx_practice_folders_user ON practice_folders(user_id);
+        `);
+        console.log("Database practice_folders table verified successfully.");
     } catch (error) {
         console.error("Error connecting to the database:", error);
         process.exit(1);

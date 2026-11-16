@@ -143,7 +143,7 @@ export async function parseZip(filePath) {
     text += "\n--- Nội dung chi tiết các tệp mã nguồn ---\n\n";
 
     let totalLength = 0;
-    const MAX_LENGTH = 450000; 
+    const MAX_LENGTH = 450000;
 
     for (const key of entryKeys) {
       const entry = entries[key];
@@ -183,14 +183,15 @@ export async function parseZip(filePath) {
 export async function parseImageViaLLM(base64Data, mimeType) {
   const apiKey = process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY;
   if (!apiKey) {
-    return "[Ảnh đính kèm: Vui lòng cấu hình GEMINI_API_KEY hoặc OPENAI_API_KEY ở tệp .env của backend để kích hoạt tính năng trích xuất công thức và phân tích ảnh học thuật]";
+    throw new Error("Vui lòng cấu hình GEMINI_API_KEY hoặc OPENAI_API_KEY ở tệp .env của backend để kích hoạt tính năng trích xuất công thức và phân tích ảnh học thuật");
   }
 
   const prompt = "Hãy phân tích hình ảnh này chi tiết nhất có thể. Trích xuất toàn bộ văn bản tiếng Việt/tiếng Anh, công thức toán học (định dạng LaTeX nếu có), sơ đồ, bảng dữ liệu hoặc bất kỳ thông tin nào xuất hiện trong ảnh.";
 
   try {
     if (process.env.GEMINI_API_KEY) {
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`, {
+      const geminiModel = process.env.GEMINI_MODEL || "gemini-3.8-flash";
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${process.env.GEMINI_API_KEY}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -214,7 +215,11 @@ export async function parseImageViaLLM(base64Data, mimeType) {
       }
 
       const resJson = await response.json();
-      return resJson.candidates?.[0]?.content?.parts?.[0]?.text || "Không thể phân tích ảnh.";
+      const text = resJson.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!text) {
+        throw new Error("API không nhận diện được văn bản hoặc nội dung nào từ ảnh.");
+      }
+      return text;
     } else {
       const response = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
@@ -223,7 +228,7 @@ export async function parseImageViaLLM(base64Data, mimeType) {
           "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`
         },
         body: JSON.stringify({
-          model: "gpt-4o-mini",
+          model: process.env.OPENAI_MODEL || "gpt-6-luna",
           messages: [
             {
               role: "user",
@@ -247,11 +252,15 @@ export async function parseImageViaLLM(base64Data, mimeType) {
       }
 
       const resJson = await response.json();
-      return resJson.choices?.[0]?.message?.content || "Không thể phân tích ảnh.";
+      const text = resJson.choices?.[0]?.message?.content;
+      if (!text) {
+        throw new Error("API không nhận diện được văn bản hoặc nội dung nào từ ảnh.");
+      }
+      return text;
     }
   } catch (error) {
     console.error("Image analysis error:", error);
-    return `[Lỗi phân tích hình ảnh: ${error.message}]`;
+    throw new Error(`Không thể phân tích tài liệu: ${error.message}`);
   }
 }
 

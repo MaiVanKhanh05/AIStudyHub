@@ -21,6 +21,7 @@ import { planResponse } from "../services/chat/responsePlanning.service.js";
 import { chunkText, generateEmbeddings } from "../services/ai/embedding.service.js";
 import { storeTemporaryDocument } from "../services/chat/tempDocumentStore.service.js";
 import { detectSource } from "../services/chat/sourceDetection.service.js";
+import { generateQuiz, generateFlashcards, analyzeDocumentForPractice, generatePracticeLesson } from "../services/chat/studyGenerator.service.js";
 
 // Đường dẫn API: POST /api/chat/upload-temp
 export async function uploadTempFile(req, res) {
@@ -86,7 +87,7 @@ export async function uploadTempFile(req, res) {
     // --- CHUNKING & EMBEDDING CHO UPLOAD PIPELINE ---
     const textChunks = chunkText(extractedText, 1000, 200);
     const embeddings = await generateEmbeddings(textChunks);
-    
+
     const chunksWithEmbeddings = textChunks.map((text, i) => ({
       text,
       embedding: embeddings[i] || []
@@ -122,7 +123,8 @@ export async function uploadTempFile(req, res) {
 // Hàm hỗ trợ: Gọi API Google Gemini Generative AI qua HTTP fetch
 async function callGemini(messages, systemInstruction) {
   const apiKey = process.env.GEMINI_API_KEY;
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+  const geminiModel = process.env.GEMINI_MODEL || "gemini-3.8-flash";
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${apiKey}`;
 
   // Định dạng lại các tin nhắn cho Gemini
   // Gemini chấp nhận định dạng: contents: [{ role: "user"|"model", parts: [{ text: "..." }] }]
@@ -194,9 +196,8 @@ async function callOpenAI(messages, systemInstruction) {
       "Authorization": `Bearer ${apiKey}`
     },
     body: JSON.stringify({
-      model: "gpt-4o-mini",
-      messages: formattedMessages,
-      temperature: 0.3
+      model: process.env.OPENAI_MODEL || "gpt-6-luna",
+      messages: formattedMessages
     })
   });
 
@@ -315,35 +316,68 @@ export async function chatQuery(req, res) {
     // Bước 2: Hiểu ngữ cảnh (Đọc lại lịch sử tin nhắn để AI nhớ nội dung đang nói chuyện)
     const context = await extractContext(history, message);
     context.documentContextStr = documentContext;
-    
+
     // Bước 3a: Phân tích Ý định (Hỏi bài, Nhờ tóm tắt, Nhờ dịch thuật...)
     const intentData = await detectIntent(context, message);
     context.intent = intentData.intent;
-    
+
     // Bước 3b: Phân tích Thực thể (Trích xuất các từ khóa quan trọng như Tên môn học, mã số...)
     const entities = await recognizeEntities(context, message);
-    
+
     // Bước 4: Viết lại câu hỏi cho chuẩn mực hơn để máy tính dễ tìm kiếm
     const rewritten = await rewriteQuery(context, message);
-    
+
     // Bước 5: Lục lọi tài liệu (Truy xuất Vector DB để tìm các đoạn văn bản chứa câu trả lời)
     const retrievalData = await retrieveContext(rewritten, intentData.intent, entities, sourceData);
 
+    // Xử lý riêng cho Intent tạo Quiz / Flashcard (hỗ trợ cả prompt lệnh trực tiếp và file đính kèm)
+    if (intentData.intent === "GENERATE_QUIZ") {
+      try {
+        const result = await generateQuiz({ message, documentContext, sourceData, retrievalData });
+        return res.json({
+          response: result.markdown,
+          messageType: "quiz",
+          quizData: result.quizData
+        });
+      } catch (genErr) {
+        console.error("[GENERATE_QUIZ ERROR]", genErr);
+        return res.json({
+          response: `❌ **Lỗi tạo Quiz:** ${genErr.message || "Không thể tạo bài Quiz lúc này."}`
+        });
+      }
+    }
+
+    if (intentData.intent === "GENERATE_FLASHCARD") {
+      try {
+        const result = await generateFlashcards({ message, documentContext, sourceData, retrievalData });
+        return res.json({
+          response: result.markdown,
+          messageType: "flashcard_set",
+          flashcardData: result.flashcardData
+        });
+      } catch (genErr) {
+        console.error("[GENERATE_FLASHCARD ERROR]", genErr);
+        return res.json({
+          response: `❌ **Lỗi tạo Flashcard:** ${genErr.message || "Không thể tạo bộ Flashcard lúc này."}`
+        });
+      }
+    }
+
     // Chặn lỗi: Nếu đang chat trên file cụ thể mà hệ thống không tìm thấy file, báo lỗi luôn thay vì bịa ra câu trả lời (Ảo giác AI)
     if (retrievalData.fallbackUsed && (sourceData.sourceType === "UPLOADED_DOCUMENT" || sourceData.sourceType === "SYSTEM_DOCUMENT")) {
-        return res.json({ response: "Không thể truy xuất tài liệu hiện tại, vui lòng thử lại." });
+      return res.json({ response: "Không thể truy xuất tài liệu hiện tại, vui lòng thử lại." });
     }
 
     // Bước 6: Xây dựng kịch bản (Ghép Câu hỏi + Tài liệu tìm được + Hướng dẫn đóng vai thành 1 lệnh Prompt hoàn chỉnh)
     const prompt = buildPrompt(context, retrievalData, message, sourceData);
-    
+
     // Gom toàn bộ lịch sử thành định dạng mà AI (Gemini/OpenAI) hiểu được
     const queryMessages = history.map(h => ({
       role: h.sender === "ai" ? "assistant" : "user",
       content: h.text || ""
     }));
     queryMessages.push({ role: "user", content: rewritten });
-    
+
     let responseText = "";
     // Bước 7: Gọi API của Google Gemini (Ưu tiên) hoặc OpenAI ChatGPT để sinh câu trả lời
     if (process.env.GEMINI_API_KEY) {
@@ -351,10 +385,10 @@ export async function chatQuery(req, res) {
     } else {
       responseText = await callOpenAI(queryMessages, prompt);
     }
-    
+
     // Bước 8: Gọt giũa và gợi ý (Tạo link tài liệu tham khảo đính kèm dưới câu trả lời nếu có trích dẫn)
     const finalResponse = planResponse(responseText, context, retrievalData, sourceData);
-    
+
     let finalResponseText = finalResponse.text;
     if (finalResponse.suggestedDocs && finalResponse.suggestedDocs.length > 0) {
       finalResponseText += "\n\n";
@@ -363,7 +397,7 @@ export async function chatQuery(req, res) {
         finalResponseText += `http://localhost:3000/preview/${d.document_id}\n`;
       });
     }
-    
+
     // Trả kết quả về cho Frontend
     return res.json({ response: finalResponseText });
   } catch (err) {
@@ -565,5 +599,190 @@ export async function deleteSession(req, res) {
   } catch (error) {
     console.error("Error deleting session:", error);
     return res.status(500).json({ error: "Lỗi hệ thống khi xóa cuộc trò chuyện." });
+  }
+}
+
+// Đường dẫn API: POST /api/chat/practice/analyze
+export async function analyzePracticeDocument(req, res) {
+  const { fileName = "", documentContext = "", documentId = null, customPrompt = "" } = req.body;
+  const sessionId = req.userId ? String(req.userId) : "anonymous_session";
+
+  try {
+    const result = await analyzeDocumentForPractice({
+      fileName,
+      documentContext,
+      documentId,
+      sessionId,
+      customPrompt
+    });
+    return res.json(result);
+  } catch (error) {
+    console.error("[PRACTICE ANALYZE ERROR]", error);
+    return res.status(500).json({ error: error.message || "Lỗi khi phân tích tài liệu luyện tập." });
+  }
+}
+
+// Đường dẫn API: POST /api/chat/practice/generate-lesson
+export async function generatePracticeLessonHandler(req, res) {
+  const {
+    folderId = null,
+    sectionId = null,
+    lessonId = null,
+    folderTitle = "",
+    sectionTitle = "",
+    lessonTitle = "",
+    lessonFocus = "",
+    isVocabularyDoc = false,
+    documentContext = "",
+    documentId = null,
+    itemCount = "auto"
+  } = req.body;
+  const sessionId = req.userId ? String(req.userId) : "anonymous_session";
+
+  try {
+    const result = await generatePracticeLesson({
+      folderTitle,
+      sectionTitle,
+      lessonTitle,
+      lessonFocus,
+      isVocabularyDoc,
+      documentContext,
+      documentId,
+      sessionId,
+      itemCount
+    });
+
+    // Persist generated lesson content directly into Supabase practice_folders if user is authenticated
+    if (req.userId && folderId && sectionId && lessonId) {
+      try {
+        const folderRes = await pool.query(
+          `SELECT sections FROM practice_folders WHERE id = $1 AND user_id = $2`,
+          [String(folderId), req.userId]
+        );
+        if (folderRes.rows.length > 0) {
+          const sections = Array.isArray(folderRes.rows[0].sections) ? folderRes.rows[0].sections : [];
+          const updatedSections = sections.map(sec => {
+            if (sec.id !== sectionId) return sec;
+            return {
+              ...sec,
+              lessons: (sec.lessons || []).map(les => {
+                if (les.id !== lessonId) return les;
+                return { ...les, content: result, attempts: les.attempts || 0 };
+              })
+            };
+          });
+          await pool.query(
+            `UPDATE practice_folders SET sections = $1::jsonb, updated_at = CURRENT_TIMESTAMP WHERE id = $2 AND user_id = $3`,
+            [JSON.stringify(updatedSections), String(folderId), req.userId]
+          );
+        }
+      } catch (dbErr) {
+        console.error("[PRACTICE LESSON DB SAVE WARNING]", dbErr);
+      }
+    }
+
+    return res.json(result);
+  } catch (error) {
+    console.error("[PRACTICE LESSON ERROR]", error);
+    return res.status(500).json({ error: error.message || "Lỗi khi tạo bài tập luyện tập." });
+  }
+}
+
+// Đường dẫn API: GET /api/chat/practice/folders
+export async function getPracticeFolders(req, res) {
+  const userId = req.userId;
+  if (!userId) {
+    return res.status(401).json({ error: "Người dùng không được xác định." });
+  }
+
+  try {
+    const result = await pool.query(
+      `SELECT id, folder_title AS "folderTitle", description, is_vocabulary_doc AS "isVocabularyDoc",
+              document_id AS "documentId", document_context AS "documentContext", sections,
+              created_at AS "createdAt", updated_at AS "updatedAt"
+       FROM practice_folders
+       WHERE user_id = $1
+       ORDER BY updated_at DESC`,
+      [userId]
+    );
+    return res.json(result.rows);
+  } catch (error) {
+    console.error("[GET PRACTICE FOLDERS ERROR]", error);
+    return res.status(500).json({ error: "Lỗi khi tải danh sách folder luyện tập." });
+  }
+}
+
+// Đường dẫn API: POST /api/chat/practice/folders/save
+export async function savePracticeFolder(req, res) {
+  const userId = req.userId;
+  if (!userId) {
+    return res.status(401).json({ error: "Người dùng không được xác định." });
+  }
+
+  const {
+    id,
+    folderTitle,
+    description = "",
+    isVocabularyDoc = false,
+    documentId = null,
+    documentContext = "",
+    sections = []
+  } = req.body;
+
+  if (!id || !folderTitle) {
+    return res.status(400).json({ error: "Thiếu thông tin folder luyện tập." });
+  }
+
+  try {
+    await pool.query(
+      `INSERT INTO practice_folders (id, user_id, folder_title, description, is_vocabulary_doc, document_id, document_context, sections, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, CURRENT_TIMESTAMP)
+       ON CONFLICT (id)
+       DO UPDATE SET
+         folder_title = EXCLUDED.folder_title,
+         description = EXCLUDED.description,
+         is_vocabulary_doc = EXCLUDED.is_vocabulary_doc,
+         document_id = EXCLUDED.document_id,
+         document_context = EXCLUDED.document_context,
+         sections = EXCLUDED.sections,
+         updated_at = CURRENT_TIMESTAMP`,
+      [
+        String(id),
+        userId,
+        String(folderTitle),
+        String(description || ""),
+        Boolean(isVocabularyDoc),
+        documentId ? String(documentId) : null,
+        String(documentContext || ""),
+        JSON.stringify(sections || [])
+      ]
+    );
+    return res.json({ success: true });
+  } catch (error) {
+    console.error("[SAVE PRACTICE FOLDER ERROR]", error);
+    return res.status(500).json({ error: "Lỗi khi lưu folder luyện tập." });
+  }
+}
+
+// Đường dẫn API: DELETE /api/chat/practice/folders/:id
+export async function deletePracticeFolder(req, res) {
+  const userId = req.userId;
+  const { id } = req.params;
+  if (!userId) {
+    return res.status(401).json({ error: "Người dùng không được xác định." });
+  }
+
+  try {
+    const result = await pool.query(
+      `DELETE FROM practice_folders WHERE id = $1 AND user_id = $2 RETURNING id`,
+      [id, userId]
+    );
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: "Không tìm thấy folder luyện tập." });
+    }
+    return res.json({ success: true });
+  } catch (error) {
+    console.error("[DELETE PRACTICE FOLDER ERROR]", error);
+    return res.status(500).json({ error: "Lỗi khi xóa folder luyện tập." });
   }
 }

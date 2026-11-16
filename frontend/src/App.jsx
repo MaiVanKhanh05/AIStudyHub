@@ -20,7 +20,7 @@ function AppLayout() {
   const navigate = useNavigate();
   const hideNav = [
     "/login", "/register", "/forgot-password", "/reset-password", "/", "/oauth-callback",
-    "/my-documents", "/bookmarks", "/ai-assistant", "/community", "/history", "/notifications", "/profile"
+    "/my-documents", "/bookmarks", "/ai-assistant", "/practice", "/community", "/history", "/notifications", "/profile"
   ].includes(location.pathname) || location.pathname.startsWith("/admin") || location.pathname.startsWith("/preview");
 
   // Retrieve user session
@@ -121,6 +121,7 @@ function AppLayout() {
         <Route path="/my-documents" element={<Home />} />
         <Route path="/bookmarks" element={<Home />} />
         <Route path="/ai-assistant" element={<Home />} />
+        <Route path="/practice" element={<Home />} />
         <Route path="/community" element={<Home />} />
         <Route path="/history" element={<Home />} />
         <Route path="/notifications" element={<Home />} />

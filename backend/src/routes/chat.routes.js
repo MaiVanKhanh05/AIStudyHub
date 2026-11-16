@@ -18,6 +18,21 @@ router.post("/", optionalAuthenticateToken, chatController.chatQuery);
 // POST /api/chat/upload-temp - Temporary file parsing for chat context
 router.post("/upload-temp", optionalAuthenticateToken, upload.single("file"), chatController.uploadTempFile);
 
+// POST /api/chat/practice/analyze - Analyze document into Folder -> Sections -> Lessons
+router.post("/practice/analyze", optionalAuthenticateToken, chatController.analyzePracticeDocument);
+
+// POST /api/chat/practice/generate-lesson - Generate Flashcard + MC Quiz + Fill-in-the-blank Quiz for a lesson
+router.post("/practice/generate-lesson", optionalAuthenticateToken, chatController.generatePracticeLessonHandler);
+
+// GET /api/chat/practice/folders - Load saved practice folders from Supabase DB
+router.get("/practice/folders", authenticateToken, chatController.getPracticeFolders);
+
+// POST /api/chat/practice/folders/save - Upsert a practice folder to Supabase DB
+router.post("/practice/folders/save", authenticateToken, chatController.savePracticeFolder);
+
+// DELETE /api/chat/practice/folders/:id - Delete a practice folder from Supabase DB
+router.delete("/practice/folders/:id", authenticateToken, chatController.deletePracticeFolder);
+
 // GET /api/chat/history - Retrieve all chat sessions and messages for the user
 router.get("/history", authenticateToken, chatController.getHistory);
 

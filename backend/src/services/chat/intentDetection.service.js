@@ -13,8 +13,56 @@
  */
 export async function detectIntent(context, message) {
     const lowerMsg = message.toLowerCase();
-    
-    
+
+    // 1. Nhận diện lệnh tạo Flashcard
+    const hasFlashcardKeyword =
+        lowerMsg.includes("flashcard") ||
+        lowerMsg.includes("flash card") ||
+        lowerMsg.includes("flashard") ||
+        lowerMsg.includes("flash ard") ||
+        lowerMsg.includes("thẻ ghi nhớ") ||
+        lowerMsg.includes("thẻ ôn tập") ||
+        lowerMsg.includes("the ghi nho") ||
+        lowerMsg.includes("study card") ||
+        lowerMsg.includes("revision card");
+
+    const isDefinitionQuestion =
+        (lowerMsg.includes("là gì") || lowerMsg.includes("what is")) &&
+        !lowerMsg.includes("tạo") &&
+        !lowerMsg.includes("tao ") &&
+        !lowerMsg.includes("làm") &&
+        !lowerMsg.includes("sinh") &&
+        !lowerMsg.includes("create") &&
+        !lowerMsg.includes("generate") &&
+        !lowerMsg.includes("make");
+
+    if (hasFlashcardKeyword && !isDefinitionQuestion) {
+        return { intent: "GENERATE_FLASHCARD", confidence: 0.95 };
+    }
+
+    // 1b. Nhận diện lệnh tạo Quiz / Trắc nghiệm
+    const hasQuizKeyword =
+        lowerMsg.includes("quiz") ||
+        lowerMsg.includes("quizz") ||
+        lowerMsg.includes("trắc nghiệm") ||
+        lowerMsg.includes("trac nghiem") ||
+        lowerMsg.includes("kiểm tra kiến thức") ||
+        lowerMsg.includes("test my knowledge") ||
+        lowerMsg.includes("câu hỏi ôn tập") ||
+        lowerMsg.includes("bài tập trắc nghiệm");
+
+    const isExplanationQuery =
+        (lowerMsg.includes("giải thích") ||
+            lowerMsg.includes("tại sao") ||
+            lowerMsg.includes("vì sao") ||
+            lowerMsg.includes("sửa") ||
+            lowerMsg.includes("chữa")) &&
+        (lowerMsg.includes("câu") || lowerMsg.includes("question") || lowerMsg.includes("đáp án"));
+
+    if (hasQuizKeyword && !isExplanationQuery && !isDefinitionQuestion) {
+        return { intent: "GENERATE_QUIZ", confidence: 0.95 };
+    }
+
     // 1.5. Nhận diện lệnh tóm tắt
     if (lowerMsg.includes("tóm tắt") || lowerMsg.includes("summarize") || lowerMsg.includes("rút gọn")) {
         return { intent: "SUMMARIZE_DOCUMENT", confidence: 0.90 };

@@ -52,7 +52,8 @@ async function extractTextFromBuffer(buffer, fileUrl, fileType, title) {
 // Call Gemini Generative AI API
 async function callGemini(prompt) {
   const apiKey = process.env.GEMINI_API_KEY;
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+  const geminiModel = process.env.GEMINI_MODEL || "gemini-3.8-flash";
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${apiKey}`;
 
   const payload = {
     contents: [
@@ -94,12 +95,11 @@ async function callOpenAI(prompt) {
       "Authorization": `Bearer ${apiKey}`
     },
     body: JSON.stringify({
-      model: "gpt-4o-mini",
+      model: process.env.OPENAI_MODEL || "gpt-6-luna",
       messages: [
         { role: "system", content: "Bạn là một trợ lý tóm tắt học thuật chuyên nghiệp." },
         { role: "user", content: prompt }
-      ],
-      temperature: 0.3
+      ]
     })
   });
 

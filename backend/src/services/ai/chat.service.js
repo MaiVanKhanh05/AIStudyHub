@@ -19,7 +19,7 @@ export const initOpenAI = () => {
 export const searchVectorDB = async (queryEmbedding, topK = 5, documentId = null) => {
     try {
         const embeddingString = `[${queryEmbedding.join(',')}]`;
-        
+
         let query = `
             SELECT document_id, chunk_text, 1 - (embedding <=> $1::vector) AS similarity
             FROM document_chunks
@@ -86,12 +86,11 @@ ${contextText || "Không tìm thấy ngữ cảnh nào."}
 
         console.log(`[AI Chat] Requesting completion from OpenAI...`);
         const chatResponse = await aiClient.chat.completions.create({
-            model: "gpt-4o-mini", // hoặc gpt-3.5-turbo
+            model: process.env.OPENAI_MODEL || "gpt-6-luna",
             messages: [
                 { role: "system", content: systemPrompt },
                 { role: "user", content: userMessage }
-            ],
-            temperature: 0.3, // Nhiệt độ thấp để trả lời sát với tài liệu hơn
+            ]
         });
 
         return chatResponse.choices[0].message.content;
