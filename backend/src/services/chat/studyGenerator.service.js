@@ -755,6 +755,7 @@ Trả về JSON hợp lệ theo đúng cấu trúc sau:
   "fillQuestions": [
     {
       "englishTerm": "Từ tiếng Anh gốc (bỏ ký hiệu từ loại như (n), (v), (a), (adv), (vp) để người học dễ gõ)",
+      "phonetic": "Phiên âm IPA của từ (ưu tiên lấy đúng phiên âm trong tài liệu như /ləʊn/, nếu tài liệu không ghi thì tự bổ sung IPA chuẩn)",
       "vietnameseMeaning": "Nghĩa tiếng Việt ngắn gọn, chính xác theo tài liệu",
       "acceptedEnglish": ["từ tiếng Anh chính", "biến thể/từ đồng nghĩa nếu có"],
       "acceptedVietnamese": ["nghĩa tiếng Việt chính", "các nghĩa tách riêng nếu tài liệu có nhiều nghĩa ngăn cách bởi dấu / hoặc ,"],
@@ -809,6 +810,7 @@ QUY TẮC BẮT BUỘC:
     return {
       id: idx + 1,
       englishTerm: en,
+      phonetic: String(f.phonetic || "").trim(),
       vietnameseMeaning: vi,
       acceptedEnglish: accEn,
       acceptedVietnamese: accVi,

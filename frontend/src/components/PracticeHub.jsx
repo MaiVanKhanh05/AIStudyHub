@@ -555,7 +555,8 @@ export default function PracticeHub({ user, resetKey = 0 }) {
 
     if (Object.keys(nextResults).length === fillList.length && fillList.length > 0) {
       const correct = Object.values(nextResults).filter(r => r.isCorrect).length;
-      recordPracticeAttempt(`Điền từ (${fillMode === "en-vi" ? "Anh-Việt" : "Việt-Anh"}): ${correct}/${fillList.length}`);
+      const modeLabel = fillMode === "en-vi" ? "Anh-Việt" : fillMode === "vi-en" ? "Việt-Anh" : "Phiên âm-Viết";
+      recordPracticeAttempt(`Điền từ (${modeLabel}): ${correct}/${fillList.length}`);
     }
   };
 
@@ -988,6 +989,17 @@ export default function PracticeHub({ user, resetKey = 0 }) {
                       >
                         Việt → Anh
                       </button>
+                      <button
+                        type="button"
+                        onClick={() => handleSwitchFillMode("ipa-en")}
+                        className={`px-3 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                          fillMode === "ipa-en"
+                            ? "bg-emerald-600 text-white shadow-sm"
+                            : "text-slate-600 dark:text-slate-300"
+                        }`}
+                      >
+                        Phiên âm → Viết
+                      </button>
                     </div>
                   </div>
 
@@ -1012,8 +1024,18 @@ export default function PracticeHub({ user, resetKey = 0 }) {
                   <div className="space-y-3.5">
                     {fillList.map((q, idx) => {
                       const res = fillResults[idx];
-                      const promptTerm = fillMode === "en-vi" ? q.englishTerm : q.vietnameseMeaning;
-                      const promptSentence = fillMode === "en-vi" ? q.contextSentenceEn : q.contextSentenceVi;
+                      const promptTerm =
+                        fillMode === "en-vi"
+                          ? q.englishTerm
+                          : fillMode === "vi-en"
+                            ? q.vietnameseMeaning
+                            : (q.phonetic || q.vietnameseMeaning);
+                      const promptSentence =
+                        fillMode === "en-vi"
+                          ? q.contextSentenceEn
+                          : fillMode === "vi-en"
+                            ? q.contextSentenceVi
+                            : (q.phonetic ? `Nghĩa gợi ý: ${q.vietnameseMeaning}` : "Chưa có dữ liệu phiên âm cho bài cũ (bấm 'Tạo bộ câu hỏi mới' để cập nhật)");
                       const expectedAnswer = fillMode === "en-vi" ? q.vietnameseMeaning : q.englishTerm;
 
                       return (
@@ -1021,14 +1043,14 @@ export default function PracticeHub({ user, resetKey = 0 }) {
                           <div className="flex items-start justify-between gap-2">
                             <div>
                               <span className="text-[10px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
-                                Câu {idx + 1} • {fillMode === "en-vi" ? "Nhập nghĩa Tiếng Việt" : "Nhập từ Tiếng Anh"}
+                                Câu {idx + 1} • {fillMode === "en-vi" ? "Nhập nghĩa Tiếng Việt" : fillMode === "vi-en" ? "Nhập từ Tiếng Anh" : "Nhìn phiên âm, viết từ Tiếng Anh"}
                               </span>
                               <p className="text-sm font-extrabold text-slate-900 dark:text-white mt-0.5">
                                 {promptTerm}
                               </p>
                               {promptSentence && (
                                 <p className="text-xs text-slate-500 dark:text-slate-400 italic mt-0.5">
-                                  Ngữ cảnh: {promptSentence}
+                                  {fillMode === "ipa-en" ? promptSentence : `Ngữ cảnh: ${promptSentence}`}
                                 </p>
                               )}
                             </div>
